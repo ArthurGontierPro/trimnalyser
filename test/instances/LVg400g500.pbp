@@ -1,0 +1,18 @@
+pseudo-Boolean proof version 3.0
+f 58 ;
+% cannot map 0 to 0 due to loop
+rup 1 ~x0_0 >= 1 ;
+% cannot map 0 to 1 due to loop
+rup 1 ~x0_1 >= 1 ;
+% cannot map 0 to 2 due to loop
+rup 1 ~x0_2 >= 1 ;
+% cannot map 0 to 3 due to loop
+rup 1 ~x0_3 >= 1 ;
+% cannot map 0 to 4 due to loop
+rup 1 ~x0_4 >= 1 ;
+% failure due to domain 0 being empty at compatibility stage
+% asserting that we've proved unsat
+rup >= 1 ;
+output NONE;
+conclusion UNSAT : -1;
+end pseudo-Boolean proof;

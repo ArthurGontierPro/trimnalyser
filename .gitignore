@@ -1,0 +1,21 @@
+# Sysimage (machine-specific, rebuilt by build_sysimage.jl)
+trimnalyser.so
+trimnalyser.so.juliaversion
+
+# Generated proof outputs
+*.smol.opb
+*.smol.pbp
+*.out
+*.err
+*.subout
+*.lad
+*.dot
+*.svg
+output.log
+dump.jls
+vis/
+statprof/
+
+# Zone Identifier (Windows metadata)
+*.Zone.Identifier
+*:Zone.Identifier

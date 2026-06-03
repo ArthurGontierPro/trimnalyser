@@ -1,0 +1,9 @@
+#!/bin/bash
+# Wrapper: auto-detects sysimage and activates the project.
+# Usage: ./trimnalyser [julia-flags...] [trimnalyser-flags...] [instance]
+# Example: ./trimnalyser --threads 8,1 LVg10g12 resolv
+PROJ="$(cd "$(dirname "$0")" && pwd)"
+SO="$PROJ/trimnalyser.so"
+FLAGS=()
+[ -f "$SO" ] && FLAGS+=(--sysimage "$SO")
+exec julia "${FLAGS[@]}" "$PROJ/bin/trimnalyser.jl" "$@"

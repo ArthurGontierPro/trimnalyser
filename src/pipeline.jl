@@ -1,0 +1,148 @@
+# ══ Instance pipeline ══════════════════════════════════════════════════════════════════════════
+    function pbpconclusion(ins, suffix=pbp)
+        f = _cfg[].proofs*ins*suffix
+        isfile(f) || return ""
+        sz = filesize(f)
+        open(f) do io
+            seek(io, max(0, sz - 500))
+            tail = read(io, String)
+            m = match(r"conclusion\s+(\w+)", tail)
+            m === nothing ? "" : m.captures[1]
+        end end
+
+    smol_complete(ins) = isfile(_cfg[].proofs*ins*smol_opb) && !isempty(pbpconclusion(ins, smol_pbp))
+
+        # Check if instance was previously OOM killed, return (was_killed, memory_info)
+    function was_oom_killed(ins)
+        errfile = _cfg[].proofs * ins * ".err"
+        isfile(errfile) || return (false, "")
+        content = read(errfile, String)
+        # Look for "OOM at X.XG" pattern
+        m = match(r"OOM at ([\d.]+G)", content)
+        if m !== nothing
+            return (true, m.captures[1])
+        end
+        # Fallback: old format "OOM killed"
+        return (occursin("OOM killed", content) || occursin("OOM at", content), "")
+    end
+
+    function trimnalyseandcie(ins)
+        # resume: if trimmed output already exists and the pbp tail confirms a complete write, skip entirely.
+        # checked before the memory wait so finished instances never contend for RAM.
+        if !_cfg[].overwrite && smol_complete(ins)
+            printstyled("  $ins already done — skipping\n"; color=:blue)
+            return
+        end
+        # skip instances that previously OOM killed (unless overwrite)
+        oom_killed, mem_info = was_oom_killed(ins)
+        if !_cfg[].overwrite && oom_killed
+            mem_str = isempty(mem_info) ? "" : " at $mem_info"
+            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow)
+            return
+        end
+        tryrm(_cfg[].proofs*ins*".out")
+        tryrm(_cfg[].proofs*ins*".err")
+        if _cfg[].solve
+            patfile, tarfile = parsegraphfiles(ins)
+            if patfile === nothing
+                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red)
+                return
+            end
+            # resume: proof files already exist and pbp tail confirms a complete write — skip solver.
+            if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
+                printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
+            else
+                t = @elapsed ok = runsipsolver(ins, patfile, tarfile)
+                if !ok
+                    out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
+                    if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
+                        printstyled("  $ins SAT — skipping\n"; color=:yellow)
+                    else
+                        printstyled("  $ins solve failed or timed out ($(round(t;digits=1))s)\n"; color=:red)
+                    end
+                    return
+                end
+                printstyled("  $ins solved $(round(t;digits=1))s\n"; color=:cyan)
+            end
+        end
+        let c = pbpconclusion(ins)
+            if c == "SAT" || c == "NONE"
+                printstyled("  $ins $c — skipping\n"; color=:yellow); return
+            end
+            if isempty(c)
+                printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
+                open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
+                return
+            end
+        end
+        # size guard: skip instances whose combined opb+pbp exceeds 50 GB to avoid OOM during parsing.
+        # checked after SOLVE so the size reflects the freshly generated proof, not a stale file.
+        let sz = (isfile(_cfg[].proofs*ins*opb) ? filesize(_cfg[].proofs*ins*opb) : 0) +
+                    (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
+            if sz > 50 * 1024^3
+                printstyled("  $ins too large ($(round(sz/1024^3; digits=1)) GB) — skipping\n"; color=:yellow)
+                return
+            end
+        end
+        if !_cfg[].nonorm
+            printabline(ins)
+            parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
+            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            !isempty(coremsg) && println(coremsg)
+            writeout_verif(ins,smol_verif_time,full_verif_time)
+            _cfg[].resolv && resolvecore(ins)
+        end
+        if _cfg[].clit
+            printabline(ins)
+            parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
+            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            writeout_verif(ins,smol_verif_time,full_verif_time)
+        end
+        if _cfg[].bfs
+            printabline(ins)
+            parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Bfs())
+            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            writeout_verif(ins,smol_verif_time,full_verif_time)
+        end end
+
+        # mode: Grim(), Clit(), or Bfs() — see mode structs
+    function trimnalyse(ins; mode=Grim())
+        prefix = mode isa Bfs ? "gbfs" : mode isa Clit ? "gclt" : "grim"
+        parse_time = trim_time = write_time = 0 ; file = ins ; cone_stats = nothing
+        parse_time = @elapsed begin
+            store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,prism = readinstance(_cfg[].proofs,file)
+        end
+        inp_lits = length(store.vars)
+        writeout_parse(ins, parse_time, nbopb, length(systemlink), inp_lits, length(varmap), prefix)
+        sys = PBSystem(store, length(varmap))  # zero-copy: PBSystem reuses FlatEqStore's flat arrays directly
+        n = length(sys.rhs)
+        cone     = zeros(Bool, n)
+        conelits = Dict{Int,Set{Int}}()
+        trim_time = @elapsed begin
+            getcone!(cone, conelits, sys, systemlink, nbopb, prism, redwitness, conclusion, obj, mode)
+        end
+        writeout_trim(ins, trim_time, cone, nbopb, prefix)
+        writeout_conelits(ins, sys, cone, conelits, prefix)
+        cone_stats = conelits_stats(sys, cone, conelits)
+        printconestat(cone, cone_stats)
+        varmap_inv = Vector{String}(undef, length(varmap))
+        for (k, v) in varmap; varmap_inv[v] = String(copy(k)); end
+        if isempty(output)
+            printstyled("  $ins: proof truncated (no output line) — skipping write\n"; color=:red)
+            open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: output line missing") end
+            return trunc(Int,parse_time),trunc(Int,trim_time),0,cone_stats,""
+        end
+        coremsg = (mode isa Grim && (_cfg[].core || _cfg[].resolv)) ? writeunsatcore(ins, sys, cone, conelits, varmap_inv, nbopb) : ""
+        let expected = nbopb + length(systemlink), actual = length(sys.rhs)
+            if expected != actual
+                printstyled("  SYNC ERROR $ins: nbopb=$nbopb + systemlink=$(length(systemlink)) = $expected but sys.rhs=$actual (diff=$(expected-actual))\n"; color=:red)
+            end
+        end
+        write_time = @elapsed begin
+            writeconedel(_cfg[].proofs,file,sys,cone,conelits,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap_inv,ctrmap,output,conclusion,obj,prism)
+        end
+        writeout_write(ins, parse_time, trim_time, write_time, prefix)
+        return trunc(Int,parse_time),trunc(Int,trim_time),trunc(Int,write_time),cone_stats,coremsg end

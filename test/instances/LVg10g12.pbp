@@ -1,0 +1,4132 @@
+pseudo-Boolean proof version 3.0
+f 7810 ;
+% cannot map 0 to 18 due to degrees in graph pairs 0
+pol @adj0_18_1 @adj0_18_6 + @inj15 + s ;
+ia 1 ~x0_18 >= 1 : 7811 ;
+del id 7811 ;
+% cannot map 0 to 19 due to degrees in graph pairs 0
+pol @adj0_19_1 @adj0_19_6 + s ;
+ia 1 ~x0_19 >= 1 : 7813 ;
+del id 7813 ;
+% cannot map 0 to 46 due to degrees in graph pairs 0
+pol @adj0_46_1 @adj0_46_6 + s ;
+ia 1 ~x0_46 >= 1 : 7815 ;
+del id 7815 ;
+% cannot map 0 to 47 due to degrees in graph pairs 0
+pol @adj0_47_1 @adj0_47_6 + s ;
+ia 1 ~x0_47 >= 1 : 7817 ;
+del id 7817 ;
+% cannot map 1 to 17 due to degrees in graph pairs 0
+pol @adj1_17_0 @adj1_17_2 + @adj1_17_6 + @inj14 + @inj15 + s ;
+ia 1 ~x1_17 >= 1 : 7819 ;
+del id 7819 ;
+% cannot map 1 to 18 due to degrees in graph pairs 0
+pol @adj1_18_0 @adj1_18_2 + @adj1_18_6 + @inj15 + s ;
+ia 1 ~x1_18 >= 1 : 7821 ;
+del id 7821 ;
+% cannot map 1 to 19 due to degrees in graph pairs 0
+pol @adj1_19_0 @adj1_19_2 + @adj1_19_6 + s ;
+ia 1 ~x1_19 >= 1 : 7823 ;
+del id 7823 ;
+% cannot map 1 to 20 due to degrees in graph pairs 0
+pol @adj1_20_0 @adj1_20_2 + @adj1_20_6 + @inj8 + @inj9 + s ;
+ia 1 ~x1_20 >= 1 : 7825 ;
+del id 7825 ;
+% cannot map 1 to 21 due to degrees in graph pairs 0
+pol @adj1_21_0 @adj1_21_2 + @adj1_21_6 + @inj8 + @inj9 + s ;
+ia 1 ~x1_21 >= 1 : 7827 ;
+del id 7827 ;
+% cannot map 1 to 22 due to degrees in graph pairs 0
+pol @adj1_22_0 @adj1_22_2 + @adj1_22_6 + @inj8 + @inj9 + s ;
+ia 1 ~x1_22 >= 1 : 7829 ;
+del id 7829 ;
+% cannot map 1 to 23 due to degrees in graph pairs 0
+pol @adj1_23_0 @adj1_23_2 + @adj1_23_6 + @inj8 + @inj9 + s ;
+ia 1 ~x1_23 >= 1 : 7831 ;
+del id 7831 ;
+% cannot map 1 to 25 due to degrees in graph pairs 0
+pol @adj1_25_0 @adj1_25_2 + @adj1_25_6 + @inj1 + @inj9 + s ;
+ia 1 ~x1_25 >= 1 : 7833 ;
+del id 7833 ;
+% cannot map 1 to 45 due to degrees in graph pairs 0
+pol @adj1_45_0 @adj1_45_2 + @adj1_45_6 + @inj5 + @inj6 + s ;
+ia 1 ~x1_45 >= 1 : 7835 ;
+del id 7835 ;
+% cannot map 1 to 46 due to degrees in graph pairs 0
+pol @adj1_46_0 @adj1_46_2 + @adj1_46_6 + s ;
+ia 1 ~x1_46 >= 1 : 7837 ;
+del id 7837 ;
+% cannot map 1 to 47 due to degrees in graph pairs 0
+pol @adj1_47_0 @adj1_47_2 + @adj1_47_6 + s ;
+ia 1 ~x1_47 >= 1 : 7839 ;
+del id 7839 ;
+% cannot map 2 to 12 due to degrees in graph pairs 0
+pol @adj2_12_1 @adj2_12_3 + @adj2_12_6 + @adj2_12_7 + @adj2_12_14 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x2_12 >= 1 : 7841 ;
+del id 7841 ;
+% cannot map 2 to 16 due to degrees in graph pairs 0
+pol @adj2_16_1 @adj2_16_3 + @adj2_16_6 + @adj2_16_7 + @adj2_16_14 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x2_16 >= 1 : 7843 ;
+del id 7843 ;
+% cannot map 2 to 17 due to degrees in graph pairs 0
+pol @adj2_17_1 @adj2_17_3 + @adj2_17_6 + @adj2_17_7 + @adj2_17_14 + @inj14 + @inj15 + s ;
+ia 1 ~x2_17 >= 1 : 7845 ;
+del id 7845 ;
+% cannot map 2 to 18 due to degrees in graph pairs 0
+pol @adj2_18_1 @adj2_18_3 + @adj2_18_6 + @adj2_18_7 + @adj2_18_14 + @inj15 + s ;
+ia 1 ~x2_18 >= 1 : 7847 ;
+del id 7847 ;
+% cannot map 2 to 19 due to degrees in graph pairs 0
+pol @adj2_19_1 @adj2_19_3 + @adj2_19_6 + @adj2_19_7 + @adj2_19_14 + s ;
+ia 1 ~x2_19 >= 1 : 7849 ;
+del id 7849 ;
+% cannot map 2 to 20 due to degrees in graph pairs 0
+pol @adj2_20_1 @adj2_20_3 + @adj2_20_6 + @adj2_20_7 + @adj2_20_14 + @inj8 + @inj9 + s ;
+ia 1 ~x2_20 >= 1 : 7851 ;
+del id 7851 ;
+% cannot map 2 to 21 due to degrees in graph pairs 0
+pol @adj2_21_1 @adj2_21_3 + @adj2_21_6 + @adj2_21_7 + @adj2_21_14 + @inj8 + @inj9 + s ;
+ia 1 ~x2_21 >= 1 : 7853 ;
+del id 7853 ;
+% cannot map 2 to 22 due to degrees in graph pairs 0
+pol @adj2_22_1 @adj2_22_3 + @adj2_22_6 + @adj2_22_7 + @adj2_22_14 + @inj8 + @inj9 + s ;
+ia 1 ~x2_22 >= 1 : 7855 ;
+del id 7855 ;
+% cannot map 2 to 23 due to degrees in graph pairs 0
+pol @adj2_23_1 @adj2_23_3 + @adj2_23_6 + @adj2_23_7 + @adj2_23_14 + @inj8 + @inj9 + s ;
+ia 1 ~x2_23 >= 1 : 7857 ;
+del id 7857 ;
+% cannot map 2 to 24 due to degrees in graph pairs 0
+pol @adj2_24_1 @adj2_24_3 + @adj2_24_6 + @adj2_24_7 + @adj2_24_14 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x2_24 >= 1 : 7859 ;
+del id 7859 ;
+% cannot map 2 to 25 due to degrees in graph pairs 0
+pol @adj2_25_1 @adj2_25_3 + @adj2_25_6 + @adj2_25_7 + @adj2_25_14 + @inj1 + @inj9 + s ;
+ia 1 ~x2_25 >= 1 : 7861 ;
+del id 7861 ;
+% cannot map 2 to 26 due to degrees in graph pairs 0
+pol @adj2_26_1 @adj2_26_3 + @adj2_26_6 + @adj2_26_7 + @adj2_26_14 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x2_26 >= 1 : 7863 ;
+del id 7863 ;
+% cannot map 2 to 41 due to degrees in graph pairs 0
+pol @adj2_41_1 @adj2_41_3 + @adj2_41_6 + @adj2_41_7 + @adj2_41_14 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x2_41 >= 1 : 7865 ;
+del id 7865 ;
+% cannot map 2 to 42 due to degrees in graph pairs 0
+pol @adj2_42_1 @adj2_42_3 + @adj2_42_6 + @adj2_42_7 + @adj2_42_14 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x2_42 >= 1 : 7867 ;
+del id 7867 ;
+% cannot map 2 to 43 due to degrees in graph pairs 0
+pol @adj2_43_1 @adj2_43_3 + @adj2_43_6 + @adj2_43_7 + @adj2_43_14 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x2_43 >= 1 : 7869 ;
+del id 7869 ;
+% cannot map 2 to 44 due to degrees in graph pairs 0
+pol @adj2_44_1 @adj2_44_3 + @adj2_44_6 + @adj2_44_7 + @adj2_44_14 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x2_44 >= 1 : 7871 ;
+del id 7871 ;
+% cannot map 2 to 45 due to degrees in graph pairs 0
+pol @adj2_45_1 @adj2_45_3 + @adj2_45_6 + @adj2_45_7 + @adj2_45_14 + @inj5 + @inj6 + s ;
+ia 1 ~x2_45 >= 1 : 7873 ;
+del id 7873 ;
+% cannot map 2 to 46 due to degrees in graph pairs 0
+pol @adj2_46_1 @adj2_46_3 + @adj2_46_6 + @adj2_46_7 + @adj2_46_14 + s ;
+ia 1 ~x2_46 >= 1 : 7875 ;
+del id 7875 ;
+% cannot map 2 to 47 due to degrees in graph pairs 0
+pol @adj2_47_1 @adj2_47_3 + @adj2_47_6 + @adj2_47_7 + @adj2_47_14 + s ;
+ia 1 ~x2_47 >= 1 : 7877 ;
+del id 7877 ;
+% cannot map 3 to 17 due to degrees in graph pairs 0
+pol @adj3_17_2 @adj3_17_4 + @adj3_17_8 + @inj14 + @inj15 + s ;
+ia 1 ~x3_17 >= 1 : 7879 ;
+del id 7879 ;
+% cannot map 3 to 18 due to degrees in graph pairs 0
+pol @adj3_18_2 @adj3_18_4 + @adj3_18_8 + @inj15 + s ;
+ia 1 ~x3_18 >= 1 : 7881 ;
+del id 7881 ;
+% cannot map 3 to 19 due to degrees in graph pairs 0
+pol @adj3_19_2 @adj3_19_4 + @adj3_19_8 + s ;
+ia 1 ~x3_19 >= 1 : 7883 ;
+del id 7883 ;
+% cannot map 3 to 20 due to degrees in graph pairs 0
+pol @adj3_20_2 @adj3_20_4 + @adj3_20_8 + @inj8 + @inj9 + s ;
+ia 1 ~x3_20 >= 1 : 7885 ;
+del id 7885 ;
+% cannot map 3 to 21 due to degrees in graph pairs 0
+pol @adj3_21_2 @adj3_21_4 + @adj3_21_8 + @inj8 + @inj9 + s ;
+ia 1 ~x3_21 >= 1 : 7887 ;
+del id 7887 ;
+% cannot map 3 to 22 due to degrees in graph pairs 0
+pol @adj3_22_2 @adj3_22_4 + @adj3_22_8 + @inj8 + @inj9 + s ;
+ia 1 ~x3_22 >= 1 : 7889 ;
+del id 7889 ;
+% cannot map 3 to 23 due to degrees in graph pairs 0
+pol @adj3_23_2 @adj3_23_4 + @adj3_23_8 + @inj8 + @inj9 + s ;
+ia 1 ~x3_23 >= 1 : 7891 ;
+del id 7891 ;
+% cannot map 3 to 25 due to degrees in graph pairs 0
+pol @adj3_25_2 @adj3_25_4 + @adj3_25_8 + @inj1 + @inj9 + s ;
+ia 1 ~x3_25 >= 1 : 7893 ;
+del id 7893 ;
+% cannot map 3 to 45 due to degrees in graph pairs 0
+pol @adj3_45_2 @adj3_45_4 + @adj3_45_8 + @inj5 + @inj6 + s ;
+ia 1 ~x3_45 >= 1 : 7895 ;
+del id 7895 ;
+% cannot map 3 to 46 due to degrees in graph pairs 0
+pol @adj3_46_2 @adj3_46_4 + @adj3_46_8 + s ;
+ia 1 ~x3_46 >= 1 : 7897 ;
+del id 7897 ;
+% cannot map 3 to 47 due to degrees in graph pairs 0
+pol @adj3_47_2 @adj3_47_4 + @adj3_47_8 + s ;
+ia 1 ~x3_47 >= 1 : 7899 ;
+del id 7899 ;
+% cannot map 4 to 17 due to degrees in graph pairs 0
+pol @adj4_17_3 @adj4_17_5 + @adj4_17_9 + @inj14 + @inj15 + s ;
+ia 1 ~x4_17 >= 1 : 7901 ;
+del id 7901 ;
+% cannot map 4 to 18 due to degrees in graph pairs 0
+pol @adj4_18_3 @adj4_18_5 + @adj4_18_9 + @inj15 + s ;
+ia 1 ~x4_18 >= 1 : 7903 ;
+del id 7903 ;
+% cannot map 4 to 19 due to degrees in graph pairs 0
+pol @adj4_19_3 @adj4_19_5 + @adj4_19_9 + s ;
+ia 1 ~x4_19 >= 1 : 7905 ;
+del id 7905 ;
+% cannot map 4 to 20 due to degrees in graph pairs 0
+pol @adj4_20_3 @adj4_20_5 + @adj4_20_9 + @inj8 + @inj9 + s ;
+ia 1 ~x4_20 >= 1 : 7907 ;
+del id 7907 ;
+% cannot map 4 to 21 due to degrees in graph pairs 0
+pol @adj4_21_3 @adj4_21_5 + @adj4_21_9 + @inj8 + @inj9 + s ;
+ia 1 ~x4_21 >= 1 : 7909 ;
+del id 7909 ;
+% cannot map 4 to 22 due to degrees in graph pairs 0
+pol @adj4_22_3 @adj4_22_5 + @adj4_22_9 + @inj8 + @inj9 + s ;
+ia 1 ~x4_22 >= 1 : 7911 ;
+del id 7911 ;
+% cannot map 4 to 23 due to degrees in graph pairs 0
+pol @adj4_23_3 @adj4_23_5 + @adj4_23_9 + @inj8 + @inj9 + s ;
+ia 1 ~x4_23 >= 1 : 7913 ;
+del id 7913 ;
+% cannot map 4 to 25 due to degrees in graph pairs 0
+pol @adj4_25_3 @adj4_25_5 + @adj4_25_9 + @inj1 + @inj9 + s ;
+ia 1 ~x4_25 >= 1 : 7915 ;
+del id 7915 ;
+% cannot map 4 to 45 due to degrees in graph pairs 0
+pol @adj4_45_3 @adj4_45_5 + @adj4_45_9 + @inj5 + @inj6 + s ;
+ia 1 ~x4_45 >= 1 : 7917 ;
+del id 7917 ;
+% cannot map 4 to 46 due to degrees in graph pairs 0
+pol @adj4_46_3 @adj4_46_5 + @adj4_46_9 + s ;
+ia 1 ~x4_46 >= 1 : 7919 ;
+del id 7919 ;
+% cannot map 4 to 47 due to degrees in graph pairs 0
+pol @adj4_47_3 @adj4_47_5 + @adj4_47_9 + s ;
+ia 1 ~x4_47 >= 1 : 7921 ;
+del id 7921 ;
+% cannot map 5 to 17 due to degrees in graph pairs 0
+pol @adj5_17_4 @adj5_17_10 + @adj5_17_11 + @inj14 + @inj15 + s ;
+ia 1 ~x5_17 >= 1 : 7923 ;
+del id 7923 ;
+% cannot map 5 to 18 due to degrees in graph pairs 0
+pol @adj5_18_4 @adj5_18_10 + @adj5_18_11 + @inj15 + s ;
+ia 1 ~x5_18 >= 1 : 7925 ;
+del id 7925 ;
+% cannot map 5 to 19 due to degrees in graph pairs 0
+pol @adj5_19_4 @adj5_19_10 + @adj5_19_11 + s ;
+ia 1 ~x5_19 >= 1 : 7927 ;
+del id 7927 ;
+% cannot map 5 to 20 due to degrees in graph pairs 0
+pol @adj5_20_4 @adj5_20_10 + @adj5_20_11 + @inj8 + @inj9 + s ;
+ia 1 ~x5_20 >= 1 : 7929 ;
+del id 7929 ;
+% cannot map 5 to 21 due to degrees in graph pairs 0
+pol @adj5_21_4 @adj5_21_10 + @adj5_21_11 + @inj8 + @inj9 + s ;
+ia 1 ~x5_21 >= 1 : 7931 ;
+del id 7931 ;
+% cannot map 5 to 22 due to degrees in graph pairs 0
+pol @adj5_22_4 @adj5_22_10 + @adj5_22_11 + @inj8 + @inj9 + s ;
+ia 1 ~x5_22 >= 1 : 7933 ;
+del id 7933 ;
+% cannot map 5 to 23 due to degrees in graph pairs 0
+pol @adj5_23_4 @adj5_23_10 + @adj5_23_11 + @inj8 + @inj9 + s ;
+ia 1 ~x5_23 >= 1 : 7935 ;
+del id 7935 ;
+% cannot map 5 to 25 due to degrees in graph pairs 0
+pol @adj5_25_4 @adj5_25_10 + @adj5_25_11 + @inj1 + @inj9 + s ;
+ia 1 ~x5_25 >= 1 : 7937 ;
+del id 7937 ;
+% cannot map 5 to 45 due to degrees in graph pairs 0
+pol @adj5_45_4 @adj5_45_10 + @adj5_45_11 + @inj5 + @inj6 + s ;
+ia 1 ~x5_45 >= 1 : 7939 ;
+del id 7939 ;
+% cannot map 5 to 46 due to degrees in graph pairs 0
+pol @adj5_46_4 @adj5_46_10 + @adj5_46_11 + s ;
+ia 1 ~x5_46 >= 1 : 7941 ;
+del id 7941 ;
+% cannot map 5 to 47 due to degrees in graph pairs 0
+pol @adj5_47_4 @adj5_47_10 + @adj5_47_11 + s ;
+ia 1 ~x5_47 >= 1 : 7943 ;
+del id 7943 ;
+% cannot map 6 to 12 due to degrees in graph pairs 0
+pol @adj6_12_0 @adj6_12_1 + @adj6_12_2 + @adj6_12_12 + @adj6_12_13 + @adj6_12_20 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x6_12 >= 1 : 7945 ;
+del id 7945 ;
+% cannot map 6 to 16 due to degrees in graph pairs 0
+pol @adj6_16_0 @adj6_16_1 + @adj6_16_2 + @adj6_16_12 + @adj6_16_13 + @adj6_16_20 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x6_16 >= 1 : 7947 ;
+del id 7947 ;
+% cannot map 6 to 17 due to degrees in graph pairs 0
+pol @adj6_17_0 @adj6_17_1 + @adj6_17_2 + @adj6_17_12 + @adj6_17_13 + @adj6_17_20 + @inj14 + @inj15 + s ;
+ia 1 ~x6_17 >= 1 : 7949 ;
+del id 7949 ;
+% cannot map 6 to 18 due to degrees in graph pairs 0
+pol @adj6_18_0 @adj6_18_1 + @adj6_18_2 + @adj6_18_12 + @adj6_18_13 + @adj6_18_20 + @inj15 + s ;
+ia 1 ~x6_18 >= 1 : 7951 ;
+del id 7951 ;
+% cannot map 6 to 19 due to degrees in graph pairs 0
+pol @adj6_19_0 @adj6_19_1 + @adj6_19_2 + @adj6_19_12 + @adj6_19_13 + @adj6_19_20 + s ;
+ia 1 ~x6_19 >= 1 : 7953 ;
+del id 7953 ;
+% cannot map 6 to 20 due to degrees in graph pairs 0
+pol @adj6_20_0 @adj6_20_1 + @adj6_20_2 + @adj6_20_12 + @adj6_20_13 + @adj6_20_20 + @inj8 + @inj9 + s ;
+ia 1 ~x6_20 >= 1 : 7955 ;
+del id 7955 ;
+% cannot map 6 to 21 due to degrees in graph pairs 0
+pol @adj6_21_0 @adj6_21_1 + @adj6_21_2 + @adj6_21_12 + @adj6_21_13 + @adj6_21_20 + @inj8 + @inj9 + s ;
+ia 1 ~x6_21 >= 1 : 7957 ;
+del id 7957 ;
+% cannot map 6 to 22 due to degrees in graph pairs 0
+pol @adj6_22_0 @adj6_22_1 + @adj6_22_2 + @adj6_22_12 + @adj6_22_13 + @adj6_22_20 + @inj8 + @inj9 + s ;
+ia 1 ~x6_22 >= 1 : 7959 ;
+del id 7959 ;
+% cannot map 6 to 23 due to degrees in graph pairs 0
+pol @adj6_23_0 @adj6_23_1 + @adj6_23_2 + @adj6_23_12 + @adj6_23_13 + @adj6_23_20 + @inj8 + @inj9 + s ;
+ia 1 ~x6_23 >= 1 : 7961 ;
+del id 7961 ;
+% cannot map 6 to 24 due to degrees in graph pairs 0
+pol @adj6_24_0 @adj6_24_1 + @adj6_24_2 + @adj6_24_12 + @adj6_24_13 + @adj6_24_20 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x6_24 >= 1 : 7963 ;
+del id 7963 ;
+% cannot map 6 to 25 due to degrees in graph pairs 0
+pol @adj6_25_0 @adj6_25_1 + @adj6_25_2 + @adj6_25_12 + @adj6_25_13 + @adj6_25_20 + @inj1 + @inj9 + s ;
+ia 1 ~x6_25 >= 1 : 7965 ;
+del id 7965 ;
+% cannot map 6 to 26 due to degrees in graph pairs 0
+pol @adj6_26_0 @adj6_26_1 + @adj6_26_2 + @adj6_26_12 + @adj6_26_13 + @adj6_26_20 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x6_26 >= 1 : 7967 ;
+del id 7967 ;
+% cannot map 6 to 27 due to degrees in graph pairs 0
+pol @adj6_27_0 @adj6_27_1 + @adj6_27_2 + @adj6_27_12 + @adj6_27_13 + @adj6_27_20 + @inj1 + @inj2 + @inj3 + @inj9 + @inj14 + s ;
+ia 1 ~x6_27 >= 1 : 7969 ;
+del id 7969 ;
+% cannot map 6 to 40 due to degrees in graph pairs 0
+pol @adj6_40_0 @adj6_40_1 + @adj6_40_2 + @adj6_40_12 + @adj6_40_13 + @adj6_40_20 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + s ;
+ia 1 ~x6_40 >= 1 : 7971 ;
+del id 7971 ;
+% cannot map 6 to 41 due to degrees in graph pairs 0
+pol @adj6_41_0 @adj6_41_1 + @adj6_41_2 + @adj6_41_12 + @adj6_41_13 + @adj6_41_20 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x6_41 >= 1 : 7973 ;
+del id 7973 ;
+% cannot map 6 to 42 due to degrees in graph pairs 0
+pol @adj6_42_0 @adj6_42_1 + @adj6_42_2 + @adj6_42_12 + @adj6_42_13 + @adj6_42_20 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x6_42 >= 1 : 7975 ;
+del id 7975 ;
+% cannot map 6 to 43 due to degrees in graph pairs 0
+pol @adj6_43_0 @adj6_43_1 + @adj6_43_2 + @adj6_43_12 + @adj6_43_13 + @adj6_43_20 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x6_43 >= 1 : 7977 ;
+del id 7977 ;
+% cannot map 6 to 44 due to degrees in graph pairs 0
+pol @adj6_44_0 @adj6_44_1 + @adj6_44_2 + @adj6_44_12 + @adj6_44_13 + @adj6_44_20 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x6_44 >= 1 : 7979 ;
+del id 7979 ;
+% cannot map 6 to 45 due to degrees in graph pairs 0
+pol @adj6_45_0 @adj6_45_1 + @adj6_45_2 + @adj6_45_12 + @adj6_45_13 + @adj6_45_20 + @inj5 + @inj6 + s ;
+ia 1 ~x6_45 >= 1 : 7981 ;
+del id 7981 ;
+% cannot map 6 to 46 due to degrees in graph pairs 0
+pol @adj6_46_0 @adj6_46_1 + @adj6_46_2 + @adj6_46_12 + @adj6_46_13 + @adj6_46_20 + s ;
+ia 1 ~x6_46 >= 1 : 7983 ;
+del id 7983 ;
+% cannot map 6 to 47 due to degrees in graph pairs 0
+pol @adj6_47_0 @adj6_47_1 + @adj6_47_2 + @adj6_47_12 + @adj6_47_13 + @adj6_47_20 + s ;
+ia 1 ~x6_47 >= 1 : 7985 ;
+del id 7985 ;
+% cannot map 7 to 17 due to degrees in graph pairs 0
+pol @adj7_17_2 @adj7_17_8 + @adj7_17_15 + @inj14 + @inj15 + s ;
+ia 1 ~x7_17 >= 1 : 7987 ;
+del id 7987 ;
+% cannot map 7 to 18 due to degrees in graph pairs 0
+pol @adj7_18_2 @adj7_18_8 + @adj7_18_15 + @inj15 + s ;
+ia 1 ~x7_18 >= 1 : 7989 ;
+del id 7989 ;
+% cannot map 7 to 19 due to degrees in graph pairs 0
+pol @adj7_19_2 @adj7_19_8 + @adj7_19_15 + s ;
+ia 1 ~x7_19 >= 1 : 7991 ;
+del id 7991 ;
+% cannot map 7 to 20 due to degrees in graph pairs 0
+pol @adj7_20_2 @adj7_20_8 + @adj7_20_15 + @inj8 + @inj9 + s ;
+ia 1 ~x7_20 >= 1 : 7993 ;
+del id 7993 ;
+% cannot map 7 to 21 due to degrees in graph pairs 0
+pol @adj7_21_2 @adj7_21_8 + @adj7_21_15 + @inj8 + @inj9 + s ;
+ia 1 ~x7_21 >= 1 : 7995 ;
+del id 7995 ;
+% cannot map 7 to 22 due to degrees in graph pairs 0
+pol @adj7_22_2 @adj7_22_8 + @adj7_22_15 + @inj8 + @inj9 + s ;
+ia 1 ~x7_22 >= 1 : 7997 ;
+del id 7997 ;
+% cannot map 7 to 23 due to degrees in graph pairs 0
+pol @adj7_23_2 @adj7_23_8 + @adj7_23_15 + @inj8 + @inj9 + s ;
+ia 1 ~x7_23 >= 1 : 7999 ;
+del id 7999 ;
+% cannot map 7 to 25 due to degrees in graph pairs 0
+pol @adj7_25_2 @adj7_25_8 + @adj7_25_15 + @inj1 + @inj9 + s ;
+ia 1 ~x7_25 >= 1 : 8001 ;
+del id 8001 ;
+% cannot map 7 to 45 due to degrees in graph pairs 0
+pol @adj7_45_2 @adj7_45_8 + @adj7_45_15 + @inj5 + @inj6 + s ;
+ia 1 ~x7_45 >= 1 : 8003 ;
+del id 8003 ;
+% cannot map 7 to 46 due to degrees in graph pairs 0
+pol @adj7_46_2 @adj7_46_8 + @adj7_46_15 + s ;
+ia 1 ~x7_46 >= 1 : 8005 ;
+del id 8005 ;
+% cannot map 7 to 47 due to degrees in graph pairs 0
+pol @adj7_47_2 @adj7_47_8 + @adj7_47_15 + s ;
+ia 1 ~x7_47 >= 1 : 8007 ;
+del id 8007 ;
+% cannot map 8 to 16 due to degrees in graph pairs 0
+pol @adj8_16_3 @adj8_16_7 + @adj8_16_9 + @adj8_16_16 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x8_16 >= 1 : 8009 ;
+del id 8009 ;
+% cannot map 8 to 17 due to degrees in graph pairs 0
+pol @adj8_17_3 @adj8_17_7 + @adj8_17_9 + @adj8_17_16 + @inj14 + @inj15 + s ;
+ia 1 ~x8_17 >= 1 : 8011 ;
+del id 8011 ;
+% cannot map 8 to 18 due to degrees in graph pairs 0
+pol @adj8_18_3 @adj8_18_7 + @adj8_18_9 + @adj8_18_16 + @inj15 + s ;
+ia 1 ~x8_18 >= 1 : 8013 ;
+del id 8013 ;
+% cannot map 8 to 19 due to degrees in graph pairs 0
+pol @adj8_19_3 @adj8_19_7 + @adj8_19_9 + @adj8_19_16 + s ;
+ia 1 ~x8_19 >= 1 : 8015 ;
+del id 8015 ;
+% cannot map 8 to 20 due to degrees in graph pairs 0
+pol @adj8_20_3 @adj8_20_7 + @adj8_20_9 + @adj8_20_16 + @inj8 + @inj9 + s ;
+ia 1 ~x8_20 >= 1 : 8017 ;
+del id 8017 ;
+% cannot map 8 to 21 due to degrees in graph pairs 0
+pol @adj8_21_3 @adj8_21_7 + @adj8_21_9 + @adj8_21_16 + @inj8 + @inj9 + s ;
+ia 1 ~x8_21 >= 1 : 8019 ;
+del id 8019 ;
+% cannot map 8 to 22 due to degrees in graph pairs 0
+pol @adj8_22_3 @adj8_22_7 + @adj8_22_9 + @adj8_22_16 + @inj8 + @inj9 + s ;
+ia 1 ~x8_22 >= 1 : 8021 ;
+del id 8021 ;
+% cannot map 8 to 23 due to degrees in graph pairs 0
+pol @adj8_23_3 @adj8_23_7 + @adj8_23_9 + @adj8_23_16 + @inj8 + @inj9 + s ;
+ia 1 ~x8_23 >= 1 : 8023 ;
+del id 8023 ;
+% cannot map 8 to 24 due to degrees in graph pairs 0
+pol @adj8_24_3 @adj8_24_7 + @adj8_24_9 + @adj8_24_16 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x8_24 >= 1 : 8025 ;
+del id 8025 ;
+% cannot map 8 to 25 due to degrees in graph pairs 0
+pol @adj8_25_3 @adj8_25_7 + @adj8_25_9 + @adj8_25_16 + @inj1 + @inj9 + s ;
+ia 1 ~x8_25 >= 1 : 8027 ;
+del id 8027 ;
+% cannot map 8 to 26 due to degrees in graph pairs 0
+pol @adj8_26_3 @adj8_26_7 + @adj8_26_9 + @adj8_26_16 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x8_26 >= 1 : 8029 ;
+del id 8029 ;
+% cannot map 8 to 43 due to degrees in graph pairs 0
+pol @adj8_43_3 @adj8_43_7 + @adj8_43_9 + @adj8_43_16 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x8_43 >= 1 : 8031 ;
+del id 8031 ;
+% cannot map 8 to 44 due to degrees in graph pairs 0
+pol @adj8_44_3 @adj8_44_7 + @adj8_44_9 + @adj8_44_16 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x8_44 >= 1 : 8033 ;
+del id 8033 ;
+% cannot map 8 to 45 due to degrees in graph pairs 0
+pol @adj8_45_3 @adj8_45_7 + @adj8_45_9 + @adj8_45_16 + @inj5 + @inj6 + s ;
+ia 1 ~x8_45 >= 1 : 8035 ;
+del id 8035 ;
+% cannot map 8 to 46 due to degrees in graph pairs 0
+pol @adj8_46_3 @adj8_46_7 + @adj8_46_9 + @adj8_46_16 + s ;
+ia 1 ~x8_46 >= 1 : 8037 ;
+del id 8037 ;
+% cannot map 8 to 47 due to degrees in graph pairs 0
+pol @adj8_47_3 @adj8_47_7 + @adj8_47_9 + @adj8_47_16 + s ;
+ia 1 ~x8_47 >= 1 : 8039 ;
+del id 8039 ;
+% cannot map 9 to 16 due to degrees in graph pairs 0
+pol @adj9_16_4 @adj9_16_8 + @adj9_16_10 + @adj9_16_17 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x9_16 >= 1 : 8041 ;
+del id 8041 ;
+% cannot map 9 to 17 due to degrees in graph pairs 0
+pol @adj9_17_4 @adj9_17_8 + @adj9_17_10 + @adj9_17_17 + @inj14 + @inj15 + s ;
+ia 1 ~x9_17 >= 1 : 8043 ;
+del id 8043 ;
+% cannot map 9 to 18 due to degrees in graph pairs 0
+pol @adj9_18_4 @adj9_18_8 + @adj9_18_10 + @adj9_18_17 + @inj15 + s ;
+ia 1 ~x9_18 >= 1 : 8045 ;
+del id 8045 ;
+% cannot map 9 to 19 due to degrees in graph pairs 0
+pol @adj9_19_4 @adj9_19_8 + @adj9_19_10 + @adj9_19_17 + s ;
+ia 1 ~x9_19 >= 1 : 8047 ;
+del id 8047 ;
+% cannot map 9 to 20 due to degrees in graph pairs 0
+pol @adj9_20_4 @adj9_20_8 + @adj9_20_10 + @adj9_20_17 + @inj8 + @inj9 + s ;
+ia 1 ~x9_20 >= 1 : 8049 ;
+del id 8049 ;
+% cannot map 9 to 21 due to degrees in graph pairs 0
+pol @adj9_21_4 @adj9_21_8 + @adj9_21_10 + @adj9_21_17 + @inj8 + @inj9 + s ;
+ia 1 ~x9_21 >= 1 : 8051 ;
+del id 8051 ;
+% cannot map 9 to 22 due to degrees in graph pairs 0
+pol @adj9_22_4 @adj9_22_8 + @adj9_22_10 + @adj9_22_17 + @inj8 + @inj9 + s ;
+ia 1 ~x9_22 >= 1 : 8053 ;
+del id 8053 ;
+% cannot map 9 to 23 due to degrees in graph pairs 0
+pol @adj9_23_4 @adj9_23_8 + @adj9_23_10 + @adj9_23_17 + @inj8 + @inj9 + s ;
+ia 1 ~x9_23 >= 1 : 8055 ;
+del id 8055 ;
+% cannot map 9 to 24 due to degrees in graph pairs 0
+pol @adj9_24_4 @adj9_24_8 + @adj9_24_10 + @adj9_24_17 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x9_24 >= 1 : 8057 ;
+del id 8057 ;
+% cannot map 9 to 25 due to degrees in graph pairs 0
+pol @adj9_25_4 @adj9_25_8 + @adj9_25_10 + @adj9_25_17 + @inj1 + @inj9 + s ;
+ia 1 ~x9_25 >= 1 : 8059 ;
+del id 8059 ;
+% cannot map 9 to 26 due to degrees in graph pairs 0
+pol @adj9_26_4 @adj9_26_8 + @adj9_26_10 + @adj9_26_17 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x9_26 >= 1 : 8061 ;
+del id 8061 ;
+% cannot map 9 to 43 due to degrees in graph pairs 0
+pol @adj9_43_4 @adj9_43_8 + @adj9_43_10 + @adj9_43_17 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x9_43 >= 1 : 8063 ;
+del id 8063 ;
+% cannot map 9 to 44 due to degrees in graph pairs 0
+pol @adj9_44_4 @adj9_44_8 + @adj9_44_10 + @adj9_44_17 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x9_44 >= 1 : 8065 ;
+del id 8065 ;
+% cannot map 9 to 45 due to degrees in graph pairs 0
+pol @adj9_45_4 @adj9_45_8 + @adj9_45_10 + @adj9_45_17 + @inj5 + @inj6 + s ;
+ia 1 ~x9_45 >= 1 : 8067 ;
+del id 8067 ;
+% cannot map 9 to 46 due to degrees in graph pairs 0
+pol @adj9_46_4 @adj9_46_8 + @adj9_46_10 + @adj9_46_17 + s ;
+ia 1 ~x9_46 >= 1 : 8069 ;
+del id 8069 ;
+% cannot map 9 to 47 due to degrees in graph pairs 0
+pol @adj9_47_4 @adj9_47_8 + @adj9_47_10 + @adj9_47_17 + s ;
+ia 1 ~x9_47 >= 1 : 8071 ;
+del id 8071 ;
+% cannot map 10 to 16 due to degrees in graph pairs 0
+pol @adj10_16_5 @adj10_16_9 + @adj10_16_11 + @adj10_16_18 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x10_16 >= 1 : 8073 ;
+del id 8073 ;
+% cannot map 10 to 17 due to degrees in graph pairs 0
+pol @adj10_17_5 @adj10_17_9 + @adj10_17_11 + @adj10_17_18 + @inj14 + @inj15 + s ;
+ia 1 ~x10_17 >= 1 : 8075 ;
+del id 8075 ;
+% cannot map 10 to 18 due to degrees in graph pairs 0
+pol @adj10_18_5 @adj10_18_9 + @adj10_18_11 + @adj10_18_18 + @inj15 + s ;
+ia 1 ~x10_18 >= 1 : 8077 ;
+del id 8077 ;
+% cannot map 10 to 19 due to degrees in graph pairs 0
+pol @adj10_19_5 @adj10_19_9 + @adj10_19_11 + @adj10_19_18 + s ;
+ia 1 ~x10_19 >= 1 : 8079 ;
+del id 8079 ;
+% cannot map 10 to 20 due to degrees in graph pairs 0
+pol @adj10_20_5 @adj10_20_9 + @adj10_20_11 + @adj10_20_18 + @inj8 + @inj9 + s ;
+ia 1 ~x10_20 >= 1 : 8081 ;
+del id 8081 ;
+% cannot map 10 to 21 due to degrees in graph pairs 0
+pol @adj10_21_5 @adj10_21_9 + @adj10_21_11 + @adj10_21_18 + @inj8 + @inj9 + s ;
+ia 1 ~x10_21 >= 1 : 8083 ;
+del id 8083 ;
+% cannot map 10 to 22 due to degrees in graph pairs 0
+pol @adj10_22_5 @adj10_22_9 + @adj10_22_11 + @adj10_22_18 + @inj8 + @inj9 + s ;
+ia 1 ~x10_22 >= 1 : 8085 ;
+del id 8085 ;
+% cannot map 10 to 23 due to degrees in graph pairs 0
+pol @adj10_23_5 @adj10_23_9 + @adj10_23_11 + @adj10_23_18 + @inj8 + @inj9 + s ;
+ia 1 ~x10_23 >= 1 : 8087 ;
+del id 8087 ;
+% cannot map 10 to 24 due to degrees in graph pairs 0
+pol @adj10_24_5 @adj10_24_9 + @adj10_24_11 + @adj10_24_18 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x10_24 >= 1 : 8089 ;
+del id 8089 ;
+% cannot map 10 to 25 due to degrees in graph pairs 0
+pol @adj10_25_5 @adj10_25_9 + @adj10_25_11 + @adj10_25_18 + @inj1 + @inj9 + s ;
+ia 1 ~x10_25 >= 1 : 8091 ;
+del id 8091 ;
+% cannot map 10 to 26 due to degrees in graph pairs 0
+pol @adj10_26_5 @adj10_26_9 + @adj10_26_11 + @adj10_26_18 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x10_26 >= 1 : 8093 ;
+del id 8093 ;
+% cannot map 10 to 43 due to degrees in graph pairs 0
+pol @adj10_43_5 @adj10_43_9 + @adj10_43_11 + @adj10_43_18 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x10_43 >= 1 : 8095 ;
+del id 8095 ;
+% cannot map 10 to 44 due to degrees in graph pairs 0
+pol @adj10_44_5 @adj10_44_9 + @adj10_44_11 + @adj10_44_18 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x10_44 >= 1 : 8097 ;
+del id 8097 ;
+% cannot map 10 to 45 due to degrees in graph pairs 0
+pol @adj10_45_5 @adj10_45_9 + @adj10_45_11 + @adj10_45_18 + @inj5 + @inj6 + s ;
+ia 1 ~x10_45 >= 1 : 8099 ;
+del id 8099 ;
+% cannot map 10 to 46 due to degrees in graph pairs 0
+pol @adj10_46_5 @adj10_46_9 + @adj10_46_11 + @adj10_46_18 + s ;
+ia 1 ~x10_46 >= 1 : 8101 ;
+del id 8101 ;
+% cannot map 10 to 47 due to degrees in graph pairs 0
+pol @adj10_47_5 @adj10_47_9 + @adj10_47_11 + @adj10_47_18 + s ;
+ia 1 ~x10_47 >= 1 : 8103 ;
+del id 8103 ;
+% cannot map 11 to 12 due to degrees in graph pairs 0
+pol @adj11_12_5 @adj11_12_10 + @adj11_12_18 + @adj11_12_19 + @adj11_12_24 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x11_12 >= 1 : 8105 ;
+del id 8105 ;
+% cannot map 11 to 16 due to degrees in graph pairs 0
+pol @adj11_16_5 @adj11_16_10 + @adj11_16_18 + @adj11_16_19 + @adj11_16_24 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x11_16 >= 1 : 8107 ;
+del id 8107 ;
+% cannot map 11 to 17 due to degrees in graph pairs 0
+pol @adj11_17_5 @adj11_17_10 + @adj11_17_18 + @adj11_17_19 + @adj11_17_24 + @inj14 + @inj15 + s ;
+ia 1 ~x11_17 >= 1 : 8109 ;
+del id 8109 ;
+% cannot map 11 to 18 due to degrees in graph pairs 0
+pol @adj11_18_5 @adj11_18_10 + @adj11_18_18 + @adj11_18_19 + @adj11_18_24 + @inj15 + s ;
+ia 1 ~x11_18 >= 1 : 8111 ;
+del id 8111 ;
+% cannot map 11 to 19 due to degrees in graph pairs 0
+pol @adj11_19_5 @adj11_19_10 + @adj11_19_18 + @adj11_19_19 + @adj11_19_24 + s ;
+ia 1 ~x11_19 >= 1 : 8113 ;
+del id 8113 ;
+% cannot map 11 to 20 due to degrees in graph pairs 0
+pol @adj11_20_5 @adj11_20_10 + @adj11_20_18 + @adj11_20_19 + @adj11_20_24 + @inj8 + @inj9 + s ;
+ia 1 ~x11_20 >= 1 : 8115 ;
+del id 8115 ;
+% cannot map 11 to 21 due to degrees in graph pairs 0
+pol @adj11_21_5 @adj11_21_10 + @adj11_21_18 + @adj11_21_19 + @adj11_21_24 + @inj8 + @inj9 + s ;
+ia 1 ~x11_21 >= 1 : 8117 ;
+del id 8117 ;
+% cannot map 11 to 22 due to degrees in graph pairs 0
+pol @adj11_22_5 @adj11_22_10 + @adj11_22_18 + @adj11_22_19 + @adj11_22_24 + @inj8 + @inj9 + s ;
+ia 1 ~x11_22 >= 1 : 8119 ;
+del id 8119 ;
+% cannot map 11 to 23 due to degrees in graph pairs 0
+pol @adj11_23_5 @adj11_23_10 + @adj11_23_18 + @adj11_23_19 + @adj11_23_24 + @inj8 + @inj9 + s ;
+ia 1 ~x11_23 >= 1 : 8121 ;
+del id 8121 ;
+% cannot map 11 to 24 due to degrees in graph pairs 0
+pol @adj11_24_5 @adj11_24_10 + @adj11_24_18 + @adj11_24_19 + @adj11_24_24 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x11_24 >= 1 : 8123 ;
+del id 8123 ;
+% cannot map 11 to 25 due to degrees in graph pairs 0
+pol @adj11_25_5 @adj11_25_10 + @adj11_25_18 + @adj11_25_19 + @adj11_25_24 + @inj1 + @inj9 + s ;
+ia 1 ~x11_25 >= 1 : 8125 ;
+del id 8125 ;
+% cannot map 11 to 26 due to degrees in graph pairs 0
+pol @adj11_26_5 @adj11_26_10 + @adj11_26_18 + @adj11_26_19 + @adj11_26_24 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x11_26 >= 1 : 8127 ;
+del id 8127 ;
+% cannot map 11 to 41 due to degrees in graph pairs 0
+pol @adj11_41_5 @adj11_41_10 + @adj11_41_18 + @adj11_41_19 + @adj11_41_24 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x11_41 >= 1 : 8129 ;
+del id 8129 ;
+% cannot map 11 to 42 due to degrees in graph pairs 0
+pol @adj11_42_5 @adj11_42_10 + @adj11_42_18 + @adj11_42_19 + @adj11_42_24 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x11_42 >= 1 : 8131 ;
+del id 8131 ;
+% cannot map 11 to 43 due to degrees in graph pairs 0
+pol @adj11_43_5 @adj11_43_10 + @adj11_43_18 + @adj11_43_19 + @adj11_43_24 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x11_43 >= 1 : 8133 ;
+del id 8133 ;
+% cannot map 11 to 44 due to degrees in graph pairs 0
+pol @adj11_44_5 @adj11_44_10 + @adj11_44_18 + @adj11_44_19 + @adj11_44_24 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x11_44 >= 1 : 8135 ;
+del id 8135 ;
+% cannot map 11 to 45 due to degrees in graph pairs 0
+pol @adj11_45_5 @adj11_45_10 + @adj11_45_18 + @adj11_45_19 + @adj11_45_24 + @inj5 + @inj6 + s ;
+ia 1 ~x11_45 >= 1 : 8137 ;
+del id 8137 ;
+% cannot map 11 to 46 due to degrees in graph pairs 0
+pol @adj11_46_5 @adj11_46_10 + @adj11_46_18 + @adj11_46_19 + @adj11_46_24 + s ;
+ia 1 ~x11_46 >= 1 : 8139 ;
+del id 8139 ;
+% cannot map 11 to 47 due to degrees in graph pairs 0
+pol @adj11_47_5 @adj11_47_10 + @adj11_47_18 + @adj11_47_19 + @adj11_47_24 + s ;
+ia 1 ~x11_47 >= 1 : 8141 ;
+del id 8141 ;
+% cannot map 12 to 18 due to degrees in graph pairs 0
+pol @adj12_18_6 @adj12_18_20 + @inj15 + s ;
+ia 1 ~x12_18 >= 1 : 8143 ;
+del id 8143 ;
+% cannot map 12 to 19 due to degrees in graph pairs 0
+pol @adj12_19_6 @adj12_19_20 + s ;
+ia 1 ~x12_19 >= 1 : 8145 ;
+del id 8145 ;
+% cannot map 12 to 46 due to degrees in graph pairs 0
+pol @adj12_46_6 @adj12_46_20 + s ;
+ia 1 ~x12_46 >= 1 : 8147 ;
+del id 8147 ;
+% cannot map 12 to 47 due to degrees in graph pairs 0
+pol @adj12_47_6 @adj12_47_20 + s ;
+ia 1 ~x12_47 >= 1 : 8149 ;
+del id 8149 ;
+% cannot map 13 to 17 due to degrees in graph pairs 0
+pol @adj13_17_6 @adj13_17_14 + @adj13_17_20 + @inj14 + @inj15 + s ;
+ia 1 ~x13_17 >= 1 : 8151 ;
+del id 8151 ;
+% cannot map 13 to 18 due to degrees in graph pairs 0
+pol @adj13_18_6 @adj13_18_14 + @adj13_18_20 + @inj15 + s ;
+ia 1 ~x13_18 >= 1 : 8153 ;
+del id 8153 ;
+% cannot map 13 to 19 due to degrees in graph pairs 0
+pol @adj13_19_6 @adj13_19_14 + @adj13_19_20 + s ;
+ia 1 ~x13_19 >= 1 : 8155 ;
+del id 8155 ;
+% cannot map 13 to 20 due to degrees in graph pairs 0
+pol @adj13_20_6 @adj13_20_14 + @adj13_20_20 + @inj8 + @inj9 + s ;
+ia 1 ~x13_20 >= 1 : 8157 ;
+del id 8157 ;
+% cannot map 13 to 21 due to degrees in graph pairs 0
+pol @adj13_21_6 @adj13_21_14 + @adj13_21_20 + @inj8 + @inj9 + s ;
+ia 1 ~x13_21 >= 1 : 8159 ;
+del id 8159 ;
+% cannot map 13 to 22 due to degrees in graph pairs 0
+pol @adj13_22_6 @adj13_22_14 + @adj13_22_20 + @inj8 + @inj9 + s ;
+ia 1 ~x13_22 >= 1 : 8161 ;
+del id 8161 ;
+% cannot map 13 to 23 due to degrees in graph pairs 0
+pol @adj13_23_6 @adj13_23_14 + @adj13_23_20 + @inj8 + @inj9 + s ;
+ia 1 ~x13_23 >= 1 : 8163 ;
+del id 8163 ;
+% cannot map 13 to 25 due to degrees in graph pairs 0
+pol @adj13_25_6 @adj13_25_14 + @adj13_25_20 + @inj1 + @inj9 + s ;
+ia 1 ~x13_25 >= 1 : 8165 ;
+del id 8165 ;
+% cannot map 13 to 45 due to degrees in graph pairs 0
+pol @adj13_45_6 @adj13_45_14 + @adj13_45_20 + @inj5 + @inj6 + s ;
+ia 1 ~x13_45 >= 1 : 8167 ;
+del id 8167 ;
+% cannot map 13 to 46 due to degrees in graph pairs 0
+pol @adj13_46_6 @adj13_46_14 + @adj13_46_20 + s ;
+ia 1 ~x13_46 >= 1 : 8169 ;
+del id 8169 ;
+% cannot map 13 to 47 due to degrees in graph pairs 0
+pol @adj13_47_6 @adj13_47_14 + @adj13_47_20 + s ;
+ia 1 ~x13_47 >= 1 : 8171 ;
+del id 8171 ;
+% cannot map 14 to 16 due to degrees in graph pairs 0
+pol @adj14_16_2 @adj14_16_13 + @adj14_16_15 + @adj14_16_20 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x14_16 >= 1 : 8173 ;
+del id 8173 ;
+% cannot map 14 to 17 due to degrees in graph pairs 0
+pol @adj14_17_2 @adj14_17_13 + @adj14_17_15 + @adj14_17_20 + @inj14 + @inj15 + s ;
+ia 1 ~x14_17 >= 1 : 8175 ;
+del id 8175 ;
+% cannot map 14 to 18 due to degrees in graph pairs 0
+pol @adj14_18_2 @adj14_18_13 + @adj14_18_15 + @adj14_18_20 + @inj15 + s ;
+ia 1 ~x14_18 >= 1 : 8177 ;
+del id 8177 ;
+% cannot map 14 to 19 due to degrees in graph pairs 0
+pol @adj14_19_2 @adj14_19_13 + @adj14_19_15 + @adj14_19_20 + s ;
+ia 1 ~x14_19 >= 1 : 8179 ;
+del id 8179 ;
+% cannot map 14 to 20 due to degrees in graph pairs 0
+pol @adj14_20_2 @adj14_20_13 + @adj14_20_15 + @adj14_20_20 + @inj8 + @inj9 + s ;
+ia 1 ~x14_20 >= 1 : 8181 ;
+del id 8181 ;
+% cannot map 14 to 21 due to degrees in graph pairs 0
+pol @adj14_21_2 @adj14_21_13 + @adj14_21_15 + @adj14_21_20 + @inj8 + @inj9 + s ;
+ia 1 ~x14_21 >= 1 : 8183 ;
+del id 8183 ;
+% cannot map 14 to 22 due to degrees in graph pairs 0
+pol @adj14_22_2 @adj14_22_13 + @adj14_22_15 + @adj14_22_20 + @inj8 + @inj9 + s ;
+ia 1 ~x14_22 >= 1 : 8185 ;
+del id 8185 ;
+% cannot map 14 to 23 due to degrees in graph pairs 0
+pol @adj14_23_2 @adj14_23_13 + @adj14_23_15 + @adj14_23_20 + @inj8 + @inj9 + s ;
+ia 1 ~x14_23 >= 1 : 8187 ;
+del id 8187 ;
+% cannot map 14 to 24 due to degrees in graph pairs 0
+pol @adj14_24_2 @adj14_24_13 + @adj14_24_15 + @adj14_24_20 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x14_24 >= 1 : 8189 ;
+del id 8189 ;
+% cannot map 14 to 25 due to degrees in graph pairs 0
+pol @adj14_25_2 @adj14_25_13 + @adj14_25_15 + @adj14_25_20 + @inj1 + @inj9 + s ;
+ia 1 ~x14_25 >= 1 : 8191 ;
+del id 8191 ;
+% cannot map 14 to 26 due to degrees in graph pairs 0
+pol @adj14_26_2 @adj14_26_13 + @adj14_26_15 + @adj14_26_20 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x14_26 >= 1 : 8193 ;
+del id 8193 ;
+% cannot map 14 to 43 due to degrees in graph pairs 0
+pol @adj14_43_2 @adj14_43_13 + @adj14_43_15 + @adj14_43_20 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x14_43 >= 1 : 8195 ;
+del id 8195 ;
+% cannot map 14 to 44 due to degrees in graph pairs 0
+pol @adj14_44_2 @adj14_44_13 + @adj14_44_15 + @adj14_44_20 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x14_44 >= 1 : 8197 ;
+del id 8197 ;
+% cannot map 14 to 45 due to degrees in graph pairs 0
+pol @adj14_45_2 @adj14_45_13 + @adj14_45_15 + @adj14_45_20 + @inj5 + @inj6 + s ;
+ia 1 ~x14_45 >= 1 : 8199 ;
+del id 8199 ;
+% cannot map 14 to 46 due to degrees in graph pairs 0
+pol @adj14_46_2 @adj14_46_13 + @adj14_46_15 + @adj14_46_20 + s ;
+ia 1 ~x14_46 >= 1 : 8201 ;
+del id 8201 ;
+% cannot map 14 to 47 due to degrees in graph pairs 0
+pol @adj14_47_2 @adj14_47_13 + @adj14_47_15 + @adj14_47_20 + s ;
+ia 1 ~x14_47 >= 1 : 8203 ;
+del id 8203 ;
+% cannot map 15 to 16 due to degrees in graph pairs 0
+pol @adj15_16_7 @adj15_16_14 + @adj15_16_16 + @adj15_16_21 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x15_16 >= 1 : 8205 ;
+del id 8205 ;
+% cannot map 15 to 17 due to degrees in graph pairs 0
+pol @adj15_17_7 @adj15_17_14 + @adj15_17_16 + @adj15_17_21 + @inj14 + @inj15 + s ;
+ia 1 ~x15_17 >= 1 : 8207 ;
+del id 8207 ;
+% cannot map 15 to 18 due to degrees in graph pairs 0
+pol @adj15_18_7 @adj15_18_14 + @adj15_18_16 + @adj15_18_21 + @inj15 + s ;
+ia 1 ~x15_18 >= 1 : 8209 ;
+del id 8209 ;
+% cannot map 15 to 19 due to degrees in graph pairs 0
+pol @adj15_19_7 @adj15_19_14 + @adj15_19_16 + @adj15_19_21 + s ;
+ia 1 ~x15_19 >= 1 : 8211 ;
+del id 8211 ;
+% cannot map 15 to 20 due to degrees in graph pairs 0
+pol @adj15_20_7 @adj15_20_14 + @adj15_20_16 + @adj15_20_21 + @inj8 + @inj9 + s ;
+ia 1 ~x15_20 >= 1 : 8213 ;
+del id 8213 ;
+% cannot map 15 to 21 due to degrees in graph pairs 0
+pol @adj15_21_7 @adj15_21_14 + @adj15_21_16 + @adj15_21_21 + @inj8 + @inj9 + s ;
+ia 1 ~x15_21 >= 1 : 8215 ;
+del id 8215 ;
+% cannot map 15 to 22 due to degrees in graph pairs 0
+pol @adj15_22_7 @adj15_22_14 + @adj15_22_16 + @adj15_22_21 + @inj8 + @inj9 + s ;
+ia 1 ~x15_22 >= 1 : 8217 ;
+del id 8217 ;
+% cannot map 15 to 23 due to degrees in graph pairs 0
+pol @adj15_23_7 @adj15_23_14 + @adj15_23_16 + @adj15_23_21 + @inj8 + @inj9 + s ;
+ia 1 ~x15_23 >= 1 : 8219 ;
+del id 8219 ;
+% cannot map 15 to 24 due to degrees in graph pairs 0
+pol @adj15_24_7 @adj15_24_14 + @adj15_24_16 + @adj15_24_21 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x15_24 >= 1 : 8221 ;
+del id 8221 ;
+% cannot map 15 to 25 due to degrees in graph pairs 0
+pol @adj15_25_7 @adj15_25_14 + @adj15_25_16 + @adj15_25_21 + @inj1 + @inj9 + s ;
+ia 1 ~x15_25 >= 1 : 8223 ;
+del id 8223 ;
+% cannot map 15 to 26 due to degrees in graph pairs 0
+pol @adj15_26_7 @adj15_26_14 + @adj15_26_16 + @adj15_26_21 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x15_26 >= 1 : 8225 ;
+del id 8225 ;
+% cannot map 15 to 43 due to degrees in graph pairs 0
+pol @adj15_43_7 @adj15_43_14 + @adj15_43_16 + @adj15_43_21 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x15_43 >= 1 : 8227 ;
+del id 8227 ;
+% cannot map 15 to 44 due to degrees in graph pairs 0
+pol @adj15_44_7 @adj15_44_14 + @adj15_44_16 + @adj15_44_21 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x15_44 >= 1 : 8229 ;
+del id 8229 ;
+% cannot map 15 to 45 due to degrees in graph pairs 0
+pol @adj15_45_7 @adj15_45_14 + @adj15_45_16 + @adj15_45_21 + @inj5 + @inj6 + s ;
+ia 1 ~x15_45 >= 1 : 8231 ;
+del id 8231 ;
+% cannot map 15 to 46 due to degrees in graph pairs 0
+pol @adj15_46_7 @adj15_46_14 + @adj15_46_16 + @adj15_46_21 + s ;
+ia 1 ~x15_46 >= 1 : 8233 ;
+del id 8233 ;
+% cannot map 15 to 47 due to degrees in graph pairs 0
+pol @adj15_47_7 @adj15_47_14 + @adj15_47_16 + @adj15_47_21 + s ;
+ia 1 ~x15_47 >= 1 : 8235 ;
+del id 8235 ;
+% cannot map 16 to 16 due to degrees in graph pairs 0
+pol @adj16_16_8 @adj16_16_15 + @adj16_16_17 + @adj16_16_22 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x16_16 >= 1 : 8237 ;
+del id 8237 ;
+% cannot map 16 to 17 due to degrees in graph pairs 0
+pol @adj16_17_8 @adj16_17_15 + @adj16_17_17 + @adj16_17_22 + @inj14 + @inj15 + s ;
+ia 1 ~x16_17 >= 1 : 8239 ;
+del id 8239 ;
+% cannot map 16 to 18 due to degrees in graph pairs 0
+pol @adj16_18_8 @adj16_18_15 + @adj16_18_17 + @adj16_18_22 + @inj15 + s ;
+ia 1 ~x16_18 >= 1 : 8241 ;
+del id 8241 ;
+% cannot map 16 to 19 due to degrees in graph pairs 0
+pol @adj16_19_8 @adj16_19_15 + @adj16_19_17 + @adj16_19_22 + s ;
+ia 1 ~x16_19 >= 1 : 8243 ;
+del id 8243 ;
+% cannot map 16 to 20 due to degrees in graph pairs 0
+pol @adj16_20_8 @adj16_20_15 + @adj16_20_17 + @adj16_20_22 + @inj8 + @inj9 + s ;
+ia 1 ~x16_20 >= 1 : 8245 ;
+del id 8245 ;
+% cannot map 16 to 21 due to degrees in graph pairs 0
+pol @adj16_21_8 @adj16_21_15 + @adj16_21_17 + @adj16_21_22 + @inj8 + @inj9 + s ;
+ia 1 ~x16_21 >= 1 : 8247 ;
+del id 8247 ;
+% cannot map 16 to 22 due to degrees in graph pairs 0
+pol @adj16_22_8 @adj16_22_15 + @adj16_22_17 + @adj16_22_22 + @inj8 + @inj9 + s ;
+ia 1 ~x16_22 >= 1 : 8249 ;
+del id 8249 ;
+% cannot map 16 to 23 due to degrees in graph pairs 0
+pol @adj16_23_8 @adj16_23_15 + @adj16_23_17 + @adj16_23_22 + @inj8 + @inj9 + s ;
+ia 1 ~x16_23 >= 1 : 8251 ;
+del id 8251 ;
+% cannot map 16 to 24 due to degrees in graph pairs 0
+pol @adj16_24_8 @adj16_24_15 + @adj16_24_17 + @adj16_24_22 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x16_24 >= 1 : 8253 ;
+del id 8253 ;
+% cannot map 16 to 25 due to degrees in graph pairs 0
+pol @adj16_25_8 @adj16_25_15 + @adj16_25_17 + @adj16_25_22 + @inj1 + @inj9 + s ;
+ia 1 ~x16_25 >= 1 : 8255 ;
+del id 8255 ;
+% cannot map 16 to 26 due to degrees in graph pairs 0
+pol @adj16_26_8 @adj16_26_15 + @adj16_26_17 + @adj16_26_22 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x16_26 >= 1 : 8257 ;
+del id 8257 ;
+% cannot map 16 to 43 due to degrees in graph pairs 0
+pol @adj16_43_8 @adj16_43_15 + @adj16_43_17 + @adj16_43_22 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x16_43 >= 1 : 8259 ;
+del id 8259 ;
+% cannot map 16 to 44 due to degrees in graph pairs 0
+pol @adj16_44_8 @adj16_44_15 + @adj16_44_17 + @adj16_44_22 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x16_44 >= 1 : 8261 ;
+del id 8261 ;
+% cannot map 16 to 45 due to degrees in graph pairs 0
+pol @adj16_45_8 @adj16_45_15 + @adj16_45_17 + @adj16_45_22 + @inj5 + @inj6 + s ;
+ia 1 ~x16_45 >= 1 : 8263 ;
+del id 8263 ;
+% cannot map 16 to 46 due to degrees in graph pairs 0
+pol @adj16_46_8 @adj16_46_15 + @adj16_46_17 + @adj16_46_22 + s ;
+ia 1 ~x16_46 >= 1 : 8265 ;
+del id 8265 ;
+% cannot map 16 to 47 due to degrees in graph pairs 0
+pol @adj16_47_8 @adj16_47_15 + @adj16_47_17 + @adj16_47_22 + s ;
+ia 1 ~x16_47 >= 1 : 8267 ;
+del id 8267 ;
+% cannot map 17 to 12 due to degrees in graph pairs 0
+pol @adj17_12_9 @adj17_12_16 + @adj17_12_18 + @adj17_12_22 + @adj17_12_23 + @adj17_12_29 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x17_12 >= 1 : 8269 ;
+del id 8269 ;
+% cannot map 17 to 16 due to degrees in graph pairs 0
+pol @adj17_16_9 @adj17_16_16 + @adj17_16_18 + @adj17_16_22 + @adj17_16_23 + @adj17_16_29 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x17_16 >= 1 : 8271 ;
+del id 8271 ;
+% cannot map 17 to 17 due to degrees in graph pairs 0
+pol @adj17_17_9 @adj17_17_16 + @adj17_17_18 + @adj17_17_22 + @adj17_17_23 + @adj17_17_29 + @inj14 + @inj15 + s ;
+ia 1 ~x17_17 >= 1 : 8273 ;
+del id 8273 ;
+% cannot map 17 to 18 due to degrees in graph pairs 0
+pol @adj17_18_9 @adj17_18_16 + @adj17_18_18 + @adj17_18_22 + @adj17_18_23 + @adj17_18_29 + @inj15 + s ;
+ia 1 ~x17_18 >= 1 : 8275 ;
+del id 8275 ;
+% cannot map 17 to 19 due to degrees in graph pairs 0
+pol @adj17_19_9 @adj17_19_16 + @adj17_19_18 + @adj17_19_22 + @adj17_19_23 + @adj17_19_29 + s ;
+ia 1 ~x17_19 >= 1 : 8277 ;
+del id 8277 ;
+% cannot map 17 to 20 due to degrees in graph pairs 0
+pol @adj17_20_9 @adj17_20_16 + @adj17_20_18 + @adj17_20_22 + @adj17_20_23 + @adj17_20_29 + @inj8 + @inj9 + s ;
+ia 1 ~x17_20 >= 1 : 8279 ;
+del id 8279 ;
+% cannot map 17 to 21 due to degrees in graph pairs 0
+pol @adj17_21_9 @adj17_21_16 + @adj17_21_18 + @adj17_21_22 + @adj17_21_23 + @adj17_21_29 + @inj8 + @inj9 + s ;
+ia 1 ~x17_21 >= 1 : 8281 ;
+del id 8281 ;
+% cannot map 17 to 22 due to degrees in graph pairs 0
+pol @adj17_22_9 @adj17_22_16 + @adj17_22_18 + @adj17_22_22 + @adj17_22_23 + @adj17_22_29 + @inj8 + @inj9 + s ;
+ia 1 ~x17_22 >= 1 : 8283 ;
+del id 8283 ;
+% cannot map 17 to 23 due to degrees in graph pairs 0
+pol @adj17_23_9 @adj17_23_16 + @adj17_23_18 + @adj17_23_22 + @adj17_23_23 + @adj17_23_29 + @inj8 + @inj9 + s ;
+ia 1 ~x17_23 >= 1 : 8285 ;
+del id 8285 ;
+% cannot map 17 to 24 due to degrees in graph pairs 0
+pol @adj17_24_9 @adj17_24_16 + @adj17_24_18 + @adj17_24_22 + @adj17_24_23 + @adj17_24_29 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x17_24 >= 1 : 8287 ;
+del id 8287 ;
+% cannot map 17 to 25 due to degrees in graph pairs 0
+pol @adj17_25_9 @adj17_25_16 + @adj17_25_18 + @adj17_25_22 + @adj17_25_23 + @adj17_25_29 + @inj1 + @inj9 + s ;
+ia 1 ~x17_25 >= 1 : 8289 ;
+del id 8289 ;
+% cannot map 17 to 26 due to degrees in graph pairs 0
+pol @adj17_26_9 @adj17_26_16 + @adj17_26_18 + @adj17_26_22 + @adj17_26_23 + @adj17_26_29 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x17_26 >= 1 : 8291 ;
+del id 8291 ;
+% cannot map 17 to 27 due to degrees in graph pairs 0
+pol @adj17_27_9 @adj17_27_16 + @adj17_27_18 + @adj17_27_22 + @adj17_27_23 + @adj17_27_29 + @inj1 + @inj2 + @inj3 + @inj9 + @inj14 + s ;
+ia 1 ~x17_27 >= 1 : 8293 ;
+del id 8293 ;
+% cannot map 17 to 40 due to degrees in graph pairs 0
+pol @adj17_40_9 @adj17_40_16 + @adj17_40_18 + @adj17_40_22 + @adj17_40_23 + @adj17_40_29 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + s ;
+ia 1 ~x17_40 >= 1 : 8295 ;
+del id 8295 ;
+% cannot map 17 to 41 due to degrees in graph pairs 0
+pol @adj17_41_9 @adj17_41_16 + @adj17_41_18 + @adj17_41_22 + @adj17_41_23 + @adj17_41_29 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x17_41 >= 1 : 8297 ;
+del id 8297 ;
+% cannot map 17 to 42 due to degrees in graph pairs 0
+pol @adj17_42_9 @adj17_42_16 + @adj17_42_18 + @adj17_42_22 + @adj17_42_23 + @adj17_42_29 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x17_42 >= 1 : 8299 ;
+del id 8299 ;
+% cannot map 17 to 43 due to degrees in graph pairs 0
+pol @adj17_43_9 @adj17_43_16 + @adj17_43_18 + @adj17_43_22 + @adj17_43_23 + @adj17_43_29 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x17_43 >= 1 : 8301 ;
+del id 8301 ;
+% cannot map 17 to 44 due to degrees in graph pairs 0
+pol @adj17_44_9 @adj17_44_16 + @adj17_44_18 + @adj17_44_22 + @adj17_44_23 + @adj17_44_29 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x17_44 >= 1 : 8303 ;
+del id 8303 ;
+% cannot map 17 to 45 due to degrees in graph pairs 0
+pol @adj17_45_9 @adj17_45_16 + @adj17_45_18 + @adj17_45_22 + @adj17_45_23 + @adj17_45_29 + @inj5 + @inj6 + s ;
+ia 1 ~x17_45 >= 1 : 8305 ;
+del id 8305 ;
+% cannot map 17 to 46 due to degrees in graph pairs 0
+pol @adj17_46_9 @adj17_46_16 + @adj17_46_18 + @adj17_46_22 + @adj17_46_23 + @adj17_46_29 + s ;
+ia 1 ~x17_46 >= 1 : 8307 ;
+del id 8307 ;
+% cannot map 17 to 47 due to degrees in graph pairs 0
+pol @adj17_47_9 @adj17_47_16 + @adj17_47_18 + @adj17_47_22 + @adj17_47_23 + @adj17_47_29 + s ;
+ia 1 ~x17_47 >= 1 : 8309 ;
+del id 8309 ;
+% cannot map 18 to 16 due to degrees in graph pairs 0
+pol @adj18_16_10 @adj18_16_11 + @adj18_16_17 + @adj18_16_23 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x18_16 >= 1 : 8311 ;
+del id 8311 ;
+% cannot map 18 to 17 due to degrees in graph pairs 0
+pol @adj18_17_10 @adj18_17_11 + @adj18_17_17 + @adj18_17_23 + @inj14 + @inj15 + s ;
+ia 1 ~x18_17 >= 1 : 8313 ;
+del id 8313 ;
+% cannot map 18 to 18 due to degrees in graph pairs 0
+pol @adj18_18_10 @adj18_18_11 + @adj18_18_17 + @adj18_18_23 + @inj15 + s ;
+ia 1 ~x18_18 >= 1 : 8315 ;
+del id 8315 ;
+% cannot map 18 to 19 due to degrees in graph pairs 0
+pol @adj18_19_10 @adj18_19_11 + @adj18_19_17 + @adj18_19_23 + s ;
+ia 1 ~x18_19 >= 1 : 8317 ;
+del id 8317 ;
+% cannot map 18 to 20 due to degrees in graph pairs 0
+pol @adj18_20_10 @adj18_20_11 + @adj18_20_17 + @adj18_20_23 + @inj8 + @inj9 + s ;
+ia 1 ~x18_20 >= 1 : 8319 ;
+del id 8319 ;
+% cannot map 18 to 21 due to degrees in graph pairs 0
+pol @adj18_21_10 @adj18_21_11 + @adj18_21_17 + @adj18_21_23 + @inj8 + @inj9 + s ;
+ia 1 ~x18_21 >= 1 : 8321 ;
+del id 8321 ;
+% cannot map 18 to 22 due to degrees in graph pairs 0
+pol @adj18_22_10 @adj18_22_11 + @adj18_22_17 + @adj18_22_23 + @inj8 + @inj9 + s ;
+ia 1 ~x18_22 >= 1 : 8323 ;
+del id 8323 ;
+% cannot map 18 to 23 due to degrees in graph pairs 0
+pol @adj18_23_10 @adj18_23_11 + @adj18_23_17 + @adj18_23_23 + @inj8 + @inj9 + s ;
+ia 1 ~x18_23 >= 1 : 8325 ;
+del id 8325 ;
+% cannot map 18 to 24 due to degrees in graph pairs 0
+pol @adj18_24_10 @adj18_24_11 + @adj18_24_17 + @adj18_24_23 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x18_24 >= 1 : 8327 ;
+del id 8327 ;
+% cannot map 18 to 25 due to degrees in graph pairs 0
+pol @adj18_25_10 @adj18_25_11 + @adj18_25_17 + @adj18_25_23 + @inj1 + @inj9 + s ;
+ia 1 ~x18_25 >= 1 : 8329 ;
+del id 8329 ;
+% cannot map 18 to 26 due to degrees in graph pairs 0
+pol @adj18_26_10 @adj18_26_11 + @adj18_26_17 + @adj18_26_23 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x18_26 >= 1 : 8331 ;
+del id 8331 ;
+% cannot map 18 to 43 due to degrees in graph pairs 0
+pol @adj18_43_10 @adj18_43_11 + @adj18_43_17 + @adj18_43_23 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x18_43 >= 1 : 8333 ;
+del id 8333 ;
+% cannot map 18 to 44 due to degrees in graph pairs 0
+pol @adj18_44_10 @adj18_44_11 + @adj18_44_17 + @adj18_44_23 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x18_44 >= 1 : 8335 ;
+del id 8335 ;
+% cannot map 18 to 45 due to degrees in graph pairs 0
+pol @adj18_45_10 @adj18_45_11 + @adj18_45_17 + @adj18_45_23 + @inj5 + @inj6 + s ;
+ia 1 ~x18_45 >= 1 : 8337 ;
+del id 8337 ;
+% cannot map 18 to 46 due to degrees in graph pairs 0
+pol @adj18_46_10 @adj18_46_11 + @adj18_46_17 + @adj18_46_23 + s ;
+ia 1 ~x18_46 >= 1 : 8339 ;
+del id 8339 ;
+% cannot map 18 to 47 due to degrees in graph pairs 0
+pol @adj18_47_10 @adj18_47_11 + @adj18_47_17 + @adj18_47_23 + s ;
+ia 1 ~x18_47 >= 1 : 8341 ;
+del id 8341 ;
+% cannot map 19 to 18 due to degrees in graph pairs 0
+pol @adj19_18_11 @adj19_18_25 + @inj15 + s ;
+ia 1 ~x19_18 >= 1 : 8343 ;
+del id 8343 ;
+% cannot map 19 to 19 due to degrees in graph pairs 0
+pol @adj19_19_11 @adj19_19_25 + s ;
+ia 1 ~x19_19 >= 1 : 8345 ;
+del id 8345 ;
+% cannot map 19 to 46 due to degrees in graph pairs 0
+pol @adj19_46_11 @adj19_46_25 + s ;
+ia 1 ~x19_46 >= 1 : 8347 ;
+del id 8347 ;
+% cannot map 19 to 47 due to degrees in graph pairs 0
+pol @adj19_47_11 @adj19_47_25 + s ;
+ia 1 ~x19_47 >= 1 : 8349 ;
+del id 8349 ;
+% cannot map 20 to 11 due to degrees in graph pairs 0
+pol @adj20_11_6 @adj20_11_12 + @adj20_11_13 + @adj20_11_14 + @adj20_11_21 + @adj20_11_26 + @adj20_11_27 + @adj20_11_31 + @adj20_11_35 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + s ;
+ia 1 ~x20_11 >= 1 : 8351 ;
+del id 8351 ;
+% cannot map 20 to 12 due to degrees in graph pairs 0
+pol @adj20_12_6 @adj20_12_12 + @adj20_12_13 + @adj20_12_14 + @adj20_12_21 + @adj20_12_26 + @adj20_12_27 + @adj20_12_31 + @adj20_12_35 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x20_12 >= 1 : 8353 ;
+del id 8353 ;
+% cannot map 20 to 13 due to degrees in graph pairs 0
+pol @adj20_13_6 @adj20_13_12 + @adj20_13_13 + @adj20_13_14 + @adj20_13_21 + @adj20_13_26 + @adj20_13_27 + @adj20_13_31 + @adj20_13_35 + @inj16 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + s ;
+ia 1 ~x20_13 >= 1 : 8355 ;
+del id 8355 ;
+% cannot map 20 to 16 due to degrees in graph pairs 0
+pol @adj20_16_6 @adj20_16_12 + @adj20_16_13 + @adj20_16_14 + @adj20_16_21 + @adj20_16_26 + @adj20_16_27 + @adj20_16_31 + @adj20_16_35 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x20_16 >= 1 : 8357 ;
+del id 8357 ;
+% cannot map 20 to 17 due to degrees in graph pairs 0
+pol @adj20_17_6 @adj20_17_12 + @adj20_17_13 + @adj20_17_14 + @adj20_17_21 + @adj20_17_26 + @adj20_17_27 + @adj20_17_31 + @adj20_17_35 + @inj14 + @inj15 + s ;
+ia 1 ~x20_17 >= 1 : 8359 ;
+del id 8359 ;
+% cannot map 20 to 18 due to degrees in graph pairs 0
+pol @adj20_18_6 @adj20_18_12 + @adj20_18_13 + @adj20_18_14 + @adj20_18_21 + @adj20_18_26 + @adj20_18_27 + @adj20_18_31 + @adj20_18_35 + @inj15 + s ;
+ia 1 ~x20_18 >= 1 : 8361 ;
+del id 8361 ;
+% cannot map 20 to 19 due to degrees in graph pairs 0
+pol @adj20_19_6 @adj20_19_12 + @adj20_19_13 + @adj20_19_14 + @adj20_19_21 + @adj20_19_26 + @adj20_19_27 + @adj20_19_31 + @adj20_19_35 + s ;
+ia 1 ~x20_19 >= 1 : 8363 ;
+del id 8363 ;
+% cannot map 20 to 20 due to degrees in graph pairs 0
+pol @adj20_20_6 @adj20_20_12 + @adj20_20_13 + @adj20_20_14 + @adj20_20_21 + @adj20_20_26 + @adj20_20_27 + @adj20_20_31 + @adj20_20_35 + @inj8 + @inj9 + s ;
+ia 1 ~x20_20 >= 1 : 8365 ;
+del id 8365 ;
+% cannot map 20 to 21 due to degrees in graph pairs 0
+pol @adj20_21_6 @adj20_21_12 + @adj20_21_13 + @adj20_21_14 + @adj20_21_21 + @adj20_21_26 + @adj20_21_27 + @adj20_21_31 + @adj20_21_35 + @inj8 + @inj9 + s ;
+ia 1 ~x20_21 >= 1 : 8367 ;
+del id 8367 ;
+% cannot map 20 to 22 due to degrees in graph pairs 0
+pol @adj20_22_6 @adj20_22_12 + @adj20_22_13 + @adj20_22_14 + @adj20_22_21 + @adj20_22_26 + @adj20_22_27 + @adj20_22_31 + @adj20_22_35 + @inj8 + @inj9 + s ;
+ia 1 ~x20_22 >= 1 : 8369 ;
+del id 8369 ;
+% cannot map 20 to 23 due to degrees in graph pairs 0
+pol @adj20_23_6 @adj20_23_12 + @adj20_23_13 + @adj20_23_14 + @adj20_23_21 + @adj20_23_26 + @adj20_23_27 + @adj20_23_31 + @adj20_23_35 + @inj8 + @inj9 + s ;
+ia 1 ~x20_23 >= 1 : 8371 ;
+del id 8371 ;
+% cannot map 20 to 24 due to degrees in graph pairs 0
+pol @adj20_24_6 @adj20_24_12 + @adj20_24_13 + @adj20_24_14 + @adj20_24_21 + @adj20_24_26 + @adj20_24_27 + @adj20_24_31 + @adj20_24_35 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x20_24 >= 1 : 8373 ;
+del id 8373 ;
+% cannot map 20 to 25 due to degrees in graph pairs 0
+pol @adj20_25_6 @adj20_25_12 + @adj20_25_13 + @adj20_25_14 + @adj20_25_21 + @adj20_25_26 + @adj20_25_27 + @adj20_25_31 + @adj20_25_35 + @inj1 + @inj9 + s ;
+ia 1 ~x20_25 >= 1 : 8375 ;
+del id 8375 ;
+% cannot map 20 to 26 due to degrees in graph pairs 0
+pol @adj20_26_6 @adj20_26_12 + @adj20_26_13 + @adj20_26_14 + @adj20_26_21 + @adj20_26_26 + @adj20_26_27 + @adj20_26_31 + @adj20_26_35 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x20_26 >= 1 : 8377 ;
+del id 8377 ;
+% cannot map 20 to 27 due to degrees in graph pairs 0
+pol @adj20_27_6 @adj20_27_12 + @adj20_27_13 + @adj20_27_14 + @adj20_27_21 + @adj20_27_26 + @adj20_27_27 + @adj20_27_31 + @adj20_27_35 + @inj1 + @inj2 + @inj3 + @inj9 + @inj14 + s ;
+ia 1 ~x20_27 >= 1 : 8379 ;
+del id 8379 ;
+% cannot map 20 to 39 due to degrees in graph pairs 0
+pol @adj20_39_6 @adj20_39_12 + @adj20_39_13 + @adj20_39_14 + @adj20_39_21 + @adj20_39_26 + @adj20_39_27 + @adj20_39_31 + @adj20_39_35 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj14 + @inj15 + s ;
+ia 1 ~x20_39 >= 1 : 8381 ;
+del id 8381 ;
+% cannot map 20 to 40 due to degrees in graph pairs 0
+pol @adj20_40_6 @adj20_40_12 + @adj20_40_13 + @adj20_40_14 + @adj20_40_21 + @adj20_40_26 + @adj20_40_27 + @adj20_40_31 + @adj20_40_35 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + s ;
+ia 1 ~x20_40 >= 1 : 8383 ;
+del id 8383 ;
+% cannot map 20 to 41 due to degrees in graph pairs 0
+pol @adj20_41_6 @adj20_41_12 + @adj20_41_13 + @adj20_41_14 + @adj20_41_21 + @adj20_41_26 + @adj20_41_27 + @adj20_41_31 + @adj20_41_35 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x20_41 >= 1 : 8385 ;
+del id 8385 ;
+% cannot map 20 to 42 due to degrees in graph pairs 0
+pol @adj20_42_6 @adj20_42_12 + @adj20_42_13 + @adj20_42_14 + @adj20_42_21 + @adj20_42_26 + @adj20_42_27 + @adj20_42_31 + @adj20_42_35 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x20_42 >= 1 : 8387 ;
+del id 8387 ;
+% cannot map 20 to 43 due to degrees in graph pairs 0
+pol @adj20_43_6 @adj20_43_12 + @adj20_43_13 + @adj20_43_14 + @adj20_43_21 + @adj20_43_26 + @adj20_43_27 + @adj20_43_31 + @adj20_43_35 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x20_43 >= 1 : 8389 ;
+del id 8389 ;
+% cannot map 20 to 44 due to degrees in graph pairs 0
+pol @adj20_44_6 @adj20_44_12 + @adj20_44_13 + @adj20_44_14 + @adj20_44_21 + @adj20_44_26 + @adj20_44_27 + @adj20_44_31 + @adj20_44_35 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x20_44 >= 1 : 8391 ;
+del id 8391 ;
+% cannot map 20 to 45 due to degrees in graph pairs 0
+pol @adj20_45_6 @adj20_45_12 + @adj20_45_13 + @adj20_45_14 + @adj20_45_21 + @adj20_45_26 + @adj20_45_27 + @adj20_45_31 + @adj20_45_35 + @inj5 + @inj6 + s ;
+ia 1 ~x20_45 >= 1 : 8393 ;
+del id 8393 ;
+% cannot map 20 to 46 due to degrees in graph pairs 0
+pol @adj20_46_6 @adj20_46_12 + @adj20_46_13 + @adj20_46_14 + @adj20_46_21 + @adj20_46_26 + @adj20_46_27 + @adj20_46_31 + @adj20_46_35 + s ;
+ia 1 ~x20_46 >= 1 : 8395 ;
+del id 8395 ;
+% cannot map 20 to 47 due to degrees in graph pairs 0
+pol @adj20_47_6 @adj20_47_12 + @adj20_47_13 + @adj20_47_14 + @adj20_47_21 + @adj20_47_26 + @adj20_47_27 + @adj20_47_31 + @adj20_47_35 + s ;
+ia 1 ~x20_47 >= 1 : 8397 ;
+del id 8397 ;
+% cannot map 21 to 16 due to degrees in graph pairs 0
+pol @adj21_16_15 @adj21_16_20 + @adj21_16_22 + @adj21_16_28 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x21_16 >= 1 : 8399 ;
+del id 8399 ;
+% cannot map 21 to 17 due to degrees in graph pairs 0
+pol @adj21_17_15 @adj21_17_20 + @adj21_17_22 + @adj21_17_28 + @inj14 + @inj15 + s ;
+ia 1 ~x21_17 >= 1 : 8401 ;
+del id 8401 ;
+% cannot map 21 to 18 due to degrees in graph pairs 0
+pol @adj21_18_15 @adj21_18_20 + @adj21_18_22 + @adj21_18_28 + @inj15 + s ;
+ia 1 ~x21_18 >= 1 : 8403 ;
+del id 8403 ;
+% cannot map 21 to 19 due to degrees in graph pairs 0
+pol @adj21_19_15 @adj21_19_20 + @adj21_19_22 + @adj21_19_28 + s ;
+ia 1 ~x21_19 >= 1 : 8405 ;
+del id 8405 ;
+% cannot map 21 to 20 due to degrees in graph pairs 0
+pol @adj21_20_15 @adj21_20_20 + @adj21_20_22 + @adj21_20_28 + @inj8 + @inj9 + s ;
+ia 1 ~x21_20 >= 1 : 8407 ;
+del id 8407 ;
+% cannot map 21 to 21 due to degrees in graph pairs 0
+pol @adj21_21_15 @adj21_21_20 + @adj21_21_22 + @adj21_21_28 + @inj8 + @inj9 + s ;
+ia 1 ~x21_21 >= 1 : 8409 ;
+del id 8409 ;
+% cannot map 21 to 22 due to degrees in graph pairs 0
+pol @adj21_22_15 @adj21_22_20 + @adj21_22_22 + @adj21_22_28 + @inj8 + @inj9 + s ;
+ia 1 ~x21_22 >= 1 : 8411 ;
+del id 8411 ;
+% cannot map 21 to 23 due to degrees in graph pairs 0
+pol @adj21_23_15 @adj21_23_20 + @adj21_23_22 + @adj21_23_28 + @inj8 + @inj9 + s ;
+ia 1 ~x21_23 >= 1 : 8413 ;
+del id 8413 ;
+% cannot map 21 to 24 due to degrees in graph pairs 0
+pol @adj21_24_15 @adj21_24_20 + @adj21_24_22 + @adj21_24_28 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x21_24 >= 1 : 8415 ;
+del id 8415 ;
+% cannot map 21 to 25 due to degrees in graph pairs 0
+pol @adj21_25_15 @adj21_25_20 + @adj21_25_22 + @adj21_25_28 + @inj1 + @inj9 + s ;
+ia 1 ~x21_25 >= 1 : 8417 ;
+del id 8417 ;
+% cannot map 21 to 26 due to degrees in graph pairs 0
+pol @adj21_26_15 @adj21_26_20 + @adj21_26_22 + @adj21_26_28 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x21_26 >= 1 : 8419 ;
+del id 8419 ;
+% cannot map 21 to 43 due to degrees in graph pairs 0
+pol @adj21_43_15 @adj21_43_20 + @adj21_43_22 + @adj21_43_28 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x21_43 >= 1 : 8421 ;
+del id 8421 ;
+% cannot map 21 to 44 due to degrees in graph pairs 0
+pol @adj21_44_15 @adj21_44_20 + @adj21_44_22 + @adj21_44_28 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x21_44 >= 1 : 8423 ;
+del id 8423 ;
+% cannot map 21 to 45 due to degrees in graph pairs 0
+pol @adj21_45_15 @adj21_45_20 + @adj21_45_22 + @adj21_45_28 + @inj5 + @inj6 + s ;
+ia 1 ~x21_45 >= 1 : 8425 ;
+del id 8425 ;
+% cannot map 21 to 46 due to degrees in graph pairs 0
+pol @adj21_46_15 @adj21_46_20 + @adj21_46_22 + @adj21_46_28 + s ;
+ia 1 ~x21_46 >= 1 : 8427 ;
+del id 8427 ;
+% cannot map 21 to 47 due to degrees in graph pairs 0
+pol @adj21_47_15 @adj21_47_20 + @adj21_47_22 + @adj21_47_28 + s ;
+ia 1 ~x21_47 >= 1 : 8429 ;
+del id 8429 ;
+% cannot map 22 to 16 due to degrees in graph pairs 0
+pol @adj22_16_16 @adj22_16_17 + @adj22_16_21 + @adj22_16_29 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x22_16 >= 1 : 8431 ;
+del id 8431 ;
+% cannot map 22 to 17 due to degrees in graph pairs 0
+pol @adj22_17_16 @adj22_17_17 + @adj22_17_21 + @adj22_17_29 + @inj14 + @inj15 + s ;
+ia 1 ~x22_17 >= 1 : 8433 ;
+del id 8433 ;
+% cannot map 22 to 18 due to degrees in graph pairs 0
+pol @adj22_18_16 @adj22_18_17 + @adj22_18_21 + @adj22_18_29 + @inj15 + s ;
+ia 1 ~x22_18 >= 1 : 8435 ;
+del id 8435 ;
+% cannot map 22 to 19 due to degrees in graph pairs 0
+pol @adj22_19_16 @adj22_19_17 + @adj22_19_21 + @adj22_19_29 + s ;
+ia 1 ~x22_19 >= 1 : 8437 ;
+del id 8437 ;
+% cannot map 22 to 20 due to degrees in graph pairs 0
+pol @adj22_20_16 @adj22_20_17 + @adj22_20_21 + @adj22_20_29 + @inj8 + @inj9 + s ;
+ia 1 ~x22_20 >= 1 : 8439 ;
+del id 8439 ;
+% cannot map 22 to 21 due to degrees in graph pairs 0
+pol @adj22_21_16 @adj22_21_17 + @adj22_21_21 + @adj22_21_29 + @inj8 + @inj9 + s ;
+ia 1 ~x22_21 >= 1 : 8441 ;
+del id 8441 ;
+% cannot map 22 to 22 due to degrees in graph pairs 0
+pol @adj22_22_16 @adj22_22_17 + @adj22_22_21 + @adj22_22_29 + @inj8 + @inj9 + s ;
+ia 1 ~x22_22 >= 1 : 8443 ;
+del id 8443 ;
+% cannot map 22 to 23 due to degrees in graph pairs 0
+pol @adj22_23_16 @adj22_23_17 + @adj22_23_21 + @adj22_23_29 + @inj8 + @inj9 + s ;
+ia 1 ~x22_23 >= 1 : 8445 ;
+del id 8445 ;
+% cannot map 22 to 24 due to degrees in graph pairs 0
+pol @adj22_24_16 @adj22_24_17 + @adj22_24_21 + @adj22_24_29 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x22_24 >= 1 : 8447 ;
+del id 8447 ;
+% cannot map 22 to 25 due to degrees in graph pairs 0
+pol @adj22_25_16 @adj22_25_17 + @adj22_25_21 + @adj22_25_29 + @inj1 + @inj9 + s ;
+ia 1 ~x22_25 >= 1 : 8449 ;
+del id 8449 ;
+% cannot map 22 to 26 due to degrees in graph pairs 0
+pol @adj22_26_16 @adj22_26_17 + @adj22_26_21 + @adj22_26_29 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x22_26 >= 1 : 8451 ;
+del id 8451 ;
+% cannot map 22 to 43 due to degrees in graph pairs 0
+pol @adj22_43_16 @adj22_43_17 + @adj22_43_21 + @adj22_43_29 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x22_43 >= 1 : 8453 ;
+del id 8453 ;
+% cannot map 22 to 44 due to degrees in graph pairs 0
+pol @adj22_44_16 @adj22_44_17 + @adj22_44_21 + @adj22_44_29 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x22_44 >= 1 : 8455 ;
+del id 8455 ;
+% cannot map 22 to 45 due to degrees in graph pairs 0
+pol @adj22_45_16 @adj22_45_17 + @adj22_45_21 + @adj22_45_29 + @inj5 + @inj6 + s ;
+ia 1 ~x22_45 >= 1 : 8457 ;
+del id 8457 ;
+% cannot map 22 to 46 due to degrees in graph pairs 0
+pol @adj22_46_16 @adj22_46_17 + @adj22_46_21 + @adj22_46_29 + s ;
+ia 1 ~x22_46 >= 1 : 8459 ;
+del id 8459 ;
+% cannot map 22 to 47 due to degrees in graph pairs 0
+pol @adj22_47_16 @adj22_47_17 + @adj22_47_21 + @adj22_47_29 + s ;
+ia 1 ~x22_47 >= 1 : 8461 ;
+del id 8461 ;
+% cannot map 23 to 12 due to degrees in graph pairs 0
+pol @adj23_12_17 @adj23_12_18 + @adj23_12_24 + @adj23_12_30 + @adj23_12_33 + @adj23_12_34 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x23_12 >= 1 : 8463 ;
+del id 8463 ;
+% cannot map 23 to 16 due to degrees in graph pairs 0
+pol @adj23_16_17 @adj23_16_18 + @adj23_16_24 + @adj23_16_30 + @adj23_16_33 + @adj23_16_34 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x23_16 >= 1 : 8465 ;
+del id 8465 ;
+% cannot map 23 to 17 due to degrees in graph pairs 0
+pol @adj23_17_17 @adj23_17_18 + @adj23_17_24 + @adj23_17_30 + @adj23_17_33 + @adj23_17_34 + @inj14 + @inj15 + s ;
+ia 1 ~x23_17 >= 1 : 8467 ;
+del id 8467 ;
+% cannot map 23 to 18 due to degrees in graph pairs 0
+pol @adj23_18_17 @adj23_18_18 + @adj23_18_24 + @adj23_18_30 + @adj23_18_33 + @adj23_18_34 + @inj15 + s ;
+ia 1 ~x23_18 >= 1 : 8469 ;
+del id 8469 ;
+% cannot map 23 to 19 due to degrees in graph pairs 0
+pol @adj23_19_17 @adj23_19_18 + @adj23_19_24 + @adj23_19_30 + @adj23_19_33 + @adj23_19_34 + s ;
+ia 1 ~x23_19 >= 1 : 8471 ;
+del id 8471 ;
+% cannot map 23 to 20 due to degrees in graph pairs 0
+pol @adj23_20_17 @adj23_20_18 + @adj23_20_24 + @adj23_20_30 + @adj23_20_33 + @adj23_20_34 + @inj8 + @inj9 + s ;
+ia 1 ~x23_20 >= 1 : 8473 ;
+del id 8473 ;
+% cannot map 23 to 21 due to degrees in graph pairs 0
+pol @adj23_21_17 @adj23_21_18 + @adj23_21_24 + @adj23_21_30 + @adj23_21_33 + @adj23_21_34 + @inj8 + @inj9 + s ;
+ia 1 ~x23_21 >= 1 : 8475 ;
+del id 8475 ;
+% cannot map 23 to 22 due to degrees in graph pairs 0
+pol @adj23_22_17 @adj23_22_18 + @adj23_22_24 + @adj23_22_30 + @adj23_22_33 + @adj23_22_34 + @inj8 + @inj9 + s ;
+ia 1 ~x23_22 >= 1 : 8477 ;
+del id 8477 ;
+% cannot map 23 to 23 due to degrees in graph pairs 0
+pol @adj23_23_17 @adj23_23_18 + @adj23_23_24 + @adj23_23_30 + @adj23_23_33 + @adj23_23_34 + @inj8 + @inj9 + s ;
+ia 1 ~x23_23 >= 1 : 8479 ;
+del id 8479 ;
+% cannot map 23 to 24 due to degrees in graph pairs 0
+pol @adj23_24_17 @adj23_24_18 + @adj23_24_24 + @adj23_24_30 + @adj23_24_33 + @adj23_24_34 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x23_24 >= 1 : 8481 ;
+del id 8481 ;
+% cannot map 23 to 25 due to degrees in graph pairs 0
+pol @adj23_25_17 @adj23_25_18 + @adj23_25_24 + @adj23_25_30 + @adj23_25_33 + @adj23_25_34 + @inj1 + @inj9 + s ;
+ia 1 ~x23_25 >= 1 : 8483 ;
+del id 8483 ;
+% cannot map 23 to 26 due to degrees in graph pairs 0
+pol @adj23_26_17 @adj23_26_18 + @adj23_26_24 + @adj23_26_30 + @adj23_26_33 + @adj23_26_34 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x23_26 >= 1 : 8485 ;
+del id 8485 ;
+% cannot map 23 to 27 due to degrees in graph pairs 0
+pol @adj23_27_17 @adj23_27_18 + @adj23_27_24 + @adj23_27_30 + @adj23_27_33 + @adj23_27_34 + @inj1 + @inj2 + @inj3 + @inj9 + @inj14 + s ;
+ia 1 ~x23_27 >= 1 : 8487 ;
+del id 8487 ;
+% cannot map 23 to 40 due to degrees in graph pairs 0
+pol @adj23_40_17 @adj23_40_18 + @adj23_40_24 + @adj23_40_30 + @adj23_40_33 + @adj23_40_34 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + s ;
+ia 1 ~x23_40 >= 1 : 8489 ;
+del id 8489 ;
+% cannot map 23 to 41 due to degrees in graph pairs 0
+pol @adj23_41_17 @adj23_41_18 + @adj23_41_24 + @adj23_41_30 + @adj23_41_33 + @adj23_41_34 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x23_41 >= 1 : 8491 ;
+del id 8491 ;
+% cannot map 23 to 42 due to degrees in graph pairs 0
+pol @adj23_42_17 @adj23_42_18 + @adj23_42_24 + @adj23_42_30 + @adj23_42_33 + @adj23_42_34 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x23_42 >= 1 : 8493 ;
+del id 8493 ;
+% cannot map 23 to 43 due to degrees in graph pairs 0
+pol @adj23_43_17 @adj23_43_18 + @adj23_43_24 + @adj23_43_30 + @adj23_43_33 + @adj23_43_34 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x23_43 >= 1 : 8495 ;
+del id 8495 ;
+% cannot map 23 to 44 due to degrees in graph pairs 0
+pol @adj23_44_17 @adj23_44_18 + @adj23_44_24 + @adj23_44_30 + @adj23_44_33 + @adj23_44_34 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x23_44 >= 1 : 8497 ;
+del id 8497 ;
+% cannot map 23 to 45 due to degrees in graph pairs 0
+pol @adj23_45_17 @adj23_45_18 + @adj23_45_24 + @adj23_45_30 + @adj23_45_33 + @adj23_45_34 + @inj5 + @inj6 + s ;
+ia 1 ~x23_45 >= 1 : 8499 ;
+del id 8499 ;
+% cannot map 23 to 46 due to degrees in graph pairs 0
+pol @adj23_46_17 @adj23_46_18 + @adj23_46_24 + @adj23_46_30 + @adj23_46_33 + @adj23_46_34 + s ;
+ia 1 ~x23_46 >= 1 : 8501 ;
+del id 8501 ;
+% cannot map 23 to 47 due to degrees in graph pairs 0
+pol @adj23_47_17 @adj23_47_18 + @adj23_47_24 + @adj23_47_30 + @adj23_47_33 + @adj23_47_34 + s ;
+ia 1 ~x23_47 >= 1 : 8503 ;
+del id 8503 ;
+% cannot map 24 to 12 due to degrees in graph pairs 0
+pol @adj24_12_11 @adj24_12_23 + @adj24_12_25 + @adj24_12_34 + @adj24_12_39 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x24_12 >= 1 : 8505 ;
+del id 8505 ;
+% cannot map 24 to 16 due to degrees in graph pairs 0
+pol @adj24_16_11 @adj24_16_23 + @adj24_16_25 + @adj24_16_34 + @adj24_16_39 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x24_16 >= 1 : 8507 ;
+del id 8507 ;
+% cannot map 24 to 17 due to degrees in graph pairs 0
+pol @adj24_17_11 @adj24_17_23 + @adj24_17_25 + @adj24_17_34 + @adj24_17_39 + @inj14 + @inj15 + s ;
+ia 1 ~x24_17 >= 1 : 8509 ;
+del id 8509 ;
+% cannot map 24 to 18 due to degrees in graph pairs 0
+pol @adj24_18_11 @adj24_18_23 + @adj24_18_25 + @adj24_18_34 + @adj24_18_39 + @inj15 + s ;
+ia 1 ~x24_18 >= 1 : 8511 ;
+del id 8511 ;
+% cannot map 24 to 19 due to degrees in graph pairs 0
+pol @adj24_19_11 @adj24_19_23 + @adj24_19_25 + @adj24_19_34 + @adj24_19_39 + s ;
+ia 1 ~x24_19 >= 1 : 8513 ;
+del id 8513 ;
+% cannot map 24 to 20 due to degrees in graph pairs 0
+pol @adj24_20_11 @adj24_20_23 + @adj24_20_25 + @adj24_20_34 + @adj24_20_39 + @inj8 + @inj9 + s ;
+ia 1 ~x24_20 >= 1 : 8515 ;
+del id 8515 ;
+% cannot map 24 to 21 due to degrees in graph pairs 0
+pol @adj24_21_11 @adj24_21_23 + @adj24_21_25 + @adj24_21_34 + @adj24_21_39 + @inj8 + @inj9 + s ;
+ia 1 ~x24_21 >= 1 : 8517 ;
+del id 8517 ;
+% cannot map 24 to 22 due to degrees in graph pairs 0
+pol @adj24_22_11 @adj24_22_23 + @adj24_22_25 + @adj24_22_34 + @adj24_22_39 + @inj8 + @inj9 + s ;
+ia 1 ~x24_22 >= 1 : 8519 ;
+del id 8519 ;
+% cannot map 24 to 23 due to degrees in graph pairs 0
+pol @adj24_23_11 @adj24_23_23 + @adj24_23_25 + @adj24_23_34 + @adj24_23_39 + @inj8 + @inj9 + s ;
+ia 1 ~x24_23 >= 1 : 8521 ;
+del id 8521 ;
+% cannot map 24 to 24 due to degrees in graph pairs 0
+pol @adj24_24_11 @adj24_24_23 + @adj24_24_25 + @adj24_24_34 + @adj24_24_39 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x24_24 >= 1 : 8523 ;
+del id 8523 ;
+% cannot map 24 to 25 due to degrees in graph pairs 0
+pol @adj24_25_11 @adj24_25_23 + @adj24_25_25 + @adj24_25_34 + @adj24_25_39 + @inj1 + @inj9 + s ;
+ia 1 ~x24_25 >= 1 : 8525 ;
+del id 8525 ;
+% cannot map 24 to 26 due to degrees in graph pairs 0
+pol @adj24_26_11 @adj24_26_23 + @adj24_26_25 + @adj24_26_34 + @adj24_26_39 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x24_26 >= 1 : 8527 ;
+del id 8527 ;
+% cannot map 24 to 41 due to degrees in graph pairs 0
+pol @adj24_41_11 @adj24_41_23 + @adj24_41_25 + @adj24_41_34 + @adj24_41_39 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x24_41 >= 1 : 8529 ;
+del id 8529 ;
+% cannot map 24 to 42 due to degrees in graph pairs 0
+pol @adj24_42_11 @adj24_42_23 + @adj24_42_25 + @adj24_42_34 + @adj24_42_39 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x24_42 >= 1 : 8531 ;
+del id 8531 ;
+% cannot map 24 to 43 due to degrees in graph pairs 0
+pol @adj24_43_11 @adj24_43_23 + @adj24_43_25 + @adj24_43_34 + @adj24_43_39 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x24_43 >= 1 : 8533 ;
+del id 8533 ;
+% cannot map 24 to 44 due to degrees in graph pairs 0
+pol @adj24_44_11 @adj24_44_23 + @adj24_44_25 + @adj24_44_34 + @adj24_44_39 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x24_44 >= 1 : 8535 ;
+del id 8535 ;
+% cannot map 24 to 45 due to degrees in graph pairs 0
+pol @adj24_45_11 @adj24_45_23 + @adj24_45_25 + @adj24_45_34 + @adj24_45_39 + @inj5 + @inj6 + s ;
+ia 1 ~x24_45 >= 1 : 8537 ;
+del id 8537 ;
+% cannot map 24 to 46 due to degrees in graph pairs 0
+pol @adj24_46_11 @adj24_46_23 + @adj24_46_25 + @adj24_46_34 + @adj24_46_39 + s ;
+ia 1 ~x24_46 >= 1 : 8539 ;
+del id 8539 ;
+% cannot map 24 to 47 due to degrees in graph pairs 0
+pol @adj24_47_11 @adj24_47_23 + @adj24_47_25 + @adj24_47_34 + @adj24_47_39 + s ;
+ia 1 ~x24_47 >= 1 : 8541 ;
+del id 8541 ;
+% cannot map 25 to 18 due to degrees in graph pairs 0
+pol @adj25_18_19 @adj25_18_24 + @inj15 + s ;
+ia 1 ~x25_18 >= 1 : 8543 ;
+del id 8543 ;
+% cannot map 25 to 19 due to degrees in graph pairs 0
+pol @adj25_19_19 @adj25_19_24 + s ;
+ia 1 ~x25_19 >= 1 : 8545 ;
+del id 8545 ;
+% cannot map 25 to 46 due to degrees in graph pairs 0
+pol @adj25_46_19 @adj25_46_24 + s ;
+ia 1 ~x25_46 >= 1 : 8547 ;
+del id 8547 ;
+% cannot map 25 to 47 due to degrees in graph pairs 0
+pol @adj25_47_19 @adj25_47_24 + s ;
+ia 1 ~x25_47 >= 1 : 8549 ;
+del id 8549 ;
+% cannot map 26 to 19 due to degrees in graph pairs 0
+pol @adj26_19_20 s ;
+ia 1 ~x26_19 >= 1 : 8551 ;
+del id 8551 ;
+% cannot map 26 to 46 due to degrees in graph pairs 0
+pol @adj26_46_20 s ;
+ia 1 ~x26_46 >= 1 : 8553 ;
+del id 8553 ;
+% cannot map 26 to 47 due to degrees in graph pairs 0
+pol @adj26_47_20 s ;
+ia 1 ~x26_47 >= 1 : 8555 ;
+del id 8555 ;
+% cannot map 27 to 12 due to degrees in graph pairs 0
+pol @adj27_12_20 @adj27_12_28 + @adj27_12_30 + @adj27_12_32 + @adj27_12_33 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x27_12 >= 1 : 8557 ;
+del id 8557 ;
+% cannot map 27 to 16 due to degrees in graph pairs 0
+pol @adj27_16_20 @adj27_16_28 + @adj27_16_30 + @adj27_16_32 + @adj27_16_33 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x27_16 >= 1 : 8559 ;
+del id 8559 ;
+% cannot map 27 to 17 due to degrees in graph pairs 0
+pol @adj27_17_20 @adj27_17_28 + @adj27_17_30 + @adj27_17_32 + @adj27_17_33 + @inj14 + @inj15 + s ;
+ia 1 ~x27_17 >= 1 : 8561 ;
+del id 8561 ;
+% cannot map 27 to 18 due to degrees in graph pairs 0
+pol @adj27_18_20 @adj27_18_28 + @adj27_18_30 + @adj27_18_32 + @adj27_18_33 + @inj15 + s ;
+ia 1 ~x27_18 >= 1 : 8563 ;
+del id 8563 ;
+% cannot map 27 to 19 due to degrees in graph pairs 0
+pol @adj27_19_20 @adj27_19_28 + @adj27_19_30 + @adj27_19_32 + @adj27_19_33 + s ;
+ia 1 ~x27_19 >= 1 : 8565 ;
+del id 8565 ;
+% cannot map 27 to 20 due to degrees in graph pairs 0
+pol @adj27_20_20 @adj27_20_28 + @adj27_20_30 + @adj27_20_32 + @adj27_20_33 + @inj8 + @inj9 + s ;
+ia 1 ~x27_20 >= 1 : 8567 ;
+del id 8567 ;
+% cannot map 27 to 21 due to degrees in graph pairs 0
+pol @adj27_21_20 @adj27_21_28 + @adj27_21_30 + @adj27_21_32 + @adj27_21_33 + @inj8 + @inj9 + s ;
+ia 1 ~x27_21 >= 1 : 8569 ;
+del id 8569 ;
+% cannot map 27 to 22 due to degrees in graph pairs 0
+pol @adj27_22_20 @adj27_22_28 + @adj27_22_30 + @adj27_22_32 + @adj27_22_33 + @inj8 + @inj9 + s ;
+ia 1 ~x27_22 >= 1 : 8571 ;
+del id 8571 ;
+% cannot map 27 to 23 due to degrees in graph pairs 0
+pol @adj27_23_20 @adj27_23_28 + @adj27_23_30 + @adj27_23_32 + @adj27_23_33 + @inj8 + @inj9 + s ;
+ia 1 ~x27_23 >= 1 : 8573 ;
+del id 8573 ;
+% cannot map 27 to 24 due to degrees in graph pairs 0
+pol @adj27_24_20 @adj27_24_28 + @adj27_24_30 + @adj27_24_32 + @adj27_24_33 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x27_24 >= 1 : 8575 ;
+del id 8575 ;
+% cannot map 27 to 25 due to degrees in graph pairs 0
+pol @adj27_25_20 @adj27_25_28 + @adj27_25_30 + @adj27_25_32 + @adj27_25_33 + @inj1 + @inj9 + s ;
+ia 1 ~x27_25 >= 1 : 8577 ;
+del id 8577 ;
+% cannot map 27 to 26 due to degrees in graph pairs 0
+pol @adj27_26_20 @adj27_26_28 + @adj27_26_30 + @adj27_26_32 + @adj27_26_33 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x27_26 >= 1 : 8579 ;
+del id 8579 ;
+% cannot map 27 to 41 due to degrees in graph pairs 0
+pol @adj27_41_20 @adj27_41_28 + @adj27_41_30 + @adj27_41_32 + @adj27_41_33 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x27_41 >= 1 : 8581 ;
+del id 8581 ;
+% cannot map 27 to 42 due to degrees in graph pairs 0
+pol @adj27_42_20 @adj27_42_28 + @adj27_42_30 + @adj27_42_32 + @adj27_42_33 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x27_42 >= 1 : 8583 ;
+del id 8583 ;
+% cannot map 27 to 43 due to degrees in graph pairs 0
+pol @adj27_43_20 @adj27_43_28 + @adj27_43_30 + @adj27_43_32 + @adj27_43_33 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x27_43 >= 1 : 8585 ;
+del id 8585 ;
+% cannot map 27 to 44 due to degrees in graph pairs 0
+pol @adj27_44_20 @adj27_44_28 + @adj27_44_30 + @adj27_44_32 + @adj27_44_33 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x27_44 >= 1 : 8587 ;
+del id 8587 ;
+% cannot map 27 to 45 due to degrees in graph pairs 0
+pol @adj27_45_20 @adj27_45_28 + @adj27_45_30 + @adj27_45_32 + @adj27_45_33 + @inj5 + @inj6 + s ;
+ia 1 ~x27_45 >= 1 : 8589 ;
+del id 8589 ;
+% cannot map 27 to 46 due to degrees in graph pairs 0
+pol @adj27_46_20 @adj27_46_28 + @adj27_46_30 + @adj27_46_32 + @adj27_46_33 + s ;
+ia 1 ~x27_46 >= 1 : 8591 ;
+del id 8591 ;
+% cannot map 27 to 47 due to degrees in graph pairs 0
+pol @adj27_47_20 @adj27_47_28 + @adj27_47_30 + @adj27_47_32 + @adj27_47_33 + s ;
+ia 1 ~x27_47 >= 1 : 8593 ;
+del id 8593 ;
+% cannot map 28 to 17 due to degrees in graph pairs 0
+pol @adj28_17_21 @adj28_17_27 + @adj28_17_29 + @inj14 + @inj15 + s ;
+ia 1 ~x28_17 >= 1 : 8595 ;
+del id 8595 ;
+% cannot map 28 to 18 due to degrees in graph pairs 0
+pol @adj28_18_21 @adj28_18_27 + @adj28_18_29 + @inj15 + s ;
+ia 1 ~x28_18 >= 1 : 8597 ;
+del id 8597 ;
+% cannot map 28 to 19 due to degrees in graph pairs 0
+pol @adj28_19_21 @adj28_19_27 + @adj28_19_29 + s ;
+ia 1 ~x28_19 >= 1 : 8599 ;
+del id 8599 ;
+% cannot map 28 to 20 due to degrees in graph pairs 0
+pol @adj28_20_21 @adj28_20_27 + @adj28_20_29 + @inj8 + @inj9 + s ;
+ia 1 ~x28_20 >= 1 : 8601 ;
+del id 8601 ;
+% cannot map 28 to 21 due to degrees in graph pairs 0
+pol @adj28_21_21 @adj28_21_27 + @adj28_21_29 + @inj8 + @inj9 + s ;
+ia 1 ~x28_21 >= 1 : 8603 ;
+del id 8603 ;
+% cannot map 28 to 22 due to degrees in graph pairs 0
+pol @adj28_22_21 @adj28_22_27 + @adj28_22_29 + @inj8 + @inj9 + s ;
+ia 1 ~x28_22 >= 1 : 8605 ;
+del id 8605 ;
+% cannot map 28 to 23 due to degrees in graph pairs 0
+pol @adj28_23_21 @adj28_23_27 + @adj28_23_29 + @inj8 + @inj9 + s ;
+ia 1 ~x28_23 >= 1 : 8607 ;
+del id 8607 ;
+% cannot map 28 to 25 due to degrees in graph pairs 0
+pol @adj28_25_21 @adj28_25_27 + @adj28_25_29 + @inj1 + @inj9 + s ;
+ia 1 ~x28_25 >= 1 : 8609 ;
+del id 8609 ;
+% cannot map 28 to 45 due to degrees in graph pairs 0
+pol @adj28_45_21 @adj28_45_27 + @adj28_45_29 + @inj5 + @inj6 + s ;
+ia 1 ~x28_45 >= 1 : 8611 ;
+del id 8611 ;
+% cannot map 28 to 46 due to degrees in graph pairs 0
+pol @adj28_46_21 @adj28_46_27 + @adj28_46_29 + s ;
+ia 1 ~x28_46 >= 1 : 8613 ;
+del id 8613 ;
+% cannot map 28 to 47 due to degrees in graph pairs 0
+pol @adj28_47_21 @adj28_47_27 + @adj28_47_29 + s ;
+ia 1 ~x28_47 >= 1 : 8615 ;
+del id 8615 ;
+% cannot map 29 to 16 due to degrees in graph pairs 0
+pol @adj29_16_17 @adj29_16_22 + @adj29_16_28 + @adj29_16_30 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x29_16 >= 1 : 8617 ;
+del id 8617 ;
+% cannot map 29 to 17 due to degrees in graph pairs 0
+pol @adj29_17_17 @adj29_17_22 + @adj29_17_28 + @adj29_17_30 + @inj14 + @inj15 + s ;
+ia 1 ~x29_17 >= 1 : 8619 ;
+del id 8619 ;
+% cannot map 29 to 18 due to degrees in graph pairs 0
+pol @adj29_18_17 @adj29_18_22 + @adj29_18_28 + @adj29_18_30 + @inj15 + s ;
+ia 1 ~x29_18 >= 1 : 8621 ;
+del id 8621 ;
+% cannot map 29 to 19 due to degrees in graph pairs 0
+pol @adj29_19_17 @adj29_19_22 + @adj29_19_28 + @adj29_19_30 + s ;
+ia 1 ~x29_19 >= 1 : 8623 ;
+del id 8623 ;
+% cannot map 29 to 20 due to degrees in graph pairs 0
+pol @adj29_20_17 @adj29_20_22 + @adj29_20_28 + @adj29_20_30 + @inj8 + @inj9 + s ;
+ia 1 ~x29_20 >= 1 : 8625 ;
+del id 8625 ;
+% cannot map 29 to 21 due to degrees in graph pairs 0
+pol @adj29_21_17 @adj29_21_22 + @adj29_21_28 + @adj29_21_30 + @inj8 + @inj9 + s ;
+ia 1 ~x29_21 >= 1 : 8627 ;
+del id 8627 ;
+% cannot map 29 to 22 due to degrees in graph pairs 0
+pol @adj29_22_17 @adj29_22_22 + @adj29_22_28 + @adj29_22_30 + @inj8 + @inj9 + s ;
+ia 1 ~x29_22 >= 1 : 8629 ;
+del id 8629 ;
+% cannot map 29 to 23 due to degrees in graph pairs 0
+pol @adj29_23_17 @adj29_23_22 + @adj29_23_28 + @adj29_23_30 + @inj8 + @inj9 + s ;
+ia 1 ~x29_23 >= 1 : 8631 ;
+del id 8631 ;
+% cannot map 29 to 24 due to degrees in graph pairs 0
+pol @adj29_24_17 @adj29_24_22 + @adj29_24_28 + @adj29_24_30 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x29_24 >= 1 : 8633 ;
+del id 8633 ;
+% cannot map 29 to 25 due to degrees in graph pairs 0
+pol @adj29_25_17 @adj29_25_22 + @adj29_25_28 + @adj29_25_30 + @inj1 + @inj9 + s ;
+ia 1 ~x29_25 >= 1 : 8635 ;
+del id 8635 ;
+% cannot map 29 to 26 due to degrees in graph pairs 0
+pol @adj29_26_17 @adj29_26_22 + @adj29_26_28 + @adj29_26_30 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x29_26 >= 1 : 8637 ;
+del id 8637 ;
+% cannot map 29 to 43 due to degrees in graph pairs 0
+pol @adj29_43_17 @adj29_43_22 + @adj29_43_28 + @adj29_43_30 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x29_43 >= 1 : 8639 ;
+del id 8639 ;
+% cannot map 29 to 44 due to degrees in graph pairs 0
+pol @adj29_44_17 @adj29_44_22 + @adj29_44_28 + @adj29_44_30 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x29_44 >= 1 : 8641 ;
+del id 8641 ;
+% cannot map 29 to 45 due to degrees in graph pairs 0
+pol @adj29_45_17 @adj29_45_22 + @adj29_45_28 + @adj29_45_30 + @inj5 + @inj6 + s ;
+ia 1 ~x29_45 >= 1 : 8643 ;
+del id 8643 ;
+% cannot map 29 to 46 due to degrees in graph pairs 0
+pol @adj29_46_17 @adj29_46_22 + @adj29_46_28 + @adj29_46_30 + s ;
+ia 1 ~x29_46 >= 1 : 8645 ;
+del id 8645 ;
+% cannot map 29 to 47 due to degrees in graph pairs 0
+pol @adj29_47_17 @adj29_47_22 + @adj29_47_28 + @adj29_47_30 + s ;
+ia 1 ~x29_47 >= 1 : 8647 ;
+del id 8647 ;
+% cannot map 30 to 16 due to degrees in graph pairs 0
+pol @adj30_16_23 @adj30_16_27 + @adj30_16_29 + @adj30_16_33 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x30_16 >= 1 : 8649 ;
+del id 8649 ;
+% cannot map 30 to 17 due to degrees in graph pairs 0
+pol @adj30_17_23 @adj30_17_27 + @adj30_17_29 + @adj30_17_33 + @inj14 + @inj15 + s ;
+ia 1 ~x30_17 >= 1 : 8651 ;
+del id 8651 ;
+% cannot map 30 to 18 due to degrees in graph pairs 0
+pol @adj30_18_23 @adj30_18_27 + @adj30_18_29 + @adj30_18_33 + @inj15 + s ;
+ia 1 ~x30_18 >= 1 : 8653 ;
+del id 8653 ;
+% cannot map 30 to 19 due to degrees in graph pairs 0
+pol @adj30_19_23 @adj30_19_27 + @adj30_19_29 + @adj30_19_33 + s ;
+ia 1 ~x30_19 >= 1 : 8655 ;
+del id 8655 ;
+% cannot map 30 to 20 due to degrees in graph pairs 0
+pol @adj30_20_23 @adj30_20_27 + @adj30_20_29 + @adj30_20_33 + @inj8 + @inj9 + s ;
+ia 1 ~x30_20 >= 1 : 8657 ;
+del id 8657 ;
+% cannot map 30 to 21 due to degrees in graph pairs 0
+pol @adj30_21_23 @adj30_21_27 + @adj30_21_29 + @adj30_21_33 + @inj8 + @inj9 + s ;
+ia 1 ~x30_21 >= 1 : 8659 ;
+del id 8659 ;
+% cannot map 30 to 22 due to degrees in graph pairs 0
+pol @adj30_22_23 @adj30_22_27 + @adj30_22_29 + @adj30_22_33 + @inj8 + @inj9 + s ;
+ia 1 ~x30_22 >= 1 : 8661 ;
+del id 8661 ;
+% cannot map 30 to 23 due to degrees in graph pairs 0
+pol @adj30_23_23 @adj30_23_27 + @adj30_23_29 + @adj30_23_33 + @inj8 + @inj9 + s ;
+ia 1 ~x30_23 >= 1 : 8663 ;
+del id 8663 ;
+% cannot map 30 to 24 due to degrees in graph pairs 0
+pol @adj30_24_23 @adj30_24_27 + @adj30_24_29 + @adj30_24_33 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x30_24 >= 1 : 8665 ;
+del id 8665 ;
+% cannot map 30 to 25 due to degrees in graph pairs 0
+pol @adj30_25_23 @adj30_25_27 + @adj30_25_29 + @adj30_25_33 + @inj1 + @inj9 + s ;
+ia 1 ~x30_25 >= 1 : 8667 ;
+del id 8667 ;
+% cannot map 30 to 26 due to degrees in graph pairs 0
+pol @adj30_26_23 @adj30_26_27 + @adj30_26_29 + @adj30_26_33 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x30_26 >= 1 : 8669 ;
+del id 8669 ;
+% cannot map 30 to 43 due to degrees in graph pairs 0
+pol @adj30_43_23 @adj30_43_27 + @adj30_43_29 + @adj30_43_33 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x30_43 >= 1 : 8671 ;
+del id 8671 ;
+% cannot map 30 to 44 due to degrees in graph pairs 0
+pol @adj30_44_23 @adj30_44_27 + @adj30_44_29 + @adj30_44_33 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x30_44 >= 1 : 8673 ;
+del id 8673 ;
+% cannot map 30 to 45 due to degrees in graph pairs 0
+pol @adj30_45_23 @adj30_45_27 + @adj30_45_29 + @adj30_45_33 + @inj5 + @inj6 + s ;
+ia 1 ~x30_45 >= 1 : 8675 ;
+del id 8675 ;
+% cannot map 30 to 46 due to degrees in graph pairs 0
+pol @adj30_46_23 @adj30_46_27 + @adj30_46_29 + @adj30_46_33 + s ;
+ia 1 ~x30_46 >= 1 : 8677 ;
+del id 8677 ;
+% cannot map 30 to 47 due to degrees in graph pairs 0
+pol @adj30_47_23 @adj30_47_27 + @adj30_47_29 + @adj30_47_33 + s ;
+ia 1 ~x30_47 >= 1 : 8679 ;
+del id 8679 ;
+% cannot map 31 to 17 due to degrees in graph pairs 0
+pol @adj31_17_20 @adj31_17_32 + @adj31_17_34 + @inj14 + @inj15 + s ;
+ia 1 ~x31_17 >= 1 : 8681 ;
+del id 8681 ;
+% cannot map 31 to 18 due to degrees in graph pairs 0
+pol @adj31_18_20 @adj31_18_32 + @adj31_18_34 + @inj15 + s ;
+ia 1 ~x31_18 >= 1 : 8683 ;
+del id 8683 ;
+% cannot map 31 to 19 due to degrees in graph pairs 0
+pol @adj31_19_20 @adj31_19_32 + @adj31_19_34 + s ;
+ia 1 ~x31_19 >= 1 : 8685 ;
+del id 8685 ;
+% cannot map 31 to 20 due to degrees in graph pairs 0
+pol @adj31_20_20 @adj31_20_32 + @adj31_20_34 + @inj8 + @inj9 + s ;
+ia 1 ~x31_20 >= 1 : 8687 ;
+del id 8687 ;
+% cannot map 31 to 21 due to degrees in graph pairs 0
+pol @adj31_21_20 @adj31_21_32 + @adj31_21_34 + @inj8 + @inj9 + s ;
+ia 1 ~x31_21 >= 1 : 8689 ;
+del id 8689 ;
+% cannot map 31 to 22 due to degrees in graph pairs 0
+pol @adj31_22_20 @adj31_22_32 + @adj31_22_34 + @inj8 + @inj9 + s ;
+ia 1 ~x31_22 >= 1 : 8691 ;
+del id 8691 ;
+% cannot map 31 to 23 due to degrees in graph pairs 0
+pol @adj31_23_20 @adj31_23_32 + @adj31_23_34 + @inj8 + @inj9 + s ;
+ia 1 ~x31_23 >= 1 : 8693 ;
+del id 8693 ;
+% cannot map 31 to 25 due to degrees in graph pairs 0
+pol @adj31_25_20 @adj31_25_32 + @adj31_25_34 + @inj1 + @inj9 + s ;
+ia 1 ~x31_25 >= 1 : 8695 ;
+del id 8695 ;
+% cannot map 31 to 45 due to degrees in graph pairs 0
+pol @adj31_45_20 @adj31_45_32 + @adj31_45_34 + @inj5 + @inj6 + s ;
+ia 1 ~x31_45 >= 1 : 8697 ;
+del id 8697 ;
+% cannot map 31 to 46 due to degrees in graph pairs 0
+pol @adj31_46_20 @adj31_46_32 + @adj31_46_34 + s ;
+ia 1 ~x31_46 >= 1 : 8699 ;
+del id 8699 ;
+% cannot map 31 to 47 due to degrees in graph pairs 0
+pol @adj31_47_20 @adj31_47_32 + @adj31_47_34 + s ;
+ia 1 ~x31_47 >= 1 : 8701 ;
+del id 8701 ;
+% cannot map 32 to 16 due to degrees in graph pairs 0
+pol @adj32_16_27 @adj32_16_31 + @adj32_16_33 + @adj32_16_36 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x32_16 >= 1 : 8703 ;
+del id 8703 ;
+% cannot map 32 to 17 due to degrees in graph pairs 0
+pol @adj32_17_27 @adj32_17_31 + @adj32_17_33 + @adj32_17_36 + @inj14 + @inj15 + s ;
+ia 1 ~x32_17 >= 1 : 8705 ;
+del id 8705 ;
+% cannot map 32 to 18 due to degrees in graph pairs 0
+pol @adj32_18_27 @adj32_18_31 + @adj32_18_33 + @adj32_18_36 + @inj15 + s ;
+ia 1 ~x32_18 >= 1 : 8707 ;
+del id 8707 ;
+% cannot map 32 to 19 due to degrees in graph pairs 0
+pol @adj32_19_27 @adj32_19_31 + @adj32_19_33 + @adj32_19_36 + s ;
+ia 1 ~x32_19 >= 1 : 8709 ;
+del id 8709 ;
+% cannot map 32 to 20 due to degrees in graph pairs 0
+pol @adj32_20_27 @adj32_20_31 + @adj32_20_33 + @adj32_20_36 + @inj8 + @inj9 + s ;
+ia 1 ~x32_20 >= 1 : 8711 ;
+del id 8711 ;
+% cannot map 32 to 21 due to degrees in graph pairs 0
+pol @adj32_21_27 @adj32_21_31 + @adj32_21_33 + @adj32_21_36 + @inj8 + @inj9 + s ;
+ia 1 ~x32_21 >= 1 : 8713 ;
+del id 8713 ;
+% cannot map 32 to 22 due to degrees in graph pairs 0
+pol @adj32_22_27 @adj32_22_31 + @adj32_22_33 + @adj32_22_36 + @inj8 + @inj9 + s ;
+ia 1 ~x32_22 >= 1 : 8715 ;
+del id 8715 ;
+% cannot map 32 to 23 due to degrees in graph pairs 0
+pol @adj32_23_27 @adj32_23_31 + @adj32_23_33 + @adj32_23_36 + @inj8 + @inj9 + s ;
+ia 1 ~x32_23 >= 1 : 8717 ;
+del id 8717 ;
+% cannot map 32 to 24 due to degrees in graph pairs 0
+pol @adj32_24_27 @adj32_24_31 + @adj32_24_33 + @adj32_24_36 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x32_24 >= 1 : 8719 ;
+del id 8719 ;
+% cannot map 32 to 25 due to degrees in graph pairs 0
+pol @adj32_25_27 @adj32_25_31 + @adj32_25_33 + @adj32_25_36 + @inj1 + @inj9 + s ;
+ia 1 ~x32_25 >= 1 : 8721 ;
+del id 8721 ;
+% cannot map 32 to 26 due to degrees in graph pairs 0
+pol @adj32_26_27 @adj32_26_31 + @adj32_26_33 + @adj32_26_36 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x32_26 >= 1 : 8723 ;
+del id 8723 ;
+% cannot map 32 to 43 due to degrees in graph pairs 0
+pol @adj32_43_27 @adj32_43_31 + @adj32_43_33 + @adj32_43_36 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x32_43 >= 1 : 8725 ;
+del id 8725 ;
+% cannot map 32 to 44 due to degrees in graph pairs 0
+pol @adj32_44_27 @adj32_44_31 + @adj32_44_33 + @adj32_44_36 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x32_44 >= 1 : 8727 ;
+del id 8727 ;
+% cannot map 32 to 45 due to degrees in graph pairs 0
+pol @adj32_45_27 @adj32_45_31 + @adj32_45_33 + @adj32_45_36 + @inj5 + @inj6 + s ;
+ia 1 ~x32_45 >= 1 : 8729 ;
+del id 8729 ;
+% cannot map 32 to 46 due to degrees in graph pairs 0
+pol @adj32_46_27 @adj32_46_31 + @adj32_46_33 + @adj32_46_36 + s ;
+ia 1 ~x32_46 >= 1 : 8731 ;
+del id 8731 ;
+% cannot map 32 to 47 due to degrees in graph pairs 0
+pol @adj32_47_27 @adj32_47_31 + @adj32_47_33 + @adj32_47_36 + s ;
+ia 1 ~x32_47 >= 1 : 8733 ;
+del id 8733 ;
+% cannot map 33 to 12 due to degrees in graph pairs 0
+pol @adj33_12_23 @adj33_12_27 + @adj33_12_30 + @adj33_12_32 + @adj33_12_37 + @adj33_12_38 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x33_12 >= 1 : 8735 ;
+del id 8735 ;
+% cannot map 33 to 16 due to degrees in graph pairs 0
+pol @adj33_16_23 @adj33_16_27 + @adj33_16_30 + @adj33_16_32 + @adj33_16_37 + @adj33_16_38 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x33_16 >= 1 : 8737 ;
+del id 8737 ;
+% cannot map 33 to 17 due to degrees in graph pairs 0
+pol @adj33_17_23 @adj33_17_27 + @adj33_17_30 + @adj33_17_32 + @adj33_17_37 + @adj33_17_38 + @inj14 + @inj15 + s ;
+ia 1 ~x33_17 >= 1 : 8739 ;
+del id 8739 ;
+% cannot map 33 to 18 due to degrees in graph pairs 0
+pol @adj33_18_23 @adj33_18_27 + @adj33_18_30 + @adj33_18_32 + @adj33_18_37 + @adj33_18_38 + @inj15 + s ;
+ia 1 ~x33_18 >= 1 : 8741 ;
+del id 8741 ;
+% cannot map 33 to 19 due to degrees in graph pairs 0
+pol @adj33_19_23 @adj33_19_27 + @adj33_19_30 + @adj33_19_32 + @adj33_19_37 + @adj33_19_38 + s ;
+ia 1 ~x33_19 >= 1 : 8743 ;
+del id 8743 ;
+% cannot map 33 to 20 due to degrees in graph pairs 0
+pol @adj33_20_23 @adj33_20_27 + @adj33_20_30 + @adj33_20_32 + @adj33_20_37 + @adj33_20_38 + @inj8 + @inj9 + s ;
+ia 1 ~x33_20 >= 1 : 8745 ;
+del id 8745 ;
+% cannot map 33 to 21 due to degrees in graph pairs 0
+pol @adj33_21_23 @adj33_21_27 + @adj33_21_30 + @adj33_21_32 + @adj33_21_37 + @adj33_21_38 + @inj8 + @inj9 + s ;
+ia 1 ~x33_21 >= 1 : 8747 ;
+del id 8747 ;
+% cannot map 33 to 22 due to degrees in graph pairs 0
+pol @adj33_22_23 @adj33_22_27 + @adj33_22_30 + @adj33_22_32 + @adj33_22_37 + @adj33_22_38 + @inj8 + @inj9 + s ;
+ia 1 ~x33_22 >= 1 : 8749 ;
+del id 8749 ;
+% cannot map 33 to 23 due to degrees in graph pairs 0
+pol @adj33_23_23 @adj33_23_27 + @adj33_23_30 + @adj33_23_32 + @adj33_23_37 + @adj33_23_38 + @inj8 + @inj9 + s ;
+ia 1 ~x33_23 >= 1 : 8751 ;
+del id 8751 ;
+% cannot map 33 to 24 due to degrees in graph pairs 0
+pol @adj33_24_23 @adj33_24_27 + @adj33_24_30 + @adj33_24_32 + @adj33_24_37 + @adj33_24_38 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x33_24 >= 1 : 8753 ;
+del id 8753 ;
+% cannot map 33 to 25 due to degrees in graph pairs 0
+pol @adj33_25_23 @adj33_25_27 + @adj33_25_30 + @adj33_25_32 + @adj33_25_37 + @adj33_25_38 + @inj1 + @inj9 + s ;
+ia 1 ~x33_25 >= 1 : 8755 ;
+del id 8755 ;
+% cannot map 33 to 26 due to degrees in graph pairs 0
+pol @adj33_26_23 @adj33_26_27 + @adj33_26_30 + @adj33_26_32 + @adj33_26_37 + @adj33_26_38 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x33_26 >= 1 : 8757 ;
+del id 8757 ;
+% cannot map 33 to 27 due to degrees in graph pairs 0
+pol @adj33_27_23 @adj33_27_27 + @adj33_27_30 + @adj33_27_32 + @adj33_27_37 + @adj33_27_38 + @inj1 + @inj2 + @inj3 + @inj9 + @inj14 + s ;
+ia 1 ~x33_27 >= 1 : 8759 ;
+del id 8759 ;
+% cannot map 33 to 40 due to degrees in graph pairs 0
+pol @adj33_40_23 @adj33_40_27 + @adj33_40_30 + @adj33_40_32 + @adj33_40_37 + @adj33_40_38 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + s ;
+ia 1 ~x33_40 >= 1 : 8761 ;
+del id 8761 ;
+% cannot map 33 to 41 due to degrees in graph pairs 0
+pol @adj33_41_23 @adj33_41_27 + @adj33_41_30 + @adj33_41_32 + @adj33_41_37 + @adj33_41_38 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x33_41 >= 1 : 8763 ;
+del id 8763 ;
+% cannot map 33 to 42 due to degrees in graph pairs 0
+pol @adj33_42_23 @adj33_42_27 + @adj33_42_30 + @adj33_42_32 + @adj33_42_37 + @adj33_42_38 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x33_42 >= 1 : 8765 ;
+del id 8765 ;
+% cannot map 33 to 43 due to degrees in graph pairs 0
+pol @adj33_43_23 @adj33_43_27 + @adj33_43_30 + @adj33_43_32 + @adj33_43_37 + @adj33_43_38 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x33_43 >= 1 : 8767 ;
+del id 8767 ;
+% cannot map 33 to 44 due to degrees in graph pairs 0
+pol @adj33_44_23 @adj33_44_27 + @adj33_44_30 + @adj33_44_32 + @adj33_44_37 + @adj33_44_38 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x33_44 >= 1 : 8769 ;
+del id 8769 ;
+% cannot map 33 to 45 due to degrees in graph pairs 0
+pol @adj33_45_23 @adj33_45_27 + @adj33_45_30 + @adj33_45_32 + @adj33_45_37 + @adj33_45_38 + @inj5 + @inj6 + s ;
+ia 1 ~x33_45 >= 1 : 8771 ;
+del id 8771 ;
+% cannot map 33 to 46 due to degrees in graph pairs 0
+pol @adj33_46_23 @adj33_46_27 + @adj33_46_30 + @adj33_46_32 + @adj33_46_37 + @adj33_46_38 + s ;
+ia 1 ~x33_46 >= 1 : 8773 ;
+del id 8773 ;
+% cannot map 33 to 47 due to degrees in graph pairs 0
+pol @adj33_47_23 @adj33_47_27 + @adj33_47_30 + @adj33_47_32 + @adj33_47_37 + @adj33_47_38 + s ;
+ia 1 ~x33_47 >= 1 : 8775 ;
+del id 8775 ;
+% cannot map 34 to 11 due to degrees in graph pairs 0
+pol @adj34_11_23 @adj34_11_24 + @adj34_11_31 + @adj34_11_35 + @adj34_11_36 + @adj34_11_38 + @adj34_11_39 + @adj34_11_40 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + s ;
+ia 1 ~x34_11 >= 1 : 8777 ;
+del id 8777 ;
+% cannot map 34 to 12 due to degrees in graph pairs 0
+pol @adj34_12_23 @adj34_12_24 + @adj34_12_31 + @adj34_12_35 + @adj34_12_36 + @adj34_12_38 + @adj34_12_39 + @adj34_12_40 + @inj34 + @inj35 + @inj36 + @inj37 + s ;
+ia 1 ~x34_12 >= 1 : 8779 ;
+del id 8779 ;
+% cannot map 34 to 16 due to degrees in graph pairs 0
+pol @adj34_16_23 @adj34_16_24 + @adj34_16_31 + @adj34_16_35 + @adj34_16_36 + @adj34_16_38 + @adj34_16_39 + @adj34_16_40 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x34_16 >= 1 : 8781 ;
+del id 8781 ;
+% cannot map 34 to 17 due to degrees in graph pairs 0
+pol @adj34_17_23 @adj34_17_24 + @adj34_17_31 + @adj34_17_35 + @adj34_17_36 + @adj34_17_38 + @adj34_17_39 + @adj34_17_40 + @inj14 + @inj15 + s ;
+ia 1 ~x34_17 >= 1 : 8783 ;
+del id 8783 ;
+% cannot map 34 to 18 due to degrees in graph pairs 0
+pol @adj34_18_23 @adj34_18_24 + @adj34_18_31 + @adj34_18_35 + @adj34_18_36 + @adj34_18_38 + @adj34_18_39 + @adj34_18_40 + @inj15 + s ;
+ia 1 ~x34_18 >= 1 : 8785 ;
+del id 8785 ;
+% cannot map 34 to 19 due to degrees in graph pairs 0
+pol @adj34_19_23 @adj34_19_24 + @adj34_19_31 + @adj34_19_35 + @adj34_19_36 + @adj34_19_38 + @adj34_19_39 + @adj34_19_40 + s ;
+ia 1 ~x34_19 >= 1 : 8787 ;
+del id 8787 ;
+% cannot map 34 to 20 due to degrees in graph pairs 0
+pol @adj34_20_23 @adj34_20_24 + @adj34_20_31 + @adj34_20_35 + @adj34_20_36 + @adj34_20_38 + @adj34_20_39 + @adj34_20_40 + @inj8 + @inj9 + s ;
+ia 1 ~x34_20 >= 1 : 8789 ;
+del id 8789 ;
+% cannot map 34 to 21 due to degrees in graph pairs 0
+pol @adj34_21_23 @adj34_21_24 + @adj34_21_31 + @adj34_21_35 + @adj34_21_36 + @adj34_21_38 + @adj34_21_39 + @adj34_21_40 + @inj8 + @inj9 + s ;
+ia 1 ~x34_21 >= 1 : 8791 ;
+del id 8791 ;
+% cannot map 34 to 22 due to degrees in graph pairs 0
+pol @adj34_22_23 @adj34_22_24 + @adj34_22_31 + @adj34_22_35 + @adj34_22_36 + @adj34_22_38 + @adj34_22_39 + @adj34_22_40 + @inj8 + @inj9 + s ;
+ia 1 ~x34_22 >= 1 : 8793 ;
+del id 8793 ;
+% cannot map 34 to 23 due to degrees in graph pairs 0
+pol @adj34_23_23 @adj34_23_24 + @adj34_23_31 + @adj34_23_35 + @adj34_23_36 + @adj34_23_38 + @adj34_23_39 + @adj34_23_40 + @inj8 + @inj9 + s ;
+ia 1 ~x34_23 >= 1 : 8795 ;
+del id 8795 ;
+% cannot map 34 to 24 due to degrees in graph pairs 0
+pol @adj34_24_23 @adj34_24_24 + @adj34_24_31 + @adj34_24_35 + @adj34_24_36 + @adj34_24_38 + @adj34_24_39 + @adj34_24_40 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x34_24 >= 1 : 8797 ;
+del id 8797 ;
+% cannot map 34 to 25 due to degrees in graph pairs 0
+pol @adj34_25_23 @adj34_25_24 + @adj34_25_31 + @adj34_25_35 + @adj34_25_36 + @adj34_25_38 + @adj34_25_39 + @adj34_25_40 + @inj1 + @inj9 + s ;
+ia 1 ~x34_25 >= 1 : 8799 ;
+del id 8799 ;
+% cannot map 34 to 26 due to degrees in graph pairs 0
+pol @adj34_26_23 @adj34_26_24 + @adj34_26_31 + @adj34_26_35 + @adj34_26_36 + @adj34_26_38 + @adj34_26_39 + @adj34_26_40 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x34_26 >= 1 : 8801 ;
+del id 8801 ;
+% cannot map 34 to 27 due to degrees in graph pairs 0
+pol @adj34_27_23 @adj34_27_24 + @adj34_27_31 + @adj34_27_35 + @adj34_27_36 + @adj34_27_38 + @adj34_27_39 + @adj34_27_40 + @inj1 + @inj2 + @inj3 + @inj9 + @inj14 + s ;
+ia 1 ~x34_27 >= 1 : 8803 ;
+del id 8803 ;
+% cannot map 34 to 39 due to degrees in graph pairs 0
+pol @adj34_39_23 @adj34_39_24 + @adj34_39_31 + @adj34_39_35 + @adj34_39_36 + @adj34_39_38 + @adj34_39_39 + @adj34_39_40 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj14 + @inj15 + s ;
+ia 1 ~x34_39 >= 1 : 8805 ;
+del id 8805 ;
+% cannot map 34 to 40 due to degrees in graph pairs 0
+pol @adj34_40_23 @adj34_40_24 + @adj34_40_31 + @adj34_40_35 + @adj34_40_36 + @adj34_40_38 + @adj34_40_39 + @adj34_40_40 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + s ;
+ia 1 ~x34_40 >= 1 : 8807 ;
+del id 8807 ;
+% cannot map 34 to 41 due to degrees in graph pairs 0
+pol @adj34_41_23 @adj34_41_24 + @adj34_41_31 + @adj34_41_35 + @adj34_41_36 + @adj34_41_38 + @adj34_41_39 + @adj34_41_40 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x34_41 >= 1 : 8809 ;
+del id 8809 ;
+% cannot map 34 to 42 due to degrees in graph pairs 0
+pol @adj34_42_23 @adj34_42_24 + @adj34_42_31 + @adj34_42_35 + @adj34_42_36 + @adj34_42_38 + @adj34_42_39 + @adj34_42_40 + @inj6 + @inj7 + @inj8 + @inj9 + s ;
+ia 1 ~x34_42 >= 1 : 8811 ;
+del id 8811 ;
+% cannot map 34 to 43 due to degrees in graph pairs 0
+pol @adj34_43_23 @adj34_43_24 + @adj34_43_31 + @adj34_43_35 + @adj34_43_36 + @adj34_43_38 + @adj34_43_39 + @adj34_43_40 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x34_43 >= 1 : 8813 ;
+del id 8813 ;
+% cannot map 34 to 44 due to degrees in graph pairs 0
+pol @adj34_44_23 @adj34_44_24 + @adj34_44_31 + @adj34_44_35 + @adj34_44_36 + @adj34_44_38 + @adj34_44_39 + @adj34_44_40 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x34_44 >= 1 : 8815 ;
+del id 8815 ;
+% cannot map 34 to 45 due to degrees in graph pairs 0
+pol @adj34_45_23 @adj34_45_24 + @adj34_45_31 + @adj34_45_35 + @adj34_45_36 + @adj34_45_38 + @adj34_45_39 + @adj34_45_40 + @inj5 + @inj6 + s ;
+ia 1 ~x34_45 >= 1 : 8817 ;
+del id 8817 ;
+% cannot map 34 to 46 due to degrees in graph pairs 0
+pol @adj34_46_23 @adj34_46_24 + @adj34_46_31 + @adj34_46_35 + @adj34_46_36 + @adj34_46_38 + @adj34_46_39 + @adj34_46_40 + s ;
+ia 1 ~x34_46 >= 1 : 8819 ;
+del id 8819 ;
+% cannot map 34 to 47 due to degrees in graph pairs 0
+pol @adj34_47_23 @adj34_47_24 + @adj34_47_31 + @adj34_47_35 + @adj34_47_36 + @adj34_47_38 + @adj34_47_39 + @adj34_47_40 + s ;
+ia 1 ~x34_47 >= 1 : 8821 ;
+del id 8821 ;
+% cannot map 35 to 18 due to degrees in graph pairs 0
+pol @adj35_18_20 @adj35_18_34 + @inj15 + s ;
+ia 1 ~x35_18 >= 1 : 8823 ;
+del id 8823 ;
+% cannot map 35 to 19 due to degrees in graph pairs 0
+pol @adj35_19_20 @adj35_19_34 + s ;
+ia 1 ~x35_19 >= 1 : 8825 ;
+del id 8825 ;
+% cannot map 35 to 46 due to degrees in graph pairs 0
+pol @adj35_46_20 @adj35_46_34 + s ;
+ia 1 ~x35_46 >= 1 : 8827 ;
+del id 8827 ;
+% cannot map 35 to 47 due to degrees in graph pairs 0
+pol @adj35_47_20 @adj35_47_34 + s ;
+ia 1 ~x35_47 >= 1 : 8829 ;
+del id 8829 ;
+% cannot map 36 to 16 due to degrees in graph pairs 0
+pol @adj36_16_32 @adj36_16_34 + @adj36_16_37 + @adj36_16_40 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x36_16 >= 1 : 8831 ;
+del id 8831 ;
+% cannot map 36 to 17 due to degrees in graph pairs 0
+pol @adj36_17_32 @adj36_17_34 + @adj36_17_37 + @adj36_17_40 + @inj14 + @inj15 + s ;
+ia 1 ~x36_17 >= 1 : 8833 ;
+del id 8833 ;
+% cannot map 36 to 18 due to degrees in graph pairs 0
+pol @adj36_18_32 @adj36_18_34 + @adj36_18_37 + @adj36_18_40 + @inj15 + s ;
+ia 1 ~x36_18 >= 1 : 8835 ;
+del id 8835 ;
+% cannot map 36 to 19 due to degrees in graph pairs 0
+pol @adj36_19_32 @adj36_19_34 + @adj36_19_37 + @adj36_19_40 + s ;
+ia 1 ~x36_19 >= 1 : 8837 ;
+del id 8837 ;
+% cannot map 36 to 20 due to degrees in graph pairs 0
+pol @adj36_20_32 @adj36_20_34 + @adj36_20_37 + @adj36_20_40 + @inj8 + @inj9 + s ;
+ia 1 ~x36_20 >= 1 : 8839 ;
+del id 8839 ;
+% cannot map 36 to 21 due to degrees in graph pairs 0
+pol @adj36_21_32 @adj36_21_34 + @adj36_21_37 + @adj36_21_40 + @inj8 + @inj9 + s ;
+ia 1 ~x36_21 >= 1 : 8841 ;
+del id 8841 ;
+% cannot map 36 to 22 due to degrees in graph pairs 0
+pol @adj36_22_32 @adj36_22_34 + @adj36_22_37 + @adj36_22_40 + @inj8 + @inj9 + s ;
+ia 1 ~x36_22 >= 1 : 8843 ;
+del id 8843 ;
+% cannot map 36 to 23 due to degrees in graph pairs 0
+pol @adj36_23_32 @adj36_23_34 + @adj36_23_37 + @adj36_23_40 + @inj8 + @inj9 + s ;
+ia 1 ~x36_23 >= 1 : 8845 ;
+del id 8845 ;
+% cannot map 36 to 24 due to degrees in graph pairs 0
+pol @adj36_24_32 @adj36_24_34 + @adj36_24_37 + @adj36_24_40 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x36_24 >= 1 : 8847 ;
+del id 8847 ;
+% cannot map 36 to 25 due to degrees in graph pairs 0
+pol @adj36_25_32 @adj36_25_34 + @adj36_25_37 + @adj36_25_40 + @inj1 + @inj9 + s ;
+ia 1 ~x36_25 >= 1 : 8849 ;
+del id 8849 ;
+% cannot map 36 to 26 due to degrees in graph pairs 0
+pol @adj36_26_32 @adj36_26_34 + @adj36_26_37 + @adj36_26_40 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x36_26 >= 1 : 8851 ;
+del id 8851 ;
+% cannot map 36 to 43 due to degrees in graph pairs 0
+pol @adj36_43_32 @adj36_43_34 + @adj36_43_37 + @adj36_43_40 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x36_43 >= 1 : 8853 ;
+del id 8853 ;
+% cannot map 36 to 44 due to degrees in graph pairs 0
+pol @adj36_44_32 @adj36_44_34 + @adj36_44_37 + @adj36_44_40 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x36_44 >= 1 : 8855 ;
+del id 8855 ;
+% cannot map 36 to 45 due to degrees in graph pairs 0
+pol @adj36_45_32 @adj36_45_34 + @adj36_45_37 + @adj36_45_40 + @inj5 + @inj6 + s ;
+ia 1 ~x36_45 >= 1 : 8857 ;
+del id 8857 ;
+% cannot map 36 to 46 due to degrees in graph pairs 0
+pol @adj36_46_32 @adj36_46_34 + @adj36_46_37 + @adj36_46_40 + s ;
+ia 1 ~x36_46 >= 1 : 8859 ;
+del id 8859 ;
+% cannot map 36 to 47 due to degrees in graph pairs 0
+pol @adj36_47_32 @adj36_47_34 + @adj36_47_37 + @adj36_47_40 + s ;
+ia 1 ~x36_47 >= 1 : 8861 ;
+del id 8861 ;
+% cannot map 37 to 16 due to degrees in graph pairs 0
+pol @adj37_16_33 @adj37_16_36 + @adj37_16_38 + @adj37_16_40 + @inj13 + @inj14 + @inj15 + s ;
+ia 1 ~x37_16 >= 1 : 8863 ;
+del id 8863 ;
+% cannot map 37 to 17 due to degrees in graph pairs 0
+pol @adj37_17_33 @adj37_17_36 + @adj37_17_38 + @adj37_17_40 + @inj14 + @inj15 + s ;
+ia 1 ~x37_17 >= 1 : 8865 ;
+del id 8865 ;
+% cannot map 37 to 18 due to degrees in graph pairs 0
+pol @adj37_18_33 @adj37_18_36 + @adj37_18_38 + @adj37_18_40 + @inj15 + s ;
+ia 1 ~x37_18 >= 1 : 8867 ;
+del id 8867 ;
+% cannot map 37 to 19 due to degrees in graph pairs 0
+pol @adj37_19_33 @adj37_19_36 + @adj37_19_38 + @adj37_19_40 + s ;
+ia 1 ~x37_19 >= 1 : 8869 ;
+del id 8869 ;
+% cannot map 37 to 20 due to degrees in graph pairs 0
+pol @adj37_20_33 @adj37_20_36 + @adj37_20_38 + @adj37_20_40 + @inj8 + @inj9 + s ;
+ia 1 ~x37_20 >= 1 : 8871 ;
+del id 8871 ;
+% cannot map 37 to 21 due to degrees in graph pairs 0
+pol @adj37_21_33 @adj37_21_36 + @adj37_21_38 + @adj37_21_40 + @inj8 + @inj9 + s ;
+ia 1 ~x37_21 >= 1 : 8873 ;
+del id 8873 ;
+% cannot map 37 to 22 due to degrees in graph pairs 0
+pol @adj37_22_33 @adj37_22_36 + @adj37_22_38 + @adj37_22_40 + @inj8 + @inj9 + s ;
+ia 1 ~x37_22 >= 1 : 8875 ;
+del id 8875 ;
+% cannot map 37 to 23 due to degrees in graph pairs 0
+pol @adj37_23_33 @adj37_23_36 + @adj37_23_38 + @adj37_23_40 + @inj8 + @inj9 + s ;
+ia 1 ~x37_23 >= 1 : 8877 ;
+del id 8877 ;
+% cannot map 37 to 24 due to degrees in graph pairs 0
+pol @adj37_24_33 @adj37_24_36 + @adj37_24_38 + @adj37_24_40 + @inj0 + @inj8 + @inj9 + s ;
+ia 1 ~x37_24 >= 1 : 8879 ;
+del id 8879 ;
+% cannot map 37 to 25 due to degrees in graph pairs 0
+pol @adj37_25_33 @adj37_25_36 + @adj37_25_38 + @adj37_25_40 + @inj1 + @inj9 + s ;
+ia 1 ~x37_25 >= 1 : 8881 ;
+del id 8881 ;
+% cannot map 37 to 26 due to degrees in graph pairs 0
+pol @adj37_26_33 @adj37_26_36 + @adj37_26_38 + @adj37_26_40 + @inj1 + @inj2 + @inj9 + s ;
+ia 1 ~x37_26 >= 1 : 8883 ;
+del id 8883 ;
+% cannot map 37 to 43 due to degrees in graph pairs 0
+pol @adj37_43_33 @adj37_43_36 + @adj37_43_38 + @adj37_43_40 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x37_43 >= 1 : 8885 ;
+del id 8885 ;
+% cannot map 37 to 44 due to degrees in graph pairs 0
+pol @adj37_44_33 @adj37_44_36 + @adj37_44_38 + @adj37_44_40 + @inj5 + @inj6 + @inj7 + s ;
+ia 1 ~x37_44 >= 1 : 8887 ;
+del id 8887 ;
+% cannot map 37 to 45 due to degrees in graph pairs 0
+pol @adj37_45_33 @adj37_45_36 + @adj37_45_38 + @adj37_45_40 + @inj5 + @inj6 + s ;
+ia 1 ~x37_45 >= 1 : 8889 ;
+del id 8889 ;
+% cannot map 37 to 46 due to degrees in graph pairs 0
+pol @adj37_46_33 @adj37_46_36 + @adj37_46_38 + @adj37_46_40 + s ;
+ia 1 ~x37_46 >= 1 : 8891 ;
+del id 8891 ;
+% cannot map 37 to 47 due to degrees in graph pairs 0
+pol @adj37_47_33 @adj37_47_36 + @adj37_47_38 + @adj37_47_40 + s ;
+ia 1 ~x37_47 >= 1 : 8893 ;
+del id 8893 ;
+% cannot map 38 to 17 due to degrees in graph pairs 0
+pol @adj38_17_33 @adj38_17_34 + @adj38_17_37 + @inj14 + @inj15 + s ;
+ia 1 ~x38_17 >= 1 : 8895 ;
+del id 8895 ;
+% cannot map 38 to 18 due to degrees in graph pairs 0
+pol @adj38_18_33 @adj38_18_34 + @adj38_18_37 + @inj15 + s ;
+ia 1 ~x38_18 >= 1 : 8897 ;
+del id 8897 ;
+% cannot map 38 to 19 due to degrees in graph pairs 0
+pol @adj38_19_33 @adj38_19_34 + @adj38_19_37 + s ;
+ia 1 ~x38_19 >= 1 : 8899 ;
+del id 8899 ;
+% cannot map 38 to 20 due to degrees in graph pairs 0
+pol @adj38_20_33 @adj38_20_34 + @adj38_20_37 + @inj8 + @inj9 + s ;
+ia 1 ~x38_20 >= 1 : 8901 ;
+del id 8901 ;
+% cannot map 38 to 21 due to degrees in graph pairs 0
+pol @adj38_21_33 @adj38_21_34 + @adj38_21_37 + @inj8 + @inj9 + s ;
+ia 1 ~x38_21 >= 1 : 8903 ;
+del id 8903 ;
+% cannot map 38 to 22 due to degrees in graph pairs 0
+pol @adj38_22_33 @adj38_22_34 + @adj38_22_37 + @inj8 + @inj9 + s ;
+ia 1 ~x38_22 >= 1 : 8905 ;
+del id 8905 ;
+% cannot map 38 to 23 due to degrees in graph pairs 0
+pol @adj38_23_33 @adj38_23_34 + @adj38_23_37 + @inj8 + @inj9 + s ;
+ia 1 ~x38_23 >= 1 : 8907 ;
+del id 8907 ;
+% cannot map 38 to 25 due to degrees in graph pairs 0
+pol @adj38_25_33 @adj38_25_34 + @adj38_25_37 + @inj1 + @inj9 + s ;
+ia 1 ~x38_25 >= 1 : 8909 ;
+del id 8909 ;
+% cannot map 38 to 45 due to degrees in graph pairs 0
+pol @adj38_45_33 @adj38_45_34 + @adj38_45_37 + @inj5 + @inj6 + s ;
+ia 1 ~x38_45 >= 1 : 8911 ;
+del id 8911 ;
+% cannot map 38 to 46 due to degrees in graph pairs 0
+pol @adj38_46_33 @adj38_46_34 + @adj38_46_37 + s ;
+ia 1 ~x38_46 >= 1 : 8913 ;
+del id 8913 ;
+% cannot map 38 to 47 due to degrees in graph pairs 0
+pol @adj38_47_33 @adj38_47_34 + @adj38_47_37 + s ;
+ia 1 ~x38_47 >= 1 : 8915 ;
+del id 8915 ;
+% cannot map 39 to 18 due to degrees in graph pairs 0
+pol @adj39_18_24 @adj39_18_34 + @inj15 + s ;
+ia 1 ~x39_18 >= 1 : 8917 ;
+del id 8917 ;
+% cannot map 39 to 19 due to degrees in graph pairs 0
+pol @adj39_19_24 @adj39_19_34 + s ;
+ia 1 ~x39_19 >= 1 : 8919 ;
+del id 8919 ;
+% cannot map 39 to 46 due to degrees in graph pairs 0
+pol @adj39_46_24 @adj39_46_34 + s ;
+ia 1 ~x39_46 >= 1 : 8921 ;
+del id 8921 ;
+% cannot map 39 to 47 due to degrees in graph pairs 0
+pol @adj39_47_24 @adj39_47_34 + s ;
+ia 1 ~x39_47 >= 1 : 8923 ;
+del id 8923 ;
+% cannot map 40 to 17 due to degrees in graph pairs 0
+pol @adj40_17_34 @adj40_17_36 + @adj40_17_37 + @inj14 + @inj15 + s ;
+ia 1 ~x40_17 >= 1 : 8925 ;
+del id 8925 ;
+% cannot map 40 to 18 due to degrees in graph pairs 0
+pol @adj40_18_34 @adj40_18_36 + @adj40_18_37 + @inj15 + s ;
+ia 1 ~x40_18 >= 1 : 8927 ;
+del id 8927 ;
+% cannot map 40 to 19 due to degrees in graph pairs 0
+pol @adj40_19_34 @adj40_19_36 + @adj40_19_37 + s ;
+ia 1 ~x40_19 >= 1 : 8929 ;
+del id 8929 ;
+% cannot map 40 to 20 due to degrees in graph pairs 0
+pol @adj40_20_34 @adj40_20_36 + @adj40_20_37 + @inj8 + @inj9 + s ;
+ia 1 ~x40_20 >= 1 : 8931 ;
+del id 8931 ;
+% cannot map 40 to 21 due to degrees in graph pairs 0
+pol @adj40_21_34 @adj40_21_36 + @adj40_21_37 + @inj8 + @inj9 + s ;
+ia 1 ~x40_21 >= 1 : 8933 ;
+del id 8933 ;
+% cannot map 40 to 22 due to degrees in graph pairs 0
+pol @adj40_22_34 @adj40_22_36 + @adj40_22_37 + @inj8 + @inj9 + s ;
+ia 1 ~x40_22 >= 1 : 8935 ;
+del id 8935 ;
+% cannot map 40 to 23 due to degrees in graph pairs 0
+pol @adj40_23_34 @adj40_23_36 + @adj40_23_37 + @inj8 + @inj9 + s ;
+ia 1 ~x40_23 >= 1 : 8937 ;
+del id 8937 ;
+% cannot map 40 to 25 due to degrees in graph pairs 0
+pol @adj40_25_34 @adj40_25_36 + @adj40_25_37 + @inj1 + @inj9 + s ;
+ia 1 ~x40_25 >= 1 : 8939 ;
+del id 8939 ;
+% cannot map 40 to 45 due to degrees in graph pairs 0
+pol @adj40_45_34 @adj40_45_36 + @adj40_45_37 + @inj5 + @inj6 + s ;
+ia 1 ~x40_45 >= 1 : 8941 ;
+del id 8941 ;
+% cannot map 40 to 46 due to degrees in graph pairs 0
+pol @adj40_46_34 @adj40_46_36 + @adj40_46_37 + s ;
+ia 1 ~x40_46 >= 1 : 8943 ;
+del id 8943 ;
+% cannot map 40 to 47 due to degrees in graph pairs 0
+pol @adj40_47_34 @adj40_47_36 + @adj40_47_37 + s ;
+ia 1 ~x40_47 >= 1 : 8945 ;
+del id 8945 ;
+% [0] guessing 20=9
+% unit propagating 20=9
+setlvl 2;
+% [1] guessing 6=34
+% unit propagating 6=34
+% [2] propagation failure on 6=34
+rup  1 ~x20_9 1 ~x6_34 >= 1 ;
+% [1] guessing 6=36
+% unit propagating 6=36
+% [2] propagation failure on 6=36
+rup  1 ~x20_9 1 ~x6_36 >= 1 ;
+% [1] guessing 6=35
+% unit propagating 6=35
+% [2] propagation failure on 6=35
+rup  1 ~x20_9 1 ~x6_35 >= 1 ;
+% [1] guessing 6=33
+% unit propagating 6=33
+% [2] propagation failure on 6=33
+rup  1 ~x20_9 1 ~x6_33 >= 1 ;
+% [1] guessing 6=32
+% unit propagating 6=32
+% [2] propagation failure on 6=32
+rup  1 ~x20_9 1 ~x6_32 >= 1 ;
+% [1] guessing 6=37
+% unit propagating 6=37
+% [2] propagation failure on 6=37
+rup  1 ~x20_9 1 ~x6_37 >= 1 ;
+% [1] guessing 6=38
+% unit propagating 6=38
+% [2] propagation failure on 6=38
+rup  1 ~x20_9 1 ~x6_38 >= 1 ;
+% [1] guessing 6=29
+% unit propagating 6=29
+% [2] propagation failure on 6=29
+rup  1 ~x20_9 1 ~x6_29 >= 1 ;
+% [1] guessing 6=31
+% unit propagating 6=31
+% [2] propagation failure on 6=31
+rup  1 ~x20_9 1 ~x6_31 >= 1 ;
+% [1] guessing 6=30
+% unit propagating 6=30
+% [2] propagation failure on 6=30
+rup  1 ~x20_9 1 ~x6_30 >= 1 ;
+% [1] guessing 6=39
+% unit propagating 6=39
+% [2] propagation failure on 6=39
+rup  1 ~x20_9 1 ~x6_39 >= 1 ;
+% [1] guessing 6=28
+% unit propagating 6=28
+% [2] propagation failure on 6=28
+rup  1 ~x20_9 1 ~x6_28 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_9 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=36
+% unit propagating 20=36
+% hall set or violator { 20 6 27 12 13 14 21 26 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al127 + @al112 + @al113 + @al114 + @al121 + @al126 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_36 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_36 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_36 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_36 1 ~x0_17 1 ~x6_14 >= 1 ;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_36 1 ~x0_17 1 ~x6_15 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_36 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_36 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_36 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_36 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_36 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_36 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_36 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 6 } / { 5 45 }
+pol @al10 @al16 + @inj5 + @inj45 + ;
+% hall set or violator { 0 6 1 } / { 5 6 45 }
+pol @al10 @al16 + @al11 + @inj5 + @inj6 + @inj45 + ;
+% unit propagating 1=6
+% [2] propagation failure on 0=45
+rup  1 ~x20_36 1 ~x0_45 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_36 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_36 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_36 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_36 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_36 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_36 1 ~x0_20 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_36 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=7
+% unit propagating 20=7
+% hall set or violator { 20 6 27 14 21 12 13 26 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al127 + @al114 + @al121 + @al112 + @al113 + @al126 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=23
+% unit propagating 0=23
+% [2] propagation failure on 0=23
+rup  1 ~x20_7 1 ~x0_23 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% [2] propagation failure on 0=20
+rup  1 ~x20_7 1 ~x0_20 >= 1 ;
+% [1] guessing 0=25
+% unit propagating 0=25
+% [2] propagation failure on 0=25
+rup  1 ~x20_7 1 ~x0_25 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% [2] propagation failure on 0=21
+rup  1 ~x20_7 1 ~x0_21 >= 1 ;
+% [1] guessing 0=17
+% unit propagating 0=17
+% [2] propagation failure on 0=17
+rup  1 ~x20_7 1 ~x0_17 >= 1 ;
+% [1] guessing 0=45
+% unit propagating 0=45
+% [2] propagation failure on 0=45
+rup  1 ~x20_7 1 ~x0_45 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% [2] propagation failure on 0=22
+rup  1 ~x20_7 1 ~x0_22 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_7 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=35
+% unit propagating 20=35
+% hall set or violator { 20 6 27 12 13 14 21 26 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al127 + @al112 + @al113 + @al114 + @al121 + @al126 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_35 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_35 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_35 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_35 1 ~x0_17 1 ~x6_15 >= 1 ;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_35 1 ~x0_17 1 ~x6_14 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_35 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_35 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_35 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_35 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+setlvl 3;
+% [2] guessing 6=6
+% unit propagating 6=6
+% [3] propagation failure on 6=6
+rup  1 ~x20_35 1 ~x0_45 1 ~x6_6 >= 1 ;
+% [2] guessing 6=5
+% unit propagating 6=5
+% [3] propagation failure on 6=5
+rup  1 ~x20_35 1 ~x0_45 1 ~x6_5 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_35 1 ~x0_45 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_35 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_35 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_35 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_35 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_35 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_35 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_35 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_35 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_35 1 ~x0_20 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_35 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=14
+% unit propagating 20=14
+setlvl 2;
+% [1] guessing 6=36
+% unit propagating 6=36
+% [2] propagation failure on 6=36
+rup  1 ~x20_14 1 ~x6_36 >= 1 ;
+% [1] guessing 6=33
+% unit propagating 6=33
+% [2] propagation failure on 6=33
+rup  1 ~x20_14 1 ~x6_33 >= 1 ;
+% [1] guessing 6=37
+% unit propagating 6=37
+% [2] propagation failure on 6=37
+rup  1 ~x20_14 1 ~x6_37 >= 1 ;
+% [1] guessing 6=34
+% unit propagating 6=34
+% [2] propagation failure on 6=34
+rup  1 ~x20_14 1 ~x6_34 >= 1 ;
+% [1] guessing 6=31
+% unit propagating 6=31
+% [2] propagation failure on 6=31
+rup  1 ~x20_14 1 ~x6_31 >= 1 ;
+% [1] guessing 6=35
+% unit propagating 6=35
+% [2] propagation failure on 6=35
+rup  1 ~x20_14 1 ~x6_35 >= 1 ;
+% [1] guessing 6=29
+% unit propagating 6=29
+% [2] propagation failure on 6=29
+rup  1 ~x20_14 1 ~x6_29 >= 1 ;
+% [1] guessing 6=32
+% unit propagating 6=32
+% [2] propagation failure on 6=32
+rup  1 ~x20_14 1 ~x6_32 >= 1 ;
+% [1] guessing 6=30
+% unit propagating 6=30
+% [2] propagation failure on 6=30
+rup  1 ~x20_14 1 ~x6_30 >= 1 ;
+% [1] guessing 6=38
+% unit propagating 6=38
+% [2] propagation failure on 6=38
+rup  1 ~x20_14 1 ~x6_38 >= 1 ;
+% [1] guessing 6=28
+% unit propagating 6=28
+% [2] propagation failure on 6=28
+rup  1 ~x20_14 1 ~x6_28 >= 1 ;
+% [1] guessing 6=39
+% unit propagating 6=39
+% [2] propagation failure on 6=39
+rup  1 ~x20_14 1 ~x6_39 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_14 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=6
+% unit propagating 20=6
+setlvl 2;
+% [1] guessing 6=37
+% unit propagating 6=37
+% [2] propagation failure on 6=37
+rup  1 ~x20_6 1 ~x6_37 >= 1 ;
+% [1] guessing 6=33
+% unit propagating 6=33
+% [2] propagation failure on 6=33
+rup  1 ~x20_6 1 ~x6_33 >= 1 ;
+% [1] guessing 6=35
+% unit propagating 6=35
+% [2] propagation failure on 6=35
+rup  1 ~x20_6 1 ~x6_35 >= 1 ;
+% [1] guessing 6=34
+% unit propagating 6=34
+% [2] propagation failure on 6=34
+rup  1 ~x20_6 1 ~x6_34 >= 1 ;
+% [1] guessing 6=32
+% unit propagating 6=32
+% [2] propagation failure on 6=32
+rup  1 ~x20_6 1 ~x6_32 >= 1 ;
+% [1] guessing 6=31
+% unit propagating 6=31
+% [2] propagation failure on 6=31
+rup  1 ~x20_6 1 ~x6_31 >= 1 ;
+% [1] guessing 6=30
+% unit propagating 6=30
+% [2] propagation failure on 6=30
+rup  1 ~x20_6 1 ~x6_30 >= 1 ;
+% [1] guessing 6=29
+% unit propagating 6=29
+% [2] propagation failure on 6=29
+rup  1 ~x20_6 1 ~x6_29 >= 1 ;
+% [1] guessing 6=38
+% unit propagating 6=38
+% [2] propagation failure on 6=38
+rup  1 ~x20_6 1 ~x6_38 >= 1 ;
+% [1] guessing 6=39
+% unit propagating 6=39
+% [2] propagation failure on 6=39
+rup  1 ~x20_6 1 ~x6_39 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_6 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=8
+% unit propagating 20=8
+setlvl 2;
+% [1] guessing 6=34
+% unit propagating 6=34
+% [2] propagation failure on 6=34
+rup  1 ~x20_8 1 ~x6_34 >= 1 ;
+% [1] guessing 6=37
+% unit propagating 6=37
+% [2] propagation failure on 6=37
+rup  1 ~x20_8 1 ~x6_37 >= 1 ;
+% [1] guessing 6=33
+% unit propagating 6=33
+% [2] propagation failure on 6=33
+rup  1 ~x20_8 1 ~x6_33 >= 1 ;
+% [1] guessing 6=35
+% unit propagating 6=35
+% [2] propagation failure on 6=35
+rup  1 ~x20_8 1 ~x6_35 >= 1 ;
+% [1] guessing 6=36
+% unit propagating 6=36
+% [2] propagation failure on 6=36
+rup  1 ~x20_8 1 ~x6_36 >= 1 ;
+% [1] guessing 6=31
+% unit propagating 6=31
+% [2] propagation failure on 6=31
+rup  1 ~x20_8 1 ~x6_31 >= 1 ;
+% [1] guessing 6=32
+% unit propagating 6=32
+% [2] propagation failure on 6=32
+rup  1 ~x20_8 1 ~x6_32 >= 1 ;
+% [1] guessing 6=30
+% unit propagating 6=30
+% [2] propagation failure on 6=30
+rup  1 ~x20_8 1 ~x6_30 >= 1 ;
+% [1] guessing 6=38
+% unit propagating 6=38
+% [2] propagation failure on 6=38
+rup  1 ~x20_8 1 ~x6_38 >= 1 ;
+% [1] guessing 6=39
+% unit propagating 6=39
+% [2] propagation failure on 6=39
+rup  1 ~x20_8 1 ~x6_39 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_8 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=34
+% unit propagating 20=34
+% hall set or violator { 20 6 27 12 13 14 21 26 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al127 + @al112 + @al113 + @al114 + @al121 + @al126 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_34 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_34 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_34 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_34 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_34 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_34 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_34 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_34 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_34 1 ~x0_20 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_34 1 ~x0_17 1 ~x6_15 >= 1 ;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_34 1 ~x0_17 1 ~x6_14 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_34 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_34 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_34 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_34 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+setlvl 3;
+% [2] guessing 6=6
+% unit propagating 6=6
+% [3] propagation failure on 6=6
+rup  1 ~x20_34 1 ~x0_45 1 ~x6_6 >= 1 ;
+% [2] guessing 6=5
+% unit propagating 6=5
+% [3] propagation failure on 6=5
+rup  1 ~x20_34 1 ~x0_45 1 ~x6_5 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_34 1 ~x0_45 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_34 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_34 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_34 1 ~x0_21 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_34 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=37
+% unit propagating 20=37
+% hall set or violator { 20 6 27 12 13 14 21 26 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al127 + @al112 + @al113 + @al114 + @al121 + @al126 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_37 1 ~x0_17 1 ~x6_14 >= 1 ;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_37 1 ~x0_17 1 ~x6_15 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_37 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_37 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_37 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_37 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 6 } / { 6 45 }
+pol @al10 @al16 + @inj6 + @inj45 + ;
+% hall set or violator { 0 6 1 } / { 5 6 45 }
+pol @al10 @al16 + @al11 + @inj5 + @inj6 + @inj45 + ;
+% unit propagating 1=5
+% [2] propagation failure on 0=45
+rup  1 ~x20_37 1 ~x0_45 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_37 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_37 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_37 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_37 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_37 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_37 1 ~x0_20 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_37 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_37 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_37 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_37 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_37 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_37 1 ~x0_23 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_37 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=38
+% unit propagating 20=38
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_38 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_38 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_38 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_38 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_38 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_38 1 ~x0_20 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_38 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_38 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_38 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_38 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_38 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_38 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 6 } / { 6 45 }
+pol @al10 @al16 + @inj6 + @inj45 + ;
+% hall set or violator { 0 6 1 } / { 5 6 45 }
+pol @al10 @al16 + @al11 + @inj5 + @inj6 + @inj45 + ;
+% unit propagating 1=5
+% [2] propagation failure on 0=45
+rup  1 ~x20_38 1 ~x0_45 >= 1 ;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_38 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_38 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_38 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_38 1 ~x0_17 1 ~x6_15 >= 1 ;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_38 1 ~x0_17 1 ~x6_14 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_38 1 ~x0_17 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_38 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=15
+% unit propagating 20=15
+setlvl 2;
+% [1] guessing 6=31
+% unit propagating 6=31
+% [2] propagation failure on 6=31
+rup  1 ~x20_15 1 ~x6_31 >= 1 ;
+% [1] guessing 6=34
+% unit propagating 6=34
+% [2] propagation failure on 6=34
+rup  1 ~x20_15 1 ~x6_34 >= 1 ;
+% [1] guessing 6=35
+% unit propagating 6=35
+% [2] propagation failure on 6=35
+rup  1 ~x20_15 1 ~x6_35 >= 1 ;
+% [1] guessing 6=37
+% unit propagating 6=37
+% [2] propagation failure on 6=37
+rup  1 ~x20_15 1 ~x6_37 >= 1 ;
+% [1] guessing 6=33
+% unit propagating 6=33
+% [2] propagation failure on 6=33
+rup  1 ~x20_15 1 ~x6_33 >= 1 ;
+% [1] guessing 6=32
+% unit propagating 6=32
+% [2] propagation failure on 6=32
+rup  1 ~x20_15 1 ~x6_32 >= 1 ;
+% [1] guessing 6=36
+% unit propagating 6=36
+% [2] propagation failure on 6=36
+rup  1 ~x20_15 1 ~x6_36 >= 1 ;
+% [1] guessing 6=38
+% unit propagating 6=38
+% [2] propagation failure on 6=38
+rup  1 ~x20_15 1 ~x6_38 >= 1 ;
+% [1] guessing 6=29
+% unit propagating 6=29
+% [2] propagation failure on 6=29
+rup  1 ~x20_15 1 ~x6_29 >= 1 ;
+% [1] guessing 6=30
+% unit propagating 6=30
+% [2] propagation failure on 6=30
+rup  1 ~x20_15 1 ~x6_30 >= 1 ;
+% [1] guessing 6=28
+% unit propagating 6=28
+% [2] propagation failure on 6=28
+rup  1 ~x20_15 1 ~x6_28 >= 1 ;
+% [1] guessing 6=39
+% unit propagating 6=39
+% [2] propagation failure on 6=39
+rup  1 ~x20_15 1 ~x6_39 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_15 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=5
+% unit propagating 20=5
+setlvl 2;
+% [1] guessing 6=33
+% unit propagating 6=33
+% [2] propagation failure on 6=33
+rup  1 ~x20_5 1 ~x6_33 >= 1 ;
+% [1] guessing 6=34
+% unit propagating 6=34
+% [2] propagation failure on 6=34
+rup  1 ~x20_5 1 ~x6_34 >= 1 ;
+% [1] guessing 6=36
+% unit propagating 6=36
+% [2] propagation failure on 6=36
+rup  1 ~x20_5 1 ~x6_36 >= 1 ;
+% [1] guessing 6=35
+% unit propagating 6=35
+% [2] propagation failure on 6=35
+rup  1 ~x20_5 1 ~x6_35 >= 1 ;
+% [1] guessing 6=31
+% unit propagating 6=31
+% [2] propagation failure on 6=31
+rup  1 ~x20_5 1 ~x6_31 >= 1 ;
+% [1] guessing 6=32
+% unit propagating 6=32
+% [2] propagation failure on 6=32
+rup  1 ~x20_5 1 ~x6_32 >= 1 ;
+% [1] guessing 6=30
+% unit propagating 6=30
+% [2] propagation failure on 6=30
+rup  1 ~x20_5 1 ~x6_30 >= 1 ;
+% [1] guessing 6=29
+% unit propagating 6=29
+% [2] propagation failure on 6=29
+rup  1 ~x20_5 1 ~x6_29 >= 1 ;
+% [1] guessing 6=28
+% unit propagating 6=28
+% [2] propagation failure on 6=28
+rup  1 ~x20_5 1 ~x6_28 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_5 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=1
+% unit propagating 20=1
+setlvl 2;
+% [1] guessing 6=30
+% unit propagating 6=30
+% [2] propagation failure on 6=30
+rup  1 ~x20_1 1 ~x6_30 >= 1 ;
+% [1] guessing 6=32
+% unit propagating 6=32
+% [2] propagation failure on 6=32
+rup  1 ~x20_1 1 ~x6_32 >= 1 ;
+% [1] guessing 6=33
+% unit propagating 6=33
+% [2] propagation failure on 6=33
+rup  1 ~x20_1 1 ~x6_33 >= 1 ;
+% [1] guessing 6=35
+% unit propagating 6=35
+% [2] propagation failure on 6=35
+rup  1 ~x20_1 1 ~x6_35 >= 1 ;
+% [1] guessing 6=36
+% unit propagating 6=36
+% [2] propagation failure on 6=36
+rup  1 ~x20_1 1 ~x6_36 >= 1 ;
+% [1] guessing 6=31
+% unit propagating 6=31
+% [2] propagation failure on 6=31
+rup  1 ~x20_1 1 ~x6_31 >= 1 ;
+% [1] guessing 6=34
+% unit propagating 6=34
+% [2] propagation failure on 6=34
+rup  1 ~x20_1 1 ~x6_34 >= 1 ;
+% [1] guessing 6=37
+% unit propagating 6=37
+% [2] propagation failure on 6=37
+rup  1 ~x20_1 1 ~x6_37 >= 1 ;
+% [1] guessing 6=28
+% unit propagating 6=28
+% [2] propagation failure on 6=28
+rup  1 ~x20_1 1 ~x6_28 >= 1 ;
+% [1] guessing 6=38
+% unit propagating 6=38
+% [2] propagation failure on 6=38
+rup  1 ~x20_1 1 ~x6_38 >= 1 ;
+% [1] guessing 6=29
+% unit propagating 6=29
+% [2] propagation failure on 6=29
+rup  1 ~x20_1 1 ~x6_29 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_1 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=33
+% unit propagating 20=33
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_33 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_33 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_33 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_33 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_33 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_33 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_33 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_33 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_33 1 ~x0_20 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_33 1 ~x0_17 1 ~x6_14 >= 1 ;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_33 1 ~x0_17 1 ~x6_15 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_33 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_33 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_33 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_33 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_33 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_33 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_33 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+setlvl 3;
+% [2] guessing 6=6
+% unit propagating 6=6
+% [3] propagation failure on 6=6
+rup  1 ~x20_33 1 ~x0_45 1 ~x6_6 >= 1 ;
+% [2] guessing 6=5
+% unit propagating 6=5
+% [3] propagation failure on 6=5
+rup  1 ~x20_33 1 ~x0_45 1 ~x6_5 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_33 1 ~x0_45 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_33 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=10
+% unit propagating 20=10
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=17
+% unit propagating 0=17
+% [2] propagation failure on 0=17
+rup  1 ~x20_10 1 ~x0_17 >= 1 ;
+% [1] guessing 0=25
+% unit propagating 0=25
+% [2] propagation failure on 0=25
+rup  1 ~x20_10 1 ~x0_25 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% [2] propagation failure on 0=21
+rup  1 ~x20_10 1 ~x0_21 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% [2] propagation failure on 0=20
+rup  1 ~x20_10 1 ~x0_20 >= 1 ;
+% [1] guessing 0=45
+% unit propagating 0=45
+% [2] propagation failure on 0=45
+rup  1 ~x20_10 1 ~x0_45 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% [2] propagation failure on 0=22
+rup  1 ~x20_10 1 ~x0_22 >= 1 ;
+% [1] guessing 0=23
+% unit propagating 0=23
+% [2] propagation failure on 0=23
+rup  1 ~x20_10 1 ~x0_23 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_10 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=31
+% unit propagating 20=31
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+setlvl 3;
+% [2] guessing 6=6
+% unit propagating 6=6
+% [3] propagation failure on 6=6
+rup  1 ~x20_31 1 ~x0_45 1 ~x6_6 >= 1 ;
+% [2] guessing 6=5
+% unit propagating 6=5
+% [3] propagation failure on 6=5
+rup  1 ~x20_31 1 ~x0_45 1 ~x6_5 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_31 1 ~x0_45 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_31 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_31 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_31 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_31 1 ~x0_17 1 ~x6_15 >= 1 ;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_31 1 ~x0_17 1 ~x6_14 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_31 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_31 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_31 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_31 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_31 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_31 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_31 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_31 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_31 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_31 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_31 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_31 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_31 1 ~x0_20 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_31 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=32
+% unit propagating 20=32
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_32 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_32 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_32 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_32 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_32 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_32 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_32 1 ~x0_17 1 ~x6_15 >= 1 ;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_32 1 ~x0_17 1 ~x6_14 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_32 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+setlvl 3;
+% [2] guessing 6=6
+% unit propagating 6=6
+% [3] propagation failure on 6=6
+rup  1 ~x20_32 1 ~x0_45 1 ~x6_6 >= 1 ;
+% [2] guessing 6=5
+% unit propagating 6=5
+% [3] propagation failure on 6=5
+rup  1 ~x20_32 1 ~x0_45 1 ~x6_5 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_32 1 ~x0_45 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_32 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_32 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_32 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_32 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_32 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_32 1 ~x0_20 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_32 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_32 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_32 1 ~x0_25 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_32 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=0
+% unit propagating 20=0
+% hall set or violator { 20 6 14 21 27 12 13 26 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al114 + @al121 + @al127 + @al112 + @al113 + @al126 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=17
+% unit propagating 0=17
+% [2] propagation failure on 0=17
+rup  1 ~x20_0 1 ~x0_17 >= 1 ;
+% [1] guessing 0=45
+% unit propagating 0=45
+% [2] propagation failure on 0=45
+rup  1 ~x20_0 1 ~x0_45 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% [2] propagation failure on 0=22
+rup  1 ~x20_0 1 ~x0_22 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% [2] propagation failure on 0=21
+rup  1 ~x20_0 1 ~x0_21 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% [2] propagation failure on 0=20
+rup  1 ~x20_0 1 ~x0_20 >= 1 ;
+% [1] guessing 0=23
+% unit propagating 0=23
+% [2] propagation failure on 0=23
+rup  1 ~x20_0 1 ~x0_23 >= 1 ;
+% [1] guessing 0=25
+% unit propagating 0=25
+% [2] propagation failure on 0=25
+rup  1 ~x20_0 1 ~x0_25 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_0 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=30
+% unit propagating 20=30
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_30 1 ~x0_20 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_30 1 ~x0_20 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_30 1 ~x0_20 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+setlvl 3;
+% [2] guessing 6=6
+% unit propagating 6=6
+% [3] propagation failure on 6=6
+rup  1 ~x20_30 1 ~x0_45 1 ~x6_6 >= 1 ;
+% [2] guessing 6=5
+% unit propagating 6=5
+% [3] propagation failure on 6=5
+rup  1 ~x20_30 1 ~x0_45 1 ~x6_5 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_30 1 ~x0_45 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_30 1 ~x0_22 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_30 1 ~x0_22 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_30 1 ~x0_22 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_30 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_30 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_30 1 ~x0_25 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_30 1 ~x0_23 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_30 1 ~x0_23 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_30 1 ~x0_23 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_30 1 ~x0_21 1 ~x6_9 >= 1 ;
+% [2] guessing 6=8
+% unit propagating 6=8
+% [3] propagation failure on 6=8
+rup  1 ~x20_30 1 ~x0_21 1 ~x6_8 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_30 1 ~x0_21 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_30 1 ~x0_17 1 ~x6_15 >= 1 ;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_30 1 ~x0_17 1 ~x6_14 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_30 1 ~x0_17 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_30 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=3
+% unit propagating 20=3
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=45
+% unit propagating 0=45
+% [2] propagation failure on 0=45
+rup  1 ~x20_3 1 ~x0_45 >= 1 ;
+% [1] guessing 0=17
+% unit propagating 0=17
+% [2] propagation failure on 0=17
+rup  1 ~x20_3 1 ~x0_17 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% [2] propagation failure on 0=20
+rup  1 ~x20_3 1 ~x0_20 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% [2] propagation failure on 0=22
+rup  1 ~x20_3 1 ~x0_22 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% [2] propagation failure on 0=21
+rup  1 ~x20_3 1 ~x0_21 >= 1 ;
+% [1] guessing 0=23
+% unit propagating 0=23
+% [2] propagation failure on 0=23
+rup  1 ~x20_3 1 ~x0_23 >= 1 ;
+% [1] guessing 0=25
+% unit propagating 0=25
+% [2] propagation failure on 0=25
+rup  1 ~x20_3 1 ~x0_25 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_3 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=2
+% unit propagating 20=2
+% hall set or violator { 20 6 14 21 27 12 13 26 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al114 + @al121 + @al127 + @al112 + @al113 + @al126 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=25
+% unit propagating 0=25
+% [2] propagation failure on 0=25
+rup  1 ~x20_2 1 ~x0_25 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% [2] propagation failure on 0=21
+rup  1 ~x20_2 1 ~x0_21 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% [2] propagation failure on 0=22
+rup  1 ~x20_2 1 ~x0_22 >= 1 ;
+% [1] guessing 0=23
+% unit propagating 0=23
+% [2] propagation failure on 0=23
+rup  1 ~x20_2 1 ~x0_23 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% [2] propagation failure on 0=20
+rup  1 ~x20_2 1 ~x0_20 >= 1 ;
+% [1] guessing 0=45
+% unit propagating 0=45
+% [2] propagation failure on 0=45
+rup  1 ~x20_2 1 ~x0_45 >= 1 ;
+% [1] guessing 0=17
+% unit propagating 0=17
+% [2] propagation failure on 0=17
+rup  1 ~x20_2 1 ~x0_17 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_2 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=28
+% unit propagating 20=28
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 } / { 1 2 3 4 5 9 10 14 15 28 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj9 + @inj10 + @inj14 + @inj15 + @inj28 + ;
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=17
+% unit propagating 0=17
+% [2] propagation failure on 0=17
+rup  1 ~x20_28 1 ~x0_17 >= 1 ;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+% unit propagating 1=6
+% [2] propagation failure on 0=45
+rup  1 ~x20_28 1 ~x0_45 >= 1 ;
+% [1] guessing 0=25
+% unit propagating 0=25
+% [2] propagation failure on 0=25
+rup  1 ~x20_28 1 ~x0_25 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 1 6 } / { 8 9 22 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj22 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=22
+rup  1 ~x20_28 1 ~x0_22 >= 1 ;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 1 6 } / { 8 9 23 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj23 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=23
+rup  1 ~x20_28 1 ~x0_23 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 1 6 } / { 8 9 20 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj20 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=20
+rup  1 ~x20_28 1 ~x0_20 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 1 6 } / { 8 9 21 }
+pol @al10 @al11 + @al16 + @inj8 + @inj9 + @inj21 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=21
+rup  1 ~x20_28 1 ~x0_21 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_28 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=29
+% unit propagating 20=29
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=17
+% unit propagating 0=17
+% hall set or violator { 0 1 6 } / { 14 15 17 }
+pol @al10 @al11 + @al16 + @inj14 + @inj15 + @inj17 + ;
+setlvl 3;
+% [2] guessing 6=15
+% unit propagating 6=15
+% [3] propagation failure on 6=15
+rup  1 ~x20_29 1 ~x0_17 1 ~x6_15 >= 1 ;
+% [2] guessing 6=14
+% unit propagating 6=14
+% [3] propagation failure on 6=14
+rup  1 ~x20_29 1 ~x0_17 1 ~x6_14 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_29 1 ~x0_17 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=22
+% unit propagating 0=22
+% hall set or violator { 0 6 } / { 9 22 }
+pol @al10 @al16 + @inj9 + @inj22 + ;
+% hall set or violator { 0 6 1 } / { 8 9 22 }
+pol @al10 @al16 + @al11 + @inj8 + @inj9 + @inj22 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=22
+rup  1 ~x20_29 1 ~x0_22 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% hall set or violator { 0 6 } / { 9 21 }
+pol @al10 @al16 + @inj9 + @inj21 + ;
+% hall set or violator { 0 6 1 } / { 8 9 21 }
+pol @al10 @al16 + @al11 + @inj8 + @inj9 + @inj21 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=21
+rup  1 ~x20_29 1 ~x0_21 >= 1 ;
+% [1] guessing 0=45
+% unit propagating 0=45
+% hall set or violator { 0 1 6 } / { 5 6 45 }
+pol @al10 @al11 + @al16 + @inj5 + @inj6 + @inj45 + ;
+setlvl 3;
+% [2] guessing 6=6
+% unit propagating 6=6
+% [3] propagation failure on 6=6
+rup  1 ~x20_29 1 ~x0_45 1 ~x6_6 >= 1 ;
+% [2] guessing 6=5
+% unit propagating 6=5
+% [3] propagation failure on 6=5
+rup  1 ~x20_29 1 ~x0_45 1 ~x6_5 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_29 1 ~x0_45 >= 1 ;
+wiplvl 3;
+% [1] guessing 0=23
+% unit propagating 0=23
+% hall set or violator { 0 6 } / { 9 23 }
+pol @al10 @al16 + @inj9 + @inj23 + ;
+% hall set or violator { 0 6 1 } / { 8 9 23 }
+pol @al10 @al16 + @al11 + @inj8 + @inj9 + @inj23 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=23
+rup  1 ~x20_29 1 ~x0_23 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% hall set or violator { 0 6 } / { 9 20 }
+pol @al10 @al16 + @inj9 + @inj20 + ;
+% hall set or violator { 0 6 1 } / { 8 9 20 }
+pol @al10 @al16 + @al11 + @inj8 + @inj9 + @inj20 + ;
+% unit propagating 1=8
+% [2] propagation failure on 0=20
+rup  1 ~x20_29 1 ~x0_20 >= 1 ;
+% [1] guessing 0=25
+% unit propagating 0=25
+% hall set or violator { 0 1 6 } / { 1 9 25 }
+pol @al10 @al11 + @al16 + @inj1 + @inj9 + @inj25 + ;
+setlvl 3;
+% [2] guessing 6=9
+% unit propagating 6=9
+% [3] propagation failure on 6=9
+rup  1 ~x20_29 1 ~x0_25 1 ~x6_9 >= 1 ;
+% [2] guessing 6=1
+% unit propagating 6=1
+% [3] propagation failure on 6=1
+rup  1 ~x20_29 1 ~x0_25 1 ~x6_1 >= 1 ;
+setlvl 2;
+% [2] incorrect guess
+rup 1 ~x20_29 1 ~x0_25 >= 1 ;
+wiplvl 3;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_29 >= 1 ;
+wiplvl 2;
+% [0] guessing 20=4
+% unit propagating 20=4
+% hall set or violator { 20 6 12 13 14 21 26 27 31 35 34 17 23 33 2 11 24 8 9 10 15 16 18 22 29 30 32 36 37 1 3 4 5 7 28 38 40 } / { 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 24 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 }
+pol @al120 @al16 + @al112 + @al113 + @al114 + @al121 + @al126 + @al127 + @al131 + @al135 + @al134 + @al117 + @al123 + @al133 + @al12 + @al111 + @al124 + @al18 + @al19 + @al110 + @al115 + @al116 + @al118 + @al122 + @al129 + @al130 + @al132 + @al136 + @al137 + @al11 + @al13 + @al14 + @al15 + @al17 + @al128 + @al138 + @al140 + @inj0 + @inj1 + @inj2 + @inj3 + @inj4 + @inj5 + @inj6 + @inj7 + @inj8 + @inj9 + @inj10 + @inj11 + @inj12 + @inj13 + @inj14 + @inj15 + @inj16 + @inj24 + @inj26 + @inj27 + @inj28 + @inj29 + @inj30 + @inj31 + @inj32 + @inj33 + @inj34 + @inj35 + @inj36 + @inj37 + @inj38 + @inj39 + @inj40 + @inj41 + @inj42 + @inj43 + @inj44 + ;
+setlvl 2;
+% [1] guessing 0=25
+% unit propagating 0=25
+% [2] propagation failure on 0=25
+rup  1 ~x20_4 1 ~x0_25 >= 1 ;
+% [1] guessing 0=17
+% unit propagating 0=17
+% [2] propagation failure on 0=17
+rup  1 ~x20_4 1 ~x0_17 >= 1 ;
+% [1] guessing 0=23
+% unit propagating 0=23
+% [2] propagation failure on 0=23
+rup  1 ~x20_4 1 ~x0_23 >= 1 ;
+% [1] guessing 0=21
+% unit propagating 0=21
+% [2] propagation failure on 0=21
+rup  1 ~x20_4 1 ~x0_21 >= 1 ;
+% [1] guessing 0=20
+% unit propagating 0=20
+% [2] propagation failure on 0=20
+rup  1 ~x20_4 1 ~x0_20 >= 1 ;
+% [1] guessing 0=22
+% unit propagating 0=22
+% [2] propagation failure on 0=22
+rup  1 ~x20_4 1 ~x0_22 >= 1 ;
+% [1] guessing 0=45
+% unit propagating 0=45
+% [2] propagation failure on 0=45
+rup  1 ~x20_4 1 ~x0_45 >= 1 ;
+setlvl 1;
+% [1] incorrect guess
+rup 1 ~x20_4 >= 1 ;
+wiplvl 2;
+% asserting that we've proved unsat
+rup >= 1 ;
+output NONE;
+conclusion UNSAT : -1;
+end pseudo-Boolean proof;
