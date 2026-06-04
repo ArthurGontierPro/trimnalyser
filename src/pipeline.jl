@@ -123,6 +123,8 @@
         depth_stats = compute_cone_depth(cone, systemlink, nbopb)
         writeout_step_types(ins, step_counts, prefix)
         writeout_cone_depth(ins, depth_stats, prefix)
+        (_cfg[].core || _cfg[].resolv) &&
+            write_cone_dot(ins, cone, systemlink, nbopb, depth_stats.depth_arr, conelits, prefix)
         writeout_conelits(ins, sys, cone, conelits, prefix)
         cone_stats = conelits_stats(sys, cone, conelits)
         printconestat(cone, cone_stats)

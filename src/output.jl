@@ -93,13 +93,141 @@
             depth[i] > d_max && (d_max = depth[i])
         end
         mean = n_pbp > 0 ? d_sum / n_pbp : 0.0
-        (max_depth=Int(d_max), mean_depth=mean) end
+        (max_depth=Int(d_max), mean_depth=mean, depth_arr=depth) end
 
     function writeout_cone_depth(ins, stats, prefix)
         open(_cfg[].proofs*ins*".out", "a") do f
             println(f, prefix, " CONE DEPTH MAX ",  stats.max_depth)
             println(f, prefix, " CONE DEPTH MEAN ", round(stats.mean_depth; digits=2))
         end end
+
+    # ── Proof-cone DOT visualisation ────────────────────────────────────────────
+
+    const CONE_MAX_FULL = 500   # emit full variant only if total cone ≤ this
+    const CONE_TOP_K    = 200   # node budget for topk and bfs variants
+
+    # Collect OPB leaf IDs referenced as antecedents by the given PBP steps.
+    function _cone_opb_leaves(pbp_steps, cone, systemlink, nbopb)
+        opb = Set{Int}()
+        for i in pbp_steps
+            link = systemlink[i - nbopb]
+            for j in eachindex(link)
+                t = link[j]
+                t > 0 || continue
+                j < length(link) && link[j+1] in (-2, -3) && continue
+                t <= nbopb && cone[t] && push!(opb, t)
+            end
+        end
+        sort!(collect(opb))
+    end
+
+    # BFS from the highest-depth step, following antecedent edges backward.
+    function _cone_bfs_sample(pbp_steps, systemlink, nbopb, cone, depth_arr, max_k)
+        isempty(pbp_steps) && return Int[]
+        root    = pbp_steps[argmax(depth_arr[i] for i in pbp_steps)]
+        visited = falses(length(cone))
+        queue   = [root]
+        result  = Int[]
+        head    = 1
+        while head <= length(queue) && length(result) < max_k
+            i = queue[head]; head += 1
+            visited[i] && continue
+            visited[i] = true
+            push!(result, i)
+            link = systemlink[i - nbopb]
+            for j in eachindex(link)
+                t = link[j]
+                t > nbopb || continue
+                j < length(link) && link[j+1] in (-2, -3) && continue
+                cone[t] && !visited[t] && push!(queue, t)
+            end
+        end
+        result
+    end
+
+    # Step-type → fill colour for DOT nodes.
+    function _cone_node_color(systemlink, i, nbopb)
+        k = systemlink.idx[i - nbopb]
+        (k == -1 || k == 0) && return "#aaddff"  # RUP  blue
+        k == -4              && return "#cc88ff"  # RED  purple
+        if k > 0
+            rt = systemlink.data[systemlink.ptr[k]]
+            rt == -2 && return "#ffcc88"          # POL  orange
+            rt == -3 && return "#88ffaa"          # IA   green
+        end
+        "#ffffff"  # other
+    end
+
+    # Write one DOT file for the given PBP + OPB node subsets.
+    function _write_cone_dot_file(path, pbp_steps, opb_steps,
+                                  cone, systemlink, nbopb, depth_arr, conelits)
+        selected = Set{Int}(pbp_steps)
+        for i in opb_steps; push!(selected, i); end
+        open(path, "w") do f
+            println(f, "digraph cone {")
+            println(f, "  rankdir=TB; node [fontsize=7]; edge [arrowsize=0.4];")
+            for i in opb_steps
+                style = haskey(conelits, i) ? "filled,dashed" : "filled"
+                println(f, "  n$i [label=\"$i\", shape=box,",
+                           " style=\"$style\", fillcolor=\"#dddddd\"];")
+            end
+            for i in pbp_steps
+                color = _cone_node_color(systemlink, i, nbopb)
+                d     = depth_arr[i]
+                style = haskey(conelits, i) ? "filled,dashed" : "filled"
+                println(f, "  n$i [label=\"$(i-nbopb)\\nd=$d\", shape=ellipse,",
+                           " style=\"$style\", fillcolor=\"$color\"];")
+            end
+            for i in pbp_steps
+                link = systemlink[i - nbopb]
+                for j in eachindex(link)
+                    t = link[j]
+                    t > 0 || continue
+                    j < length(link) && link[j+1] in (-2, -3) && continue
+                    t in selected && println(f, "  n$i -> n$t;")
+                end
+            end
+            println(f, "}")
+        end
+    end
+
+    # Write up to three cone DOT variants into vis/:
+    #   full  — all cone steps, only if total ≤ CONE_MAX_FULL
+    #   topk  — CONE_TOP_K highest-depth PBP steps + their OPB leaves
+    #   bfs   — BFS-CONE_TOP_K steps from contradiction + their OPB leaves
+    # SVGs are rendered when _cfg[].render is true (requires graphviz `dot`).
+    function write_cone_dot(ins, cone, systemlink, nbopb, depth_arr, conelits, prefix)
+        vis_dir = _cfg[].proofs * "vis/"
+        mkpath(vis_dir)
+        pbp_steps = [i for i in nbopb+1:length(cone) if cone[i]]
+        isempty(pbp_steps) && return
+
+        variants = Tuple{String,Vector{Int}}[]
+
+        # full: only when small enough to be readable
+        total = length(pbp_steps) + sum(cone[1:nbopb])
+        total <= CONE_MAX_FULL && push!(variants, ("full", pbp_steps))
+
+        # topk: highest-depth steps first
+        sorted_pbp = sort(pbp_steps; by = i -> depth_arr[i], rev=true)
+        push!(variants, ("topk", sorted_pbp[1:min(CONE_TOP_K, length(sorted_pbp))]))
+
+        # bfs: breadth-first from the final contradiction step
+        push!(variants, ("bfs", _cone_bfs_sample(pbp_steps, systemlink, nbopb,
+                                                  cone, depth_arr, CONE_TOP_K)))
+
+        for (tag, sel_pbp) in variants
+            isempty(sel_pbp) && continue
+            sel_opb = _cone_opb_leaves(sel_pbp, cone, systemlink, nbopb)
+            dot_path = vis_dir * ins * ".cone.$tag.dot"
+            _write_cone_dot_file(dot_path, sel_pbp, sel_opb,
+                                 cone, systemlink, nbopb, depth_arr, conelits)
+            if _cfg[].render
+                svg_path = vis_dir * ins * ".cone.$tag.svg"
+                try run(ignorestatus(`dot -Tsvg -o$svg_path $dot_path`)) catch; end
+            end
+        end
+    end
 
     function writeout_write(ins, t1, t2, t3, prefix)
         open(_cfg[].proofs*ins*".out", "a") do f
