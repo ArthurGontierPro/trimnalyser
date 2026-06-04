@@ -2,10 +2,12 @@
 # Wrapper: auto-detects sysimage and activates the project.
 # Usage: ./trimnalyser [julia-flags...] [trimnalyser-flags...] [instance]
 # Example: ./trimnalyser --threads 8,1 LVg10g12 resolv
+# Add 'nosys' anywhere in the args to skip sysimage build+use (fast dev loop).
 PROJ="$(cd "$(dirname "$0")" && pwd)"
 SO="$PROJ/trimnalyser.so"
 JULIA_FLAGS=()
 APP_ARGS=()
+NOSYS=0
 
 # Split known Julia flags (must precede the script name) from application args.
 # Trimnalyser app flags are all word-only (solve, resolv, maxnodes=N …) so
@@ -18,14 +20,18 @@ while [[ $i -le $# ]]; do
             i=$((i+1)); JULIA_FLAGS+=("$arg" "${!i}") ;;
         --threads=*|-t=*|--heap-size-hint=*|--gcthreads=*)
             JULIA_FLAGS+=("$arg") ;;
+        nosys)
+            NOSYS=1 ;;
         *)
             APP_ARGS+=("$arg") ;;
     esac
     i=$((i+1))
 done
 
-# Auto-build sysimage (fast no-op if up to date; graceful if PackageCompiler missing)
-julia --startup-file=no "$PROJ/build_sysimage.jl"
+if [[ $NOSYS -eq 0 ]]; then
+    # Auto-build sysimage (fast no-op if up to date; graceful if PackageCompiler missing)
+    julia --startup-file=no "$PROJ/build_sysimage.jl"
+    [ -f "$SO" ] && JULIA_FLAGS+=(--sysimage "$SO")
+fi
 
-[ -f "$SO" ] && JULIA_FLAGS+=(--sysimage "$SO")
 exec julia "${JULIA_FLAGS[@]}" "$PROJ/bin/trimnalyser.jl" "${APP_ARGS[@]}"

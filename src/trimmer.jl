@@ -207,7 +207,98 @@
             end
         end end
 
-        @inline function push_frontier!(frontier, on_frontier::Vector{Bool}, cone::Vector{Bool}, j::Int)
+            # Trail-based unit propagation.
+    function propagate!(sys::PBSystem, t::Trail, prism, ante::Ante, conelits, rs::RupState, cone::Vector{Bool})
+        init_slack_cache!(t, sys)
+        i = 1; n = length(sys.rhs)
+        que = trues(n)                                # all constraints initially pending
+        while i <= n
+            if !inprism(i, prism) && que[i]
+                s = slack_cached(t, i)
+                if s < 0                               # falsified: record conflict and stop
+                    conflicttrail(i, sys, t, ante, conelits, rs, Grim(), cone)
+                    return
+                end
+                que[i] = false
+                rewind = i + 1                         # will jump back to earliest newly-triggered eq
+                @inbounds for k in eqrange(sys, i)
+                    v = Int(sys.vars[k])
+                    t.assi[v] != 0 && continue         # already assigned
+                    sys.coefs[k] > s || continue       # coef too small to force propagation
+                    pushtrail!(t, sys, Int32(v), Int32(i), sys.signs[k] ? Int8(1) : Int8(2))
+                    for j in varrange(sys, v)
+                        eid = Int(sys.var_eqs[j])
+                        que[eid] = true
+                        rewind = min(rewind, eid)      # re-scan from earliest affected constraint
+                    end
+                end
+                i = rewind
+            else
+                i += 1
+            end
+        end
+        printstyled("  [error] propagate! found no conflict\n"; color=:red) end
+
+        # Push eid into the right heap if not already queued.
+    @inline function activate!(eid, rs::RupState, cone, on_frontier)
+        rs.que[eid] && return              # already in a heap, skip
+        rs.que[eid] = true
+        if cone[eid]; push!(rs.pq_prio, eid)                         # priority: already in cone
+        else                        push!(rs.pq_nonprio, eid)  # non-priority: new to cone
+        end end
+
+        # Compute slack, propagate, re-activate triggered equations. Return true on conflict.
+    @inline function process_eq!(i, init, sys, t, ante, conelits, cone, on_frontier, rs::RupState, mode)
+        rev = (i == init)                  # reversed constraint for RUP check of init
+        s   = rev ? slack_reversed_cached(t, i) : slack_cached(t, i)
+        if s < 0                           # falsified: conflict found
+            conflicttrail(i, sys, t, ante, conelits, rs, mode, cone; rev_init=init)
+            return true
+        end
+        @inbounds for k in eqrange(sys, i)
+            v = Int(sys.vars[k])
+            t.assi[v] != 0 && continue     # already assigned
+            sys.coefs[k] > s || continue   # coef too small to force propagation
+            sign = sys.signs[k]
+            pushtrail!(t, sys, Int32(v), Int32(i),
+                       rev ? (sign ? Int8(2) : Int8(1)) :
+                             (sign ? Int8(1) : Int8(2)))            # assign variable
+            for j in varrange(sys, v)
+                eid = Int(sys.var_eqs[j])
+                (eid <= init && eid != i) || continue               # only earlier/unrelated eqs
+                activate!(eid, rs, cone, on_frontier)               # re-queue equations containing v
+            end
+        end
+        rs.que[i] = false                  # done: remove from queue
+        return false end
+
+        # Heap-based RUP check: two BinaryMinHeap{Int} — pq_prio (cone/on_frontier equations)
+        # and pq_nonprio (others). Priority pass drains pq_prio fully before taking one step
+        # from pq_nonprio.
+    function ruptrail(sys::PBSystem, init::Int, t::Trail,
+                      ante::Ante, on_frontier::Vector{Bool},
+                      cone::Vector{Bool}, conelits, prism, subrange, rs::RupState, mode=Grim())
+        init_slack_cache!(t, sys)
+        fill!(rs.que, false)               # reset queue (may have stale trues from early return)
+        empty!(rs.pq_prio); empty!(rs.pq_nonprio)
+        for i in 1:init                    # seed both heaps with all eligible equations
+            (!inprism(i, prism) || (i in subrange)) || continue
+            activate!(i, rs, cone, on_frontier)
+        end
+        while true
+            while !isempty(rs.pq_prio)     # drain priority equations first
+                i = pop!(rs.pq_prio)
+                rs.que[i] || continue      # stale pop guard (safety net)
+                process_eq!(i, init, sys, t, ante, conelits, cone, on_frontier, rs, mode) && return true
+            end
+            isempty(rs.pq_nonprio) && break  # nothing left: no conflict found
+            i = pop!(rs.pq_nonprio)          # take one non-priority equation
+            rs.que[i] || continue            # stale pop guard (safety net)
+            process_eq!(i, init, sys, t, ante, conelits, cone, on_frontier, rs, mode) && return true
+        end
+        return false end
+
+    @inline function push_frontier!(frontier, on_frontier::Vector{Bool}, cone::Vector{Bool}, j::Int)
         cone[j] && return                             # already in cone (scheduled or processed)
         on_frontier[j] = true; cone[j] = true; push!(frontier, j) end
 
