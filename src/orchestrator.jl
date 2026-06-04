@@ -37,7 +37,7 @@
 
     function getinstancesfromdir(proofs_dir)
         list = onlyname.(filter(x -> ext(x)==opb && isfile(noext(x)*pbp), readdir(proofs_dir, join=true)))
-        if _cfg[].rand shuffle!(list)
+        if _cfg[].rand _shuffle!(list)
         elseif _cfg[].sort_by_size sort!(list, by = x -> inssize(x)) end
         println("%Found ", length(list), " instances in ", proofs_dir)
         return list end
@@ -62,7 +62,7 @@
                 n !== nothing && n <= _cfg[].maxnodes && (sizes[id] = n)
             end
             valid = collect(keys(sizes))
-            _cfg[].rand ? shuffle!(valid) : sort!(valid)
+            _cfg[].rand ? _shuffle!(valid) : sort!(valid)
             for p in valid, t in valid
                 p == t && continue
                 sizes[p] > sizes[t] && continue
@@ -173,7 +173,7 @@
             end
         end
 
-        _cfg[].rand && shuffle!(list)
+        _cfg[].rand && _shuffle!(list)
         println("%Generated ", length(list), " instances from benchmark graphs (maxnodes=", _cfg[].maxnodes, ")")
         return list end
 
@@ -327,7 +327,7 @@
             _run_main(args)
         else
             logfile = open(joinpath(abspath_base, "output.log"), "a")
-            println(logfile, "\n% run started ", Dates.now())
+            println(logfile, "\n% run started ", Base.Libc.strftime("%Y-%m-%d %H:%M:%S", time()))
             flush(logfile)
             orig_out = Base.stdout
             orig_err = Base.stderr

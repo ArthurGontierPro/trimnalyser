@@ -25,6 +25,12 @@ onlyname(x) = splitext(basename(x))[1]
 ext(x) = splitext(basename(x))[2]
 noext(x) = splitext(x)[1]
 inssize(file) = filesize(_cfg[].proofs*file*opb) + filesize(_cfg[].proofs*file*pbp)
+function _shuffle!(v)
+    for i in length(v):-1:2
+        j = rand(1:i)
+        v[i], v[j] = v[j], v[i]
+    end
+    return v end
 tryrm(s) = if isfile(s) rm(s) end
 remove(s,c) = replace(s,c=>"")
 const tabhead = "\\begin{tabular}{|cc|cc|c|c|c|}\\hline sizes & & &  & times (s) & & Instance\\\\\\hline\nopb & pbp & smol o & smol p & grim time (parse trim write verif) & veri time & \\\\\\hline"
