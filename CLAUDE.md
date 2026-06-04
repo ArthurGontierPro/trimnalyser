@@ -75,7 +75,7 @@ Subprocess output is routed via a `.subout` temp file so it doesn't interleave w
 
 **`SystemLink`** — CSR storage for proof step link data. `idx[i]` encodes: `k>0` → slice in flat `data[ptr[k]:ptr[k+1]-1]`; `k<0` → shared singleton constant (rule type); `k=0` → mutable `Vector{Int}` in `extra` dict (for RUP cone / RED refs). Zero allocation per step during parsing.
 
-**`PBSystem`** — Dual-index CSR for the constraint system. Forward index: `row_ptr/vars/coefs/signs/rhs`; inverse index: `var_ptr/var_eqs` (all equations containing each variable). Built once from `FlatEqStore` for the trimmer.
+**`PBSystem`** — Dual-index CSR for the constraint system. Forward index: `row_ptr/vars/coefs/signs/rhs`; inverse index: `var_ptr/var_eqs/var_lit_idx` (equations containing each variable, plus the flat literal index of that variable within each equation — eliminates the O(k) inner scan in `update_slack_on_assign!`). Also stores `initial_slack_fwd/rev`: precomputed all-unassigned slack values, used to reset `Trail` caches in O(n) per RUP step instead of O(n·k). Built once from `FlatEqStore` for the trimmer.
 
 **`PolScratch`** — Task-local scratch pool for POL evaluation. Stack-based expression evaluator that operates directly on flat arrays; pushes the final result into `FlatEqStore` without allocating any `Eq` or `Lit` structs. Retrieved via `task_local_storage(:pol_scratch)`.
 
@@ -89,7 +89,18 @@ Files are read via `Mmap.mmap` → byte array. `tokenize!` splits into `ByteSpan
 
 ### Trimming algorithm
 
-`getcone!` does backward reachability from the contradiction: traverses `systemlink` in reverse, accumulates the cone of needed proof steps, and runs `propagate_level0!` (unit propagation with `Trail`/`Ante`) to verify RUP steps. Three modes: `Grim` (standard DFS), `Clit` (cone-first + essentials filter), `Bfs` (BFS propagation).
+`getcone!` does backward reachability from the UNSAT contradiction, accumulating the minimal set of proof steps (*cone*) needed to justify it.
+
+**Outer loop.** `frontier` is a `BinaryMaxHeap{Int}` — steps are processed highest-index-first (backward through the proof). When a step enters the frontier, `cone[i] = true` is set immediately. Each step dispatches by rule type read from `systemlink`: POL/IA steps have explicit antecedents; RUP steps are verified by unit propagation.
+
+**RUP verification — two-queue heuristic.** `do_rup!(i)` → `ruptrail(sys, i, ...)` runs unit propagation to find a contradiction among constraints `1:i`. The key invariant: `cone` already reflects all steps marked necessary by earlier (higher-index) iterations of the outer loop. `activate!` routes each equation to `pq_prio` if `cone[eid]` is already true, or `pq_nonprio` otherwise. `ruptrail` drains `pq_prio` completely before taking one step from `pq_nonprio`. This prefers propagation from already-needed constraints, steering the conflict toward antecedents already in the cone and minimising cone growth. `cone` is **read** by `activate!` but never written inside `ruptrail` — only the outer loop writes it via `push_frontier!`.
+
+**Conflict analysis — `conflicttrail`.** When a constraint is falsified (slack < 0), `conflicttrail` explains why. It is PB-specific, not CDCL: the slack value determines the minimum coefficient-sum of falsified literals that must be explained. Literals are iterated in order controlled by `_arrange_falsified_lits!(lits, mode)` until enough coefficient is accumulated to account for the violation. Each explained literal recurses to its own reason constraint. `Grim` mode sorts by proof index; `Clit` mode filters to essential and already-cone literals first to further minimise cone growth.
+
+**Full heuristic chain (do not break any link):**
+outer traversal → `cone` accumulation → `activate!` routing → `pq_prio`/`pq_nonprio` ordering → first conflict found → `conflicttrail(mode)` → antecedents added to cone
+
+**`propagate!` vs `ruptrail`.** The initial UNSAT contradiction is found once by `propagate!`, which uses a simpler linear forward scan with a flat `que` bitset and hardcodes `Grim`. This is correct because `cone` is nearly empty at that point (only `firstcontradiction` set), so the two-queue priority distinction is trivial. If `propagate!` is ever called with a non-empty cone it should be unified with `ruptrail`.
 
 ### Resolv loop
 
