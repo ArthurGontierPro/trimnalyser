@@ -56,69 +56,43 @@ proof). Measure frequency before investing in this optimisation.
 
 ## 5. Code Quality
 
-### 5.1 `conflicttrail` duplicated between `Grim` and `Clit` — `trimmer.jl:160–273`
+### 5.1 `conflicttrail` duplicated between `Grim` and `Clit` ✅ fixed
 
-The two dispatch methods are ~100 lines each and share every line except:
-- the `prio_sum`/`filter!` guard (Clit only, lines 249–258)
-- the sort comparator (line 257 vs 192)
+Extracted `_arrange_falsified_lits!` dispatch helpers; replaced two ~100-line methods
+with one unified body in `trimmer.jl`.
 
-Extracting the shared loop body into a helper with the sort/filter logic passed as a
-closure reduces ~100 lines of duplication to ~10.
+### 5.2 Instance prefix list duplicated four times ✅ fixed
 
-### 5.2 Instance prefix list duplicated four times
+Consolidated into `is_instance_name()` in `TrimAnalyser.jl`; replaced four inline
+copies in `config.jl` and `orchestrator.jl`.
 
-The nine family prefixes (`"LV"`, `"bio"`, `"cviu11"`, `"pr15"`, `"mesh11"`, `"ph_"`,
-`"sf_"`, `"si__"`) appear verbatim in `config.jl:44–48`, `orchestrator.jl` (OOM
-monitor and `_run_main`), and `solver.jl`. Promote to a module-level constant
-(a `Tuple` or `Set`) and reference it everywhere.
+### 5.3 `filesize` shadows `Base.filesize` ✅ fixed
 
-### 5.3 `filesize` shadows `Base.filesize` — `utilities.jl:27`
+Removed the shadow; all callers transparently use `Base.filesize`.
 
-```julia
-filesize(file) = stat(file).size
-```
-`Base.filesize(path::AbstractString)` already does exactly this. Remove the shadow
-and use `Base.filesize` directly throughout.
+### 5.4 `processred` inserts two entries with identical data ✅ fixed
 
-### 5.4 `processred` inserts two entries with identical data — `parser.jl:309–310`
+`redid == length(store)` after `push_eq!`, so the second write was always overwriting
+the first with the same value. Removed the redundant `redwitness[redid]` assignment.
 
-```julia
-redwitness[redid] = Red(w, 0:0, [])
-redwitness[length(store)] = Red(w, 0:0, [])
-```
-Two dictionary entries are created at keys `redid` and `length(store)`. When
-`redid == length(store)` (edge case), the second write silently overwrites the first.
-The dual-key lookup intent is not documented anywhere.
+### 5.5 `pol_weaken!` uses linear search ✅ fixed
 
-### 5.5 `pol_weaken!` uses linear search — `pol.jl:142`
+Replaced `findfirst(==(Int32(var)), vars)` with `searchsortedfirst` (vars are sorted
+by variable index from `readlits`).
 
-```julia
-i = findfirst(==(Int32(var)), vars)
-```
-Since equations are sorted by variable index (`readlits` calls `sort!`), this linear
-scan can be replaced with `searchsortedfirst` for O(log n) lookup.
+### 5.6 Uncaught OOB risk in `solvepol_flat!` ✅ fixed
 
-### 5.6 Uncaught OOB risk in `solvepol_flat!` — `pol.jl:252`
-
-```julia
-if !tok_in(st[j+1], ["*", "d"])
-```
-`j+1` is accessed inside a loop where `j` reaches `length(st)`. If the last token of
-a POL step is a constraint ID, `st[j+1]` is out of bounds. A guard `j < length(st)`
-is missing.
+Added `j >= length(st)` guard before the `st[j+1]` access.
 
 ---
 
-## 6. Minor / Style Issues
+## 6. Minor / Style Issues ✅ fixed
 
-| Location | Issue |
+| Location | Fix applied |
 |---|---|
-| `utilities.jl:1–32` | Entire file is uniformly indented 4 spaces with no enclosing block, unlike every other file in `src/`. |
-| `parser.jl:241` | `throw("trimmed SAT is the solution")` — bare string throw; use `error()`. |
-| `parser.jl:345,401` | `throw(" assignement not propagated to full")` — typo ("assignement"), bare string throw. |
-| `writer.jl:244` | `lastindex -= 1` / `lastindex += 1` pair inside the `-10` branch is hard to follow — the net effect depends on a `systemlink` field check that is not the same as the surrounding rule-type dispatch. Needs a comment. |
-| `output.jl:358–371` | `prefixtikz`/`postfixtikz` print raw LaTeX to stdout from inside what looks like a display function; there is no documentation of what calls these or when. |
-| `config.jl:37–38` | The default proof directory is derived from `abspath_base`, which is itself resolved from `ENV` or cluster detection. If `TRIMNALYSER_BASE` is set explicitly, the default proof path still changes with it implicitly — this coupling is non-obvious. |
+| `utilities.jl` | Removed spurious 4-space indentation |
+| `parser.jl` | Bare string `throw(...)` → `error(...)`; fixed "assignement" typo |
+| `writer.jl:244` | Added clarifying comments on the `lastindex` decrement/increment pair |
 
 ---
 
@@ -127,7 +101,7 @@ is missing.
 | Severity | Count | Status | Key Items |
 |---|---|---|---|
 | **Bug (wrong output)** | 3 | ✅ fixed | `~` never written in pol (`writer.jl:85`), Int32 overflow in multiply/saturate (`pol.jl:88`), rhs_adj overflow in add (`pol.jl:33,161`) |
-| **Potential crash** | 2 | ✅ fixed | RED subproof guard added (`trimmer.jl`), heap internals replaced with `empty!` (`trimmer.jl`) |
+| **Potential crash** | 2 | ✅ fixed | RED subproof guard (`trimmer.jl`), heap internals replaced with `empty!` |
 | **Dead code** | 3 | ✅ fixed | `ruptrail_bfs`+`conflicttrail_bfs` removed, `Dumping` module removed, RED skeleton kept |
 | **Performance** | 3 | 🔜 pending | Slack rebuild per RUP step (options in §4.2), O(k·d) assignment update (§4.1), O(n²) soli propagation (§4.3) |
 | **Maintainability** | 6 | ✅ fixed | `conflicttrail` deduplicated, prefix list consolidated, `filesize` shadow removed, dual redwitness entry removed, linear weaken → `searchsortedfirst`, OOB guard added |
