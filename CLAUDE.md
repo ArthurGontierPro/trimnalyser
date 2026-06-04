@@ -29,6 +29,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Aggregate cluster results into CSV
 julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv
 
+# Compute static graph features (separate CSV, join by instance)
+julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv
+
 # Generate interactive HTML analysis
 python3 scripts/analyze_results.py cluster_results.csv cluster_analysis.html
 
