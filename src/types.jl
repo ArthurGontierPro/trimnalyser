@@ -140,8 +140,10 @@
         rhs     ::Vector{Int64}
         row_ptr ::Vector{Int64}
         # Inverse: variable → equations containing it
-        var_ptr ::Vector{Int64}     # length = n_vars + 1
-        var_eqs ::Vector{Int32} end # flat list of equation ids
+        var_ptr     ::Vector{Int64}  # length = n_vars + 1
+        var_eqs     ::Vector{Int32}  # flat list of equation ids
+        var_lit_idx ::Vector{Int32}  # flat literal index k of var v in equation var_eqs[j]
+    end
 
     mutable struct Trail
         var  ::Vector{Int32}    # variables in propagation order
@@ -191,24 +193,15 @@
         #   - Forward: if literal becomes falsified, subtract its coef
         #   - Reversed: if literal becomes satisfied, subtract its coef
     @inline function update_slack_on_assign!(t::Trail, sys::PBSystem, v::Int, val::Int8)
-        for j in varrange(sys, v)
-            eid = Int(sys.var_eqs[j])
-            for k in eqrange(sys, eid)
-                Int(sys.vars[k]) == v || continue
-                sign = sys.signs[k]
-                coef = sys.coefs[k]
-                # Forward slack: subtract coef if literal becomes falsified
-                becomes_falsified = (sign & (val == Int8(2))) | (!sign & (val == Int8(1)))
-                if becomes_falsified
-                    t.slack_cache[eid] -= coef
-                end
-                # Reversed slack: subtract coef if literal becomes satisfied (opposite)
-                becomes_satisfied = (sign & (val == Int8(1))) | (!sign & (val == Int8(2)))
-                if becomes_satisfied
-                    t.slack_rev_cache[eid] -= coef
-                end
-                break  # v appears at most once per constraint
-            end
+        @inbounds for j in varrange(sys, v)
+            eid  = Int(sys.var_eqs[j])
+            k    = Int(sys.var_lit_idx[j])
+            sign = sys.signs[k]
+            coef = sys.coefs[k]
+            becomes_falsified = (sign & (val == Int8(2))) | (!sign & (val == Int8(1)))
+            becomes_satisfied = (sign & (val == Int8(1))) | (!sign & (val == Int8(2)))
+            t.slack_cache[eid]     -= becomes_falsified ? coef : zero(Int32)
+            t.slack_rev_cache[eid] -= becomes_satisfied ? coef : zero(Int32)
         end
     end
 
@@ -260,17 +253,20 @@
         for v in 1:n_vars
             var_ptr[v+1] = var_ptr[v] + var_count[v]
         end
-        var_eqs = Vector{Int32}(undef, n_lits)
+        var_eqs     = Vector{Int32}(undef, n_lits)
+        var_lit_idx = Vector{Int32}(undef, n_lits)
         fill!(var_count, 0)
         n_eqs = length(rhs)
         for e in 1:n_eqs
             for k in Int(row_ptr[e]):Int(row_ptr[e+1])-1
                 v = vars[k]
-                var_eqs[var_ptr[v] + var_count[v]] = e
+                j = var_ptr[v] + var_count[v]
+                var_eqs[j]     = e
+                var_lit_idx[j] = k
                 var_count[v] += 1
             end
         end
-        return PBSystem(vars, coefs, signs, rhs, row_ptr, var_ptr, var_eqs) end
+        return PBSystem(vars, coefs, signs, rhs, row_ptr, var_ptr, var_eqs, var_lit_idx) end
 
     eqrange(sys::PBSystem, e) = Int(sys.row_ptr[e]):Int(sys.row_ptr[e+1])-1
     varrange(sys::PBSystem, v) = Int(sys.var_ptr[v]):Int(sys.var_ptr[v+1])-1
