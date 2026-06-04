@@ -4,9 +4,11 @@ TrimAnalyser currently supports the LV and BIO benchmark families, extracts UNSA
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
+**Status as of 2026-06-04:** M1 complete. Code quality pass done between M1 and M2 (correctness audit §1–3, dead code §3, maintainability §5–6, performance §4.1–4.2). M2 is current.
+
 ---
 
-## M1 — Full newSIP benchmark coverage
+## M1 — Full newSIP benchmark coverage ✅
 
 **Goal:** Run TrimAnalyser on all 9 families in the newSIP benchmark, not just LV and BIO.
 
@@ -25,7 +27,7 @@ All families use the same LAD graph format (`first line = node count; subsequent
 
 ---
 
-## M2 — Proof-to-feature extraction
+## M2 — Proof-to-feature extraction 🔜 CURRENT
 
 **Goal:** Enrich the CSV with proof-structural and graph-structural features to power downstream analysis.
 
