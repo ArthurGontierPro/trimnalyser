@@ -143,6 +143,9 @@
         var_ptr     ::Vector{Int64}  # length = n_vars + 1
         var_eqs     ::Vector{Int32}  # flat list of equation ids
         var_lit_idx ::Vector{Int32}  # flat literal index k of var v in equation var_eqs[j]
+        # Precomputed initial slack (all vars unassigned): used by init_slack_cache!
+        initial_slack_fwd ::Vector{Int32}  # sum(coefs[e]) - rhs[e]
+        initial_slack_rev ::Vector{Int32}  # rhs[e] - 1
     end
 
     mutable struct Trail
@@ -160,32 +163,13 @@
         fill!(t.pos, 0); fill!(t.assi, 0)
         empty!(t.slack_cache); empty!(t.slack_rev_cache) end
 
-        # Initialize slack caches from scratch for all constraints.
-        # Forward slack: sum(coefs of unassigned/satisfied lits) - rhs
-        # Reversed slack: sum(coefs of unassigned/falsified lits) - (total_coefs - rhs + 1)
+        # init_slack_cache!: reset trail caches to the all-vars-unassigned state.
+        # With assi all-zero: fwd = sum(coefs[e]) - rhs[e], rev = rhs[e] - 1 — both precomputed
+        # in PBSystem. This replaces the former O(n·k) loop with two O(n) memcopies.
     function init_slack_cache!(t::Trail, sys::PBSystem)
         n = length(sys.rhs)
-        resize!(t.slack_cache, n)
-        resize!(t.slack_rev_cache, n)
-        for e in 1:n
-            c_fwd = zero(Int32)
-            c_rev = zero(Int32)
-            total = zero(Int32)
-            @inbounds for k in eqrange(sys, e)
-                coef = sys.coefs[k]
-                total += coef
-                val = t.assi[Int(sys.vars[k])]
-                sign = sys.signs[k]
-                # Forward: unassigned OR satisfied
-                unaffected_fwd = (val == 0) | (sign & (val == Int8(1))) | (!sign & (val == Int8(2)))
-                c_fwd += unaffected_fwd ? coef : zero(Int32)
-                # Reversed: unassigned OR falsified (opposite of forward satisfaction)
-                unaffected_rev = (val == 0) | (sign & (val == Int8(2))) | (!sign & (val == Int8(1)))
-                c_rev += unaffected_rev ? coef : zero(Int32)
-            end
-            t.slack_cache[e] = c_fwd - sys.rhs[e]
-            t.slack_rev_cache[e] = c_rev - (total - sys.rhs[e] + 1)
-        end
+        copyto!(resize!(t.slack_cache,     n), sys.initial_slack_fwd)
+        copyto!(resize!(t.slack_rev_cache, n), sys.initial_slack_rev)
     end
 
         # Update slack caches incrementally when assigning variable v to val.
@@ -257,16 +241,23 @@
         var_lit_idx = Vector{Int32}(undef, n_lits)
         fill!(var_count, 0)
         n_eqs = length(rhs)
+        initial_slack_fwd = Vector{Int32}(undef, n_eqs)
+        initial_slack_rev = Vector{Int32}(undef, n_eqs)
         for e in 1:n_eqs
+            total = zero(Int32)
             for k in Int(row_ptr[e]):Int(row_ptr[e+1])-1
                 v = vars[k]
                 j = var_ptr[v] + var_count[v]
                 var_eqs[j]     = e
                 var_lit_idx[j] = k
                 var_count[v] += 1
+                total += coefs[k]
             end
+            initial_slack_fwd[e] = total - Int32(rhs[e])
+            initial_slack_rev[e] = Int32(rhs[e]) - Int32(1)
         end
-        return PBSystem(vars, coefs, signs, rhs, row_ptr, var_ptr, var_eqs, var_lit_idx) end
+        return PBSystem(vars, coefs, signs, rhs, row_ptr, var_ptr, var_eqs, var_lit_idx,
+                        initial_slack_fwd, initial_slack_rev) end
 
     eqrange(sys::PBSystem, e) = Int(sys.row_ptr[e]):Int(sys.row_ptr[e+1])-1
     varrange(sys::PBSystem, v) = Int(sys.var_ptr[v]):Int(sys.var_ptr[v+1])-1
