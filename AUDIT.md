@@ -7,50 +7,97 @@
 
 ## 4. Performance Concerns
 
-### 4.1 `update_slack_on_assign!` O(k) scan per equation — `types.jl:231–245`
+### Background: the trimming heuristic pipeline
 
-For each variable assignment, for each equation containing that variable, the function
-re-scans all literals of the equation to find the matching literal index. With `k`
-literals per equation and `d` equations per variable, this is O(k·d). A supplementary
-`var_lit_pos` map keyed by `(var, eq)` would make it O(d).
+The two-queue system in `ruptrail` / `activate!` is itself a trimming heuristic, not
+just bookkeeping. When `do_rup!(i)` is called during the backward traversal, `cone`
+already reflects all proof steps marked necessary by earlier iterations. `activate!`
+reads `cone[eid]` and routes the equation to `pq_prio` (already in cone) or
+`pq_nonprio` (not yet). `ruptrail` drains `pq_prio` fully before taking one step from
+`pq_nonprio` — preferring propagation from constraints already known to be needed.
+This steers the conflict toward antecedents already in the cone and directly limits
+cone growth.
 
-### 4.2 `init_slack_cache!` called on every RUP step — `trimmer.jl:361`
+The full heuristic chain is:
+**outer backward traversal → `cone` accumulation → `activate!` routing →
+`pq_prio`/`pq_nonprio` ordering → first conflict found → `conflicttrail(mode)` analysis
+→ which antecedents enter the cone**
 
-`ruptrail` calls `init_slack_cache!(t, sys)` at the start of every RUP step,
-rebuilding the full slack cache from scratch. For large proofs with thousands of cone
-steps this is significant.
+`cone` is written only by `push_frontier!` in the outer `getcone!` loop — never inside
+`ruptrail`. Any performance optimisation that produces bit-identical slack values leaves
+the entire chain unaffected.
 
-**Option A (incremental):** Keep a permanent `base_trail` alongside the working trail.
-After each RUP step, instead of calling `init_slack_cache!` from scratch, restore the
-working trail from the base and replay only the level-0 propagations that are still
-valid. Cost: O(base trail length) per step instead of O(n·k).
+**Note — `propagate!` inconsistency:** the initial contradiction search (`propagate!`,
+called once for the UNSAT case) uses a flat `trues(n)` bitset and a linear forward scan
+with no two-queue priority — and hardcodes `Grim()` for conflict analysis regardless of
+the active mode. This is benign in practice because at that call site `cone` has exactly
+one entry (`firstcontradiction`), so the priority distinction is trivial. It is however
+architecturally inconsistent with `ruptrail` and should be unified if `propagate!` is
+ever called with a non-empty cone.
 
-**Option B (lazy):** Mark the slack cache dirty per-constraint on assignment and
-recompute only the constraints that were actually touched. Cost: O(|touched|) per step.
-Implementation is more complex (dirty bitmap + invalidation on unassign).
+---
 
-**Option C (profile first):** Before implementing either, measure what fraction of
-total runtime is spent in `init_slack_cache!` on large instances. The cache is
-O(n·k) where n = number of equations and k = average literals per equation; for
-LVg10g12 (28K equations) this may be negligible.
+### 4.1 `update_slack_on_assign!` O(k) inner scan — `types.jl:193–213`
+
+For each variable assignment, for each equation containing that variable (`d` equations
+via the inverse index), the function re-scans all literals of the equation (`k`
+literals) to locate variable `v` by linear search. Total cost: O(k·d) per assignment.
+
+**Fix:** extend `PBSystem` construction with a `var_lit_idx::Vector{Int32}` array
+(same shape as `var_eqs`), where `var_lit_idx[j]` is the flat literal index of variable
+`v` within equation `var_eqs[j]`. Built during the existing inverse-index pass at zero
+extra cost (one assignment per literal). Then `update_slack_on_assign!` becomes O(d)
+with a direct index lookup and no inner loop.
+
+The slack values written to `slack_cache`/`slack_rev_cache` are bit-identical. No
+interaction with `activate!` routing or `conflicttrail` mode.
+
+### 4.2 `init_slack_cache!` O(n·k) rebuild on every RUP step — `trimmer.jl:281`
+
+`ruptrail` calls `init_slack_cache!(t, sys)` at the start of every RUP step.
+`reset!(trail)` zeros all assignments immediately before, so `init_slack_cache!` always
+runs against an all-zero `assi` vector. With all variables unassigned the initial slack
+is a pure function of the constraint system:
+
+- `slack_fwd[e]  = sum(coefs[e]) - rhs[e]`
+- `slack_rev[e]  = rhs[e] - 1`   (since total − (total − rhs + 1) = rhs − 1)
+
+Both are constants of `PBSystem`. Adding `initial_slack_fwd::Vector{Int32}` and
+`initial_slack_rev::Vector{Int32}` to `PBSystem` (computed once at construction)
+reduces `init_slack_cache!` to two `copyto!` calls — O(n) memcopy instead of O(n·k)
+arithmetic. Trail reset and per-step isolation are unchanged.
+
+**Why the originally-documented options are wrong for this context:**
+- *Option A (base_trail + replay level-0):* there are no persistent level-0
+  propagations — each `ruptrail(sys, i, ...)` uses constraints `1:i`, a different set
+  per step. There is no stable base trail to replay from.
+- *Option B (lazy dirty bitmap):* since `reset!` zeros all assignments before every RUP
+  step, every constraint is dirty. Marking everything dirty and recomputing everything
+  is identical cost to the current code.
+
+The fix produces bit-identical slack values and has no effect on `activate!` routing or
+`conflicttrail` mode.
 
 ### 4.3 `findfullassi` naive O(n²) unit propagation — `parser.jl:372–389`
 
-The `TODO` comment on line 375 acknowledges this. The loop re-scans all constraints
-until fixpoint, quadratic in constraint count. This runs at parse time for every
-`soli`/`solx` step.
+The `TODO` comment on line 374 acknowledges this. The outer `while changes` loop
+re-scans all `1:c-1` constraints until fixpoint — quadratic in constraint count when
+many variables are unset. Called at parse time for every `soli`/`solx` step.
 
-**Option A (watch-list):** Maintain a per-variable watch list (inverse index of which
-constraints contain each variable). On each new assignment propagate only the
-constraints watching that variable. This is the standard CDCL unit propagation approach:
-O(propagation length) amortized rather than O(n) per round.
+**Fix (if needed):** build a temporary `Vector{Vector{Int}}` inverse index from
+`FlatEqStore` restricted to constraints `1:c`, then run BFS propagation from the
+initially-assigned variables. Cost O(propagation chain) instead of O(n²). No CDCL
+watch-list machinery needed — this is a one-shot snapshot propagation, not incremental.
 
-**Option B (reuse PBSystem):** `findfullassi` is called after `PBSystem` is already
-built. Pass the inverse index (`var_ptr`/`var_eqs`) in and use it directly, eliminating
-the re-scan entirely.
+**Why the originally-documented options are wrong:**
+- *Option A (CDCL watch-list):* watch-lists are maintained incrementally across
+  clause-learning iterations. Here we need a single snapshot propagation at parse time;
+  a temporary inverse index is sufficient and simpler.
+- *Option B (reuse PBSystem):* `PBSystem` does not exist at parse time. `findbound`
+  and `solbreakingctr` are called during `readproof`, before `PBSystem` is constructed.
 
-**Note:** `soli`/`solx` steps are rare in practice (one per solution constraint in the
-proof). Measure frequency before investing in this optimisation.
+**Measure first:** `soli`/`solx` steps are rare (one per enumerated solution; most
+proofs have zero). Profile before investing in this fix.
 
 ---
 
@@ -103,5 +150,5 @@ Added `j >= length(st)` guard before the `st[j+1]` access.
 | **Bug (wrong output)** | 3 | ✅ fixed | `~` never written in pol (`writer.jl:85`), Int32 overflow in multiply/saturate (`pol.jl:88`), rhs_adj overflow in add (`pol.jl:33,161`) |
 | **Potential crash** | 2 | ✅ fixed | RED subproof guard (`trimmer.jl`), heap internals replaced with `empty!` |
 | **Dead code** | 3 | ✅ fixed | `ruptrail_bfs`+`conflicttrail_bfs` removed, `Dumping` module removed, RED skeleton kept |
-| **Performance** | 3 | 🔜 pending | Slack rebuild per RUP step (options in §4.2), O(k·d) assignment update (§4.1), O(n²) soli propagation (§4.3) |
+| **Performance** | 3 | 🔜 pending | O(k·d) assignment update → `var_lit_idx` fix (§4.1), O(n·k) slack rebuild → precomputed initial slack (§4.2), O(n²) soli propagation → BFS with temp inverse index, measure first (§4.3) |
 | **Maintainability** | 6 | ✅ fixed | `conflicttrail` deduplicated, prefix list consolidated, `filesize` shadow removed, dual redwitness entry removed, linear weaken → `searchsortedfirst`, OOB guard added |
