@@ -1,8 +1,8 @@
 #!/usr/bin/env julia
 # Build or refresh trimnalyser.so. No-op when all source files are older than the image.
-# Usage: julia build_sysimage.jl
+# Usage: julia +1.12.2 build_sysimage.jl
 # Requires PackageCompiler in the global environment:
-#   julia -e 'using Pkg; Pkg.add("PackageCompiler")'
+#   julia +1.12.2 -e 'using Pkg; Pkg.add("PackageCompiler")'
 
 const ROOT  = @__DIR__
 const SO    = joinpath(ROOT, "trimnalyser.so")

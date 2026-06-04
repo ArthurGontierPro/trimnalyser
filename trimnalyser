@@ -1,6 +1,6 @@
 #!/bin/bash
 # Wrapper: auto-detects sysimage and activates the project.
-# Usage: ./trimnalyser [julia-flags...] [trimnalyser-flags...] [instance]
+# Usage: ./trimnalyser [julia +1.12.2-flags...] [trimnalyser-flags...] [instance]
 # Example: ./trimnalyser --threads 8,1 LVg10g12 resolv
 # Add 'nosys' anywhere in the args to skip sysimage build+use (fast dev loop).
 PROJ="$(cd "$(dirname "$0")" && pwd)"
@@ -30,8 +30,8 @@ done
 
 if [[ $NOSYS -eq 0 ]]; then
     # Auto-build sysimage (fast no-op if up to date; graceful if PackageCompiler missing)
-    julia --startup-file=no "$PROJ/build_sysimage.jl"
+    julia +1.12.2 --startup-file=no "$PROJ/build_sysimage.jl"
     [ -f "$SO" ] && JULIA_FLAGS+=(--sysimage "$SO")
 fi
 
-exec julia "${JULIA_FLAGS[@]}" "$PROJ/bin/trimnalyser.jl" "${APP_ARGS[@]}"
+exec julia +1.12.2 "${JULIA_FLAGS[@]}" "$PROJ/bin/trimnalyser.jl" "${APP_ARGS[@]}"
