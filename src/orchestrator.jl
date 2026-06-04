@@ -49,26 +49,26 @@
         mkpath(_cfg[].proofs)
 
         # LV and biochemicalReactions: all (p,t) pairs from a single flat directory
-        # for (dir, pre, fext, fmt) in [
-        #         (SIPgraphpath*"LV/",                    "g",  "",     (p,t) -> "LVg$(p)g$(t)"),
-        #         (SIPgraphpath*"biochemicalReactions/",  "",   ".txt", (p,t) -> "bio$(p)$(t)") ]
-        #     isdir(dir) || continue
-        #     files = readdir(dir)
-        #     ids = [f[length(pre)+1 : end-length(fext)] for f in files
-        #            if startswith(f, pre) && endswith(f, fext) && !isdir(dir*f)]
-        #     sizes = Dict{String,Int}()
-        #     for id in ids
-        #         n = ladnodes(dir * pre * id * fext)
-        #         n !== nothing && n <= _cfg[].maxnodes && (sizes[id] = n)
-        #     end
-        #     valid = collect(keys(sizes))
-        #     _cfg[].rand ? shuffle!(valid) : sort!(valid)
-        #     for p in valid, t in valid
-        #         p == t && continue
-        #         sizes[p] > sizes[t] && continue
-        #         push!(list, fmt(p, t))
-        #     end
-        # end
+        for (dir, pre, fext, fmt) in [
+                (SIPgraphpath*"LV/",                    "g",  "",     (p,t) -> "LVg$(p)g$(t)"),
+                (SIPgraphpath*"biochemicalReactions/",  "",   ".txt", (p,t) -> "bio$(p)$(t)") ]
+            isdir(dir) || continue
+            files = readdir(dir)
+            ids = [f[length(pre)+1 : end-length(fext)] for f in files
+                   if startswith(f, pre) && endswith(f, fext) && !isdir(dir*f)]
+            sizes = Dict{String,Int}()
+            for id in ids
+                n = ladnodes(dir * pre * id * fext)
+                n !== nothing && n <= _cfg[].maxnodes && (sizes[id] = n)
+            end
+            valid = collect(keys(sizes))
+            _cfg[].rand ? shuffle!(valid) : sort!(valid)
+            for p in valid, t in valid
+                p == t && continue
+                sizes[p] > sizes[t] && continue
+                push!(list, fmt(p, t))
+            end
+        end
 
         # images-CVIU11: patterns/ × targets/, all cross-pairs where pat_nodes <= tar_nodes
         let dir = SIPgraphpath * "images-CVIU11/"
