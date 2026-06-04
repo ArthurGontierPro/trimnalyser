@@ -30,7 +30,7 @@
         sizehint!(ps.vars, length(r1) + length(r2))
 
         i, j = r1.start, r2.start
-        rhs_adj = zero(Int32)
+        rhs_adj = zero(Int64)
 
         while i <= r1.stop && j <= r2.stop
             if v1[i] < v2[j]
@@ -85,7 +85,7 @@
         idx = -ps.stack[end]
         scratch = ps.scratch_pool[idx]
         for i in eachindex(scratch[2])
-            scratch[2][i] *= Int32(multiplier)
+            scratch[2][i] = Int32(Int64(scratch[2][i]) * multiplier)
         end
         ps.scratch_pool[idx] = (scratch[1], scratch[2], scratch[3], scratch[4] * multiplier)
     end
@@ -158,7 +158,7 @@
         v, c, s, rhs, r = _pol_get_arrays(ps, store, id)
 
         # Pass 1: normalize + remove nulls + write to store
-        rhs_adj = zero(Int32)
+        rhs_adj = zero(Int64)
         for i in r
             c[i] == 0 && continue  # skip null lits
             if c[i] < 0

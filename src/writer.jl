@@ -82,7 +82,7 @@
                 if link[i+1] in [-2, -3]; print(f, " ", t)
                 else                       print(f, " ", index[t]) end
             elseif t <= -100
-                sign = mod((-t), 100) != 1
+                sign = mod((-t), 100) != 0
                 print(f, sign ? " " : " ~", varmap[(-t) ÷ 100])
             end
         end
