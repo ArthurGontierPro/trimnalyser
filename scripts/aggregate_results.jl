@@ -3,9 +3,21 @@
 
 using Printf
 
+function instance_family(instance)
+    startswith(instance, "LV")     && return "LV"
+    startswith(instance, "bio")    && return "bio"
+    startswith(instance, "cviu11") && return "images-CVIU11"
+    startswith(instance, "pr15")   && return "images-PR15"
+    startswith(instance, "mesh11") && return "meshes-CVIU11"
+    startswith(instance, "ph_")    && return "phase"
+    startswith(instance, "sf_")    && return "scalefree"
+    startswith(instance, "si__")   && return "si"
+    return "unknown"
+end
+
 # Column names for the CSV
 const CSV_COLUMNS = [
-    "instance",
+    "instance", "family",
     # Input stats
     "inp_opb_size", "inp_pbp_size", "inp_total_size",
     "inp_literals", "inp_variables",
@@ -316,7 +328,8 @@ function aggregate_results(proofdir::String, output_csv::String)
 
             # Build row
             row = []
-            push!(row, "\"$instance\"")  # instance name
+            push!(row, "\"$instance\"")
+            push!(row, "\"$(instance_family(instance))\"")
 
             # Input stats
             push!(row, get(data, "inp_opb_size", ""))

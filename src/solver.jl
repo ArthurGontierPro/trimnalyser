@@ -9,7 +9,16 @@
 
         # Returns (pattern_file_path, target_file_path) for an instance name.
         # For ins.coreN, returns the LAD files written by the previous iteration.
-        # For original bio*/LV* instances, returns the benchmark graph files.
+        # For original instances, returns the benchmark graph files.
+        # Instance name conventions:
+        #   LVg<p>g<t>        — LV family
+        #   bio<p><t>         — biochemicalReactions (3-char ids)
+        #   cviu11_p<N>_t<M>  — images-CVIU11
+        #   pr15_p<N>         — images-PR15 (single shared target)
+        #   mesh11_p<N>_t<M>  — meshes-CVIU11
+        #   ph_<base>         — phase (base = filename without -pattern/-target)
+        #   sf_<dir>          — scalefree (dir = A.01 etc.)
+        #   si__<group>__<inst> — si (double-underscore separates levels)
     function parsegraphfiles(ins)
         m = match(r"^(.+)\.core(\d+)$", ins)
         if m !== nothing
@@ -29,6 +38,35 @@
             tar = ins[i+1:end]
             base = SIPgraphpath * "LV/"
             return base * "g" * pat, base * "g" * tar
+        elseif startswith(ins, "cviu11_p")
+            m2 = match(r"^cviu11_p(\d+)_t(\d+)$", ins)
+            m2 === nothing && return nothing, nothing
+            base = SIPgraphpath * "images-CVIU11/"
+            return base * "patterns/pattern" * m2[1], base * "targets/target" * m2[2]
+        elseif startswith(ins, "pr15_p")
+            m2 = match(r"^pr15_p(\d+)$", ins)
+            m2 === nothing && return nothing, nothing
+            base = SIPgraphpath * "images-PR15/"
+            return base * "pattern" * m2[1], base * "target"
+        elseif startswith(ins, "mesh11_p")
+            m2 = match(r"^mesh11_p(\d+)_t(\d+)$", ins)
+            m2 === nothing && return nothing, nothing
+            base = SIPgraphpath * "meshes-CVIU11/"
+            return base * "patterns/pattern" * m2[1], base * "targets/target" * m2[2]
+        elseif startswith(ins, "ph_")
+            base_name = ins[4:end]
+            base = SIPgraphpath * "phase/"
+            return base * base_name * "-pattern", base * base_name * "-target"
+        elseif startswith(ins, "sf_")
+            dir = ins[4:end]
+            base = SIPgraphpath * "scalefree/" * dir * "/"
+            return base * "pattern", base * "target"
+        elseif startswith(ins, "si__")
+            parts = split(ins[5:end], "__"; limit=2)
+            length(parts) != 2 && return nothing, nothing
+            group, inst = parts[1], parts[2]
+            base = SIPgraphpath * "si/" * group * "/" * inst * "/"
+            return base * "pattern", base * "target"
         end
         return nothing, nothing end
 

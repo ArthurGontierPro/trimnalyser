@@ -45,15 +45,15 @@
     function allgraphinstances()
         list = String[]
         mkpath(_cfg[].proofs)
+
+        # LV and biochemicalReactions: all (p,t) pairs from a single flat directory
         for (dir, pre, fext, fmt) in [
                 (SIPgraphpath*"LV/",                    "g",  "",     (p,t) -> "LVg$(p)g$(t)"),
                 (SIPgraphpath*"biochemicalReactions/",  "",   ".txt", (p,t) -> "bio$(p)$(t)") ]
             isdir(dir) || continue
             files = readdir(dir)
-            # strip prefix and extension to get the numeric identifier
             ids = [f[length(pre)+1 : end-length(fext)] for f in files
                    if startswith(f, pre) && endswith(f, fext) && !isdir(dir*f)]
-            # read node counts, filter by maxnodes
             sizes = Dict{String,Int}()
             for id in ids
                 n = ladnodes(dir * pre * id * fext)
@@ -63,10 +63,114 @@
             _cfg[].rand ? shuffle!(valid) : sort!(valid)
             for p in valid, t in valid
                 p == t && continue
-                sizes[p] > sizes[t] && continue  # only embed smaller into larger
+                sizes[p] > sizes[t] && continue
                 push!(list, fmt(p, t))
             end
         end
+
+        # images-CVIU11: patterns/ × targets/, all cross-pairs where pat_nodes <= tar_nodes
+        let dir = SIPgraphpath * "images-CVIU11/"
+            if isdir(dir * "patterns/") && isdir(dir * "targets/")
+                pat_ids = sort!([parse(Int, f[8:end]) for f in readdir(dir*"patterns/") if startswith(f,"pattern")])
+                tar_ids = sort!([parse(Int, f[7:end]) for f in readdir(dir*"targets/") if startswith(f,"target")])
+                pat_sizes = Dict{Int,Int}(); tar_sizes = Dict{Int,Int}()
+                for id in pat_ids
+                    n = ladnodes(dir*"patterns/pattern$id")
+                    n !== nothing && n <= _cfg[].maxnodes && (pat_sizes[id] = n)
+                end
+                for id in tar_ids
+                    n = ladnodes(dir*"targets/target$id")
+                    n !== nothing && n <= _cfg[].maxnodes && (tar_sizes[id] = n)
+                end
+                for (p, np) in pat_sizes, (t, nt) in tar_sizes
+                    np <= nt && push!(list, "cviu11_p$(p)_t$(t)")
+                end
+            end
+        end
+
+        # images-PR15: each pattern vs a single shared target file
+        let dir = SIPgraphpath * "images-PR15/"
+            if isdir(dir) && isfile(dir*"target")
+                nt = ladnodes(dir*"target")
+                if nt !== nothing && nt <= _cfg[].maxnodes
+                    pat_ids = sort!([parse(Int, f[8:end]) for f in readdir(dir) if startswith(f,"pattern")])
+                    for id in pat_ids
+                        np = ladnodes(dir*"pattern$id")
+                        np !== nothing && np <= nt && push!(list, "pr15_p$id")
+                    end
+                end
+            end
+        end
+
+        # meshes-CVIU11: patterns/ × targets/, all cross-pairs where pat_nodes <= tar_nodes
+        let dir = SIPgraphpath * "meshes-CVIU11/"
+            if isdir(dir * "patterns/") && isdir(dir * "targets/")
+                pat_ids = sort!([parse(Int, f[8:end]) for f in readdir(dir*"patterns/") if startswith(f,"pattern")])
+                tar_ids = sort!([parse(Int, f[7:end]) for f in readdir(dir*"targets/") if startswith(f,"target")])
+                pat_sizes = Dict{Int,Int}(); tar_sizes = Dict{Int,Int}()
+                for id in pat_ids
+                    n = ladnodes(dir*"patterns/pattern$id")
+                    n !== nothing && n <= _cfg[].maxnodes && (pat_sizes[id] = n)
+                end
+                for id in tar_ids
+                    n = ladnodes(dir*"targets/target$id")
+                    n !== nothing && n <= _cfg[].maxnodes && (tar_sizes[id] = n)
+                end
+                for (p, np) in pat_sizes, (t, nt) in tar_sizes
+                    np <= nt && push!(list, "mesh11_p$(p)_t$(t)")
+                end
+            end
+        end
+
+        # phase: sibling <base>-pattern / <base>-target file pairs
+        let dir = SIPgraphpath * "phase/"
+            if isdir(dir)
+                bases = sort!([f[1:end-8] for f in readdir(dir) if endswith(f, "-pattern")])
+                for base in bases
+                    isfile(dir * base * "-target") || continue
+                    np = ladnodes(dir * base * "-pattern")
+                    nt = ladnodes(dir * base * "-target")
+                    (np === nothing || nt === nothing) && continue
+                    (np > _cfg[].maxnodes || nt > _cfg[].maxnodes) && continue
+                    np <= nt && push!(list, "ph_$base")
+                end
+            end
+        end
+
+        # scalefree: one pattern/target pair per subdirectory
+        let dir = SIPgraphpath * "scalefree/"
+            if isdir(dir)
+                for subdir in sort!(filter(d -> isdir(dir*d), readdir(dir)))
+                    pat = dir * subdir * "/pattern"; tar = dir * subdir * "/target"
+                    isfile(pat) && isfile(tar) || continue
+                    np = ladnodes(pat); nt = ladnodes(tar)
+                    (np === nothing || nt === nothing) && continue
+                    (np > _cfg[].maxnodes || nt > _cfg[].maxnodes) && continue
+                    np <= nt && push!(list, "sf_$subdir")
+                end
+            end
+        end
+
+        # si: si/<group>/<instance>/pattern + .../target (three-level nesting)
+        # Instance names encode as si__<group>__<inst> (double-underscore separator;
+        # group and instance names only contain single underscores so this is unambiguous)
+        let dir = SIPgraphpath * "si/"
+            if isdir(dir)
+                for group in sort!(filter(d -> isdir(dir*d), readdir(dir)))
+                    gpath = dir * group * "/"
+                    for inst in sort!(filter(d -> isdir(gpath*d), readdir(gpath)))
+                        ipath = gpath * inst * "/"
+                        pat = ipath * "pattern"; tar = ipath * "target"
+                        isfile(pat) && isfile(tar) || continue
+                        np = ladnodes(pat); nt = ladnodes(tar)
+                        (np === nothing || nt === nothing) && continue
+                        (np > _cfg[].maxnodes || nt > _cfg[].maxnodes) && continue
+                        np <= nt && push!(list, "si__$(group)__$(inst)")
+                    end
+                end
+            end
+        end
+
         _cfg[].rand && shuffle!(list)
         println("%Generated ", length(list), " instances from benchmark graphs (maxnodes=", _cfg[].maxnodes, ")")
         return list end
@@ -85,9 +189,12 @@
         elseif _cfg[].inst !== nothing
             trimnalyseandcie(_cfg[].inst); return
         elseif (_cfg[].solve || _cfg[].resolv) && !_cfg[].allgraphs
-            # proof files don't exist yet: find instance name by bio/LV prefix in args
+            # proof files don't exist yet: find instance name by known prefix in args
             j = findfirst(x -> x ∉ argflags && !isdir(x) &&
-                               (startswith(x,"LV") || startswith(x,"bio")), args)
+                               (startswith(x,"LV")     || startswith(x,"bio")    ||
+                                startswith(x,"cviu11") || startswith(x,"pr15")   ||
+                                startswith(x,"mesh11") || startswith(x,"ph_")    ||
+                                startswith(x,"sf_")    || startswith(x,"si__")), args)
             if j !== nothing
                 trimnalyseandcie(args[j]); return
             end
@@ -117,7 +224,10 @@
                         occursin(script_name, cmdline) || continue
                         # Extract instance name from cmdline (args are \0-separated)
                         cmdargs = split(cmdline, '\0')
-                        instance = findfirst(a -> startswith(a, "LV") || startswith(a, "bio"), cmdargs)
+                        instance = findfirst(a -> startswith(a,"LV")     || startswith(a,"bio")    ||
+                                                  startswith(a,"cviu11") || startswith(a,"pr15")   ||
+                                                  startswith(a,"mesh11") || startswith(a,"ph_")    ||
+                                                  startswith(a,"sf_")    || startswith(a,"si__"), cmdargs)
                         inst_name = instance !== nothing ? cmdargs[instance] : "?"
                         rss = process_rss_gb(pid)
                         rss == 0.0 && continue

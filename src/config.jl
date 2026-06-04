@@ -41,7 +41,11 @@ function parse_config!(args=ARGS)
     end
     inst_val = begin
         i = findfirst(x -> isfile(proofs_dir*x*pbp) && isfile(proofs_dir*x*opb), args)
-        i === nothing && (i = findfirst(x -> !isdir(x) && (startswith(x,"LV") || startswith(x,"bio")), args))
+        i === nothing && (i = findfirst(x -> !isdir(x) &&
+            (startswith(x,"LV")     || startswith(x,"bio")    ||
+             startswith(x,"cviu11") || startswith(x,"pr15")   ||
+             startswith(x,"mesh11") || startswith(x,"ph_")    ||
+             startswith(x,"sf_")    || startswith(x,"si__")), args))
         i !== nothing ? args[i] : nothing
     end
     _cfg[] = Config(

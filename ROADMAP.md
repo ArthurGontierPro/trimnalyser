@@ -14,7 +14,6 @@ All families use the same LAD graph format (`first line = node count; subsequent
 
 | Family | Layout | Pairing rule |
 |--------|--------|-------------|
-| LVsuplemental | `LVsuplemental/gN` | all (P, T) pairs with P ≤ T |
 | images-CVIU11 | `images-CVIU11/patterns/patternN` + `…/targets/targetN` | match by N |
 | images-PR15 | `images-PR15/patternN` (targets TBD) | match by N |
 | meshes-CVIU11 | `meshes-CVIU11/patterns/patternN` + `…/targets/targetN` | match by N |
