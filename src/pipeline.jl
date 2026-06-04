@@ -100,17 +100,11 @@
             printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
             writeout_verif(ins,smol_verif_time,full_verif_time)
         end
-        if _cfg[].bfs
-            printabline(ins)
-            parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Bfs())
-            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
-            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
-            writeout_verif(ins,smol_verif_time,full_verif_time)
-        end end
+        end
 
-        # mode: Grim(), Clit(), or Bfs() — see mode structs
+        # mode: Grim() or Clit() — see mode structs in types.jl
     function trimnalyse(ins; mode=Grim())
-        prefix = mode isa Bfs ? "gbfs" : mode isa Clit ? "gclt" : "grim"
+        prefix = mode isa Clit ? "gclt" : "grim"
         parse_time = trim_time = write_time = 0 ; file = ins ; cone_stats = nothing
         parse_time = @elapsed begin
             store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,prism = readinstance(_cfg[].proofs,file)

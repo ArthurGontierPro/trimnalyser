@@ -1,7 +1,6 @@
 # ══ Config ══════════════════════════════════════════════════════════════════════════════
 mutable struct Config
     inst           ::Union{String,Nothing}
-    bfs            ::Bool
     clit           ::Bool
     atable         ::Bool
     clean          ::Bool
@@ -28,7 +27,7 @@ end
 
 const _cfg = Ref{Config}()
 
-const argflags = Set(["bfs","clit","core","verif","no","rand","sort","clean","atable",
+const argflags = Set(["clit","core","verif","no","rand","sort","clean","atable",
                       "profile","solve","resolv","allgraphs"])
 
 function parse_config!(args=ARGS)
@@ -41,16 +40,11 @@ function parse_config!(args=ARGS)
     end
     inst_val = begin
         i = findfirst(x -> isfile(proofs_dir*x*pbp) && isfile(proofs_dir*x*opb), args)
-        i === nothing && (i = findfirst(x -> !isdir(x) &&
-            (startswith(x,"LV")     || startswith(x,"bio")    ||
-             startswith(x,"cviu11") || startswith(x,"pr15")   ||
-             startswith(x,"mesh11") || startswith(x,"ph_")    ||
-             startswith(x,"sf_")    || startswith(x,"si__")), args))
+        i === nothing && (i = findfirst(x -> !isdir(x) && is_instance_name(x), args))
         i !== nothing ? args[i] : nothing
     end
     _cfg[] = Config(
         inst_val,
-        "bfs"              in args,
         "clit"             in args,
         "atable"           in args,
         "clean"            in args,

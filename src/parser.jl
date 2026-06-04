@@ -127,7 +127,7 @@
         return lits end
 
     function readvar(s,varmap)
-        if s[1]==UInt8(';') throw("; added as variable") end
+        if s[1]==UInt8(';') error("; added as variable") end
         # Strip '~' prefix; both branches stay as AbstractVector{UInt8} — zero allocation.
         # Dict{Vector{UInt8},Int} lookup with ByteSpan key works via generic array hash/isequal.
         tmp = s[1]==UInt8('~') ? @view(s[2:end]) : s
@@ -227,7 +227,7 @@
             elseif tok_eq(type,"a")                        pushed = processassumption_push!(store,st,varmap,systemlink,assertrecord,c)
             elseif tok_eq(type,"ia")                       pushed = processia_push!(store,st,varmap,ctrmap,c,systemlink)
             elseif tok_eq(type,"red")                      c,_ = processred(store,systemlink,st,varmap,redwitness,c); pushed = true
-            elseif tok_eq(type,"sol")                      throw("trimmed SAT is the solution")
+            elseif tok_eq(type,"sol")                      error("trimmed SAT is the solution")
             elseif tok_eq(type,"soli")                     pushed = processsoli_push!(store,st,varmap,systemlink,c,prism,obj,solirecord)
             elseif tok_eq(type,"solx")                     pushed = processsolx_push!(store,st,varmap,systemlink,c,prism)
             elseif tok_eq(type,"output")                   output = String(st[2])
@@ -236,7 +236,7 @@
                 if conclusion == "BOUNDS"
                     conclusion = String(ss)
                 elseif !store_last_empty(store) && (conclusion == "SAT" || conclusion == "NONE")
-                    throw("SAT Not supported..")
+                    error("SAT Not supported")
                 end
             elseif !tok_in(type, ["%","*","wiplvl","w","setlvl","#","f","d","del","end","pseudo-Boolean"])
                 printstyled("  [warn] unknown line head (skipped): $(String(ss))\n"; color=:yellow)
@@ -261,7 +261,7 @@
         solvepol_flat!(store, st, linkbuf, c, varmap, ctrmap, nbopb)
         # Check for empty result
         if length(store) > 0 && store.row_ptr[end] == store.row_ptr[end-1] && store.rhs[end] == 0
-            throw("POL empty")
+            error("POL empty")
         end
         sl_push_data!(systemlink, linkbuf)
         return true end
@@ -306,7 +306,6 @@
         sl_push_rule!(systemlink, -4)
         normcoefeq(eq)
         push_eq!(store,eq)
-        redwitness[redid] = Red(w,0:0,[])
         redwitness[length(store)] = Red(w,0:0,[])
         return redid+1,Eq([],0) end
 
@@ -342,7 +341,7 @@
         lits = Vector{Lit}(undef,length(assi))
         for i in eachindex(assi)
             if assi[i]==0
-                throw(" assignement not propagated to full")
+                error("assignment not propagated to full")
             else
                 lits[i] = Lit(1,assi[i]==1,i) # we add the assignement
             end
@@ -400,7 +399,7 @@
         lits = Vector{Lit}(undef,length(assi))
         for i in eachindex(assi)
             if assi[i]==0
-                throw(" assignement not propagated to full")
+                error("assignment not propagated to full")
             else
                 lits[i] = Lit(1,assi[i]!=1,i) # we add the negation of the assignement
             end

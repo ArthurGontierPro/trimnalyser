@@ -5,9 +5,12 @@ julia --project --threads 192,1 bin/trimnalyser.jl solve resolv verif allgraphs 
 =#
 module TrimAnalyser
 
-using Random, DataStructures, Dates, Printf, Mmap, Serialization
+using Random, DataStructures, Dates, Printf, Mmap
 
 # ── Static constants (cluster detection, paths) ──────────────────────────────
+const instance_prefixes = ("LV", "bio", "cviu11", "pr15", "mesh11", "ph_", "sf_", "si__")
+const is_instance_name(x) = any(startswith(x, p) for p in instance_prefixes)
+
 const opb = ".opb"
 const pbp = ".pbp"
 const smol = ".smol"

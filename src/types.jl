@@ -1,21 +1,3 @@
-# ══ Debug ══════════════════════════════════════════════════════════════════════════════
-module Dumping
-    using Serialization
-    function dumpsys(file,system,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,invsys,prism,cone,conelits,invctrmap,succ,index)
-        println("dumping started")
-        sys = [file,system,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,invsys,prism,cone,conelits,invctrmap,succ,index]
-        open("dump.jls","w") do f
-            serialize(f,sys)
-        end
-        println("dumping ended") end
-
-    function loadsys(file)
-        println("loading started")
-        file,system,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,invsys,prism,cone,conelits,invctrmap,succ,index = deserialize("dump.jls")
-        println("loading ended")
-        return file,system,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,invsys,prism,cone,conelits,invctrmap,succ,index end
-end; # using .Dumping # to save the import uncomment this.
-
 # ══ Data structures ═════════════════════════════════════════════════════════════════════
     struct Lit
         coef::Int
@@ -176,23 +158,6 @@ end; # using .Dumping # to save the import uncomment this.
         fill!(t.pos, 0); fill!(t.assi, 0)
         empty!(t.slack_cache); empty!(t.slack_rev_cache) end
 
-        # Reset trail to base state, filtering out entries whose reason >= init.
-        # OPB entries (reason ≤ nbopb ≤ any init) are always included.
-        # PBP entries with reason < init are included; reason == init is excluded because
-        # constraint init is the one being proved (using it as a reason is circular).
-    @inline function reset_to_base!(t::Trail, base::Trail, sys::PBSystem, init::Int)
-        empty!(t.var); empty!(t.eq)
-        fill!(t.pos, 0); fill!(t.assi, 0)
-        # Copy slack cache from base
-        resize!(t.slack_cache, length(base.slack_cache))
-        resize!(t.slack_rev_cache, length(base.slack_rev_cache))
-        copyto!(t.slack_cache, base.slack_cache)
-        copyto!(t.slack_rev_cache, base.slack_rev_cache)
-        for k in 1:length(base.var)
-            Int(base.eq[k]) >= init && continue            # exclude init itself and anything beyond
-            pushtrail!(t, sys, base.var[k], base.eq[k], base.assi[Int(base.var[k])])
-        end end
-
         # Initialize slack caches from scratch for all constraints.
         # Forward slack: sum(coefs of unassigned/satisfied lits) - rhs
         # Reversed slack: sum(coefs of unassigned/falsified lits) - (total_coefs - rhs + 1)
@@ -256,7 +221,7 @@ end; # using .Dumping # to save the import uncomment this.
         list ::Vector{Int} end# O(k) iteration; may contain stale (false) entries
 
     Ante(n::Int) = Ante(zeros(Bool, n), Int[])
-    struct RupState                                    # reusable scratch buffers — allocated once in getcone
+    struct RupState                                    # scratch buffers for one getcone! call; RED subproof calls allocate their own
         que           ::BitVector                      # ruptrail equation queue
         pq_prio       ::BinaryMinHeap{Int}             # priority equations (cone/on_frontier)
         pq_nonprio    ::BinaryMinHeap{Int}             # non-priority equations
@@ -269,7 +234,6 @@ end; # using .Dumping # to save the import uncomment this.
         # To add a new mode: define a new struct + a conflicttrail method. Nothing else changes.
     struct Grim end        # standard: proof-index sort in conflict analysis
     struct Clit end        # cone-first sort + essentials-aware filter in conflict analysis
-    struct Bfs  end        # BFS propagation with wave-level reason selection (ruptrail_bfs)
     RupState(n_eqs::Int, n_vars::Int) = RupState(
         falses(n_eqs),
         BinaryMinHeap{Int}(),

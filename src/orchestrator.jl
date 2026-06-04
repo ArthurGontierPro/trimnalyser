@@ -192,11 +192,7 @@
             trimnalyseandcie(_cfg[].inst); return
         elseif (_cfg[].solve || _cfg[].resolv) && !_cfg[].allgraphs
             # proof files don't exist yet: find instance name by known prefix in args
-            j = findfirst(x -> x ∉ argflags && !isdir(x) &&
-                               (startswith(x,"LV")     || startswith(x,"bio")    ||
-                                startswith(x,"cviu11") || startswith(x,"pr15")   ||
-                                startswith(x,"mesh11") || startswith(x,"ph_")    ||
-                                startswith(x,"sf_")    || startswith(x,"si__")), args)
+            j = findfirst(x -> x ∉ argflags && !isdir(x) && is_instance_name(x), args)
             if j !== nothing
                 trimnalyseandcie(args[j]); return
             end
@@ -226,10 +222,7 @@
                         occursin(script_name, cmdline) || continue
                         # Extract instance name from cmdline (args are \0-separated)
                         cmdargs = split(cmdline, '\0')
-                        instance = findfirst(a -> startswith(a,"LV")     || startswith(a,"bio")    ||
-                                                  startswith(a,"cviu11") || startswith(a,"pr15")   ||
-                                                  startswith(a,"mesh11") || startswith(a,"ph_")    ||
-                                                  startswith(a,"sf_")    || startswith(a,"si__"), cmdargs)
+                        instance = findfirst(is_instance_name, cmdargs)
                         inst_name = instance !== nothing ? cmdargs[instance] : "?"
                         rss = process_rss_gb(pid)
                         rss == 0.0 && continue

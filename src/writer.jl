@@ -239,11 +239,11 @@
                         print(f, "    proofgoal ", index[systemlink[i - nbopb][2]], "\n")
                         push!(todel, i)
                     elseif rule_type == -10          # red proofgoal end
-                        lastindex -= 1
+                        lastindex -= 1                 # sub-block end doesn't consume an output index
                         write(f, "    end -1\n")
                         next = systemlink[i - nbopb][1]
-                        if next != -7 && next != -8
-                            lastindex += 1
+                        if next != -7 && next != -8    # last proofgoal: close the outer red block too
+                            lastindex += 1             # outer red "end" does consume an index
                             write(f, "end\n")
                             for ii in todel
                                 writedel(f, systemlink, ii, succ, index, nbopb, dels)

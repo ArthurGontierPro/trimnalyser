@@ -139,7 +139,8 @@
         idx = -ps.stack[end]
         scratch = ps.scratch_pool[idx]
         vars, coefs, signs, rhs = scratch
-        i = findfirst(==(Int32(var)), vars)
+        k = searchsortedfirst(vars, Int32(var))
+        i = (k <= length(vars) && vars[k] == Int32(var)) ? k : nothing
         if i !== nothing
             rhs -= coefs[i]
             deleteat!(vars, i)
@@ -249,7 +250,7 @@
                 id = i[1]==UInt8('@') ? ctrmap[String(view(i,2:length(i)))] : parse_int_bytes(i)
                 id < 1 && (id = init + id)
                 push!(link, id)
-                if !tok_in(st[j+1], ["*", "d"])
+                if j >= length(st) || !tok_in(st[j+1], ["*", "d"])
                     pol_push_eq!(ps, id)
                 end
             end
