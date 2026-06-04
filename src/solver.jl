@@ -157,14 +157,17 @@
         errfile = _cfg[].proofs*out_prefix*".err"
         options = ["--no-clique-detection"]
         _cfg[].nosup && push!(options, "--no-supplementals")
+        local exitcode = 0
         open(_cfg[].proofs*out_prefix*".out", "a") do fout
             open(errfile, "a") do ferr
-                run(pipeline(
+                p = run(pipeline(
                     ignorestatus(`timeout $(_cfg[].solvertimeout) $sipsolverpath
                         --prove $(_cfg[].proofs*out_prefix) $options --format lad $pat_lad $tar_lad`),
                     stdout=fout, stderr=ferr))
+                exitcode = p.exitcode
             end
         end
+        exitcode in (124, 137) && return false
         if isfile(errfile)
             err = read(errfile, String)
             if !isempty(strip(err))
@@ -205,6 +208,12 @@
                 tryrm(cur_pat); tryrm(cur_tar)
                 printstyled("  resolv: solver failed/timeout at iter $iter ($(round(t;digits=1))s)\n"; color=:red); return
             end
+            if isempty(pbpconclusion(core_ins))
+                tryrm(cur_pat); tryrm(cur_tar)
+                printstyled("  $ins resolv iter $iter: truncated proof — aborting\n"; color=:red)
+                open(_cfg[].proofs*core_ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
+                return
+            end
             printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
             printabline(core_ins)
             parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
@@ -231,12 +240,14 @@
         writedot(dir * ins * ".tar.dot",  adj_t, T_set)
         writecoreladfile(dir * ins * ".core.pat.lad", adj_p, P)
         writecoreladfile(dir * ins * ".core.tar.lad", adj_t, T)
-        for (base, layout) in [(ins*".pat", "circo"), (ins*".tar", "neato")]
-            dot = dir * base * ".dot"
-            svg = dir * base * ".svg"
-            try run(ignorestatus(`neato -Tsvg -K$layout -o$svg $dot`))
-            catch;
-                # printstyled("  neato not found — install graphviz to render $svg\n"; color=:yellow)
+        if _cfg[].render
+            for (base, layout) in [(ins*".pat", "circo"), (ins*".tar", "neato")]
+                dot = dir * base * ".dot"
+                svg = dir * base * ".svg"
+                try run(ignorestatus(`neato -Tsvg -K$layout -o$svg $dot`))
+                catch;
+                    # printstyled("  neato not found — install graphviz to render $svg\n"; color=:yellow)
+                end
             end
         end
         return "  $ins core: $(length(P))/$(length(adj_p)) pat nodes, $(length(T))/$(length(adj_t)) tar nodes" end

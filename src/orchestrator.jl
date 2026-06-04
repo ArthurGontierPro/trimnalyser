@@ -1,10 +1,12 @@
 # ══ Entry point ══════════════════════════════════════════════════════════════════════════
 # ══ Signal Handling ═══════════════════════════════════════════════════════════════════════════
     const _sysimage = joinpath(@__DIR__, "..", "trimnalyser.so")
-    # Clean exit on timeout to prevent signal handler corruption of @inbounds code
+    # Clean exit on timeout. Uses only async-signal-safe syscalls: write(2) + _exit(2).
+    # Julia's exit() and println() acquire locks and are unsafe from a C signal handler.
     function handle_timeout(sig::Cint)
-        println(stderr, "Timeout signal received (signal $sig), exiting cleanly...")
-        exit(124)  # Standard timeout exit code
+        msg = "Timeout: exiting (signal $sig)\n"
+        ccall(:write, Cint, (Cint, Ptr{UInt8}, Csize_t), 2, msg, sizeof(msg))
+        ccall(:_exit, Cvoid, (Cint,), Int32(124))
     end
 
     function packdots()

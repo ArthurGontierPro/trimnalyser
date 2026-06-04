@@ -288,17 +288,11 @@
         return true end
 
     function readia(st,varmap,ctrmap,eq,c)
-        if !tok_eq(st[end-1],":") # coef lit coef lit >= b : id
-            eq = Eq([],0)
-            printstyled("  [warn] missing ia ID: constraint will be ignored\n"; color=:yellow)
-        else
-            eq = readeq(st,varmap,2:2:length(st)-3)
-            l = st[end]
-            l = l[1]==UInt8('@') ? ctrmap[String(view(l,2:length(l)))] : parse_int_bytes(l)
-            if l<0
-                l = c+l
-            end
-        end
+        tok_eq(st[end-1],":") || error("ia constraint has no ID (truncated proof line?)")
+        eq = readeq(st,varmap,2:2:length(st)-3)
+        l = st[end]
+        l = l[1]==UInt8('@') ? ctrmap[String(view(l,2:length(l)))] : parse_int_bytes(l)
+        l < 0 && (l = c+l)
         return eq,l end
 
     function processred(store,systemlink,st,varmap,redwitness,redid)
