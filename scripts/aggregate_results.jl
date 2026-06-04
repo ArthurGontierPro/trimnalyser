@@ -52,7 +52,13 @@ const CSV_COLUMNS = [
     # Per-iteration size changes (JSON arrays for flexibility)
     "iter_sizes_total", "iter_sizes_opb", "iter_sizes_pbp",
     # Per-iteration constraint/variable/literal tracking
-    "iter_nbeq", "iter_var", "iter_lit"
+    "iter_nbeq", "iter_var", "iter_lit",
+    # M2: step-type breakdown in trimmed cone (grim)
+    "grim_cone_rup", "grim_cone_pol", "grim_cone_red", "grim_cone_ia",
+    # M2: cone depth stats
+    "grim_cone_depth_max", "grim_cone_depth_mean",
+    # M2: resolv shrinkage curve and stop reason
+    "resolv_iter_pat_nodes", "resolv_iter_tar_nodes", "resolv_stop_reason"
 ]
 
 function parse_out_file(filepath)
@@ -110,6 +116,25 @@ function parse_out_file(filepath)
         occursin("veri OPB SIZE ", line)     && (data["veri_opb_size"] = tryparse(Int, split(line)[end]))
         occursin("veri PBP SIZE ", line)     && (data["veri_pbp_size"] = tryparse(Int, split(line)[end]))
         occursin("veri SIZE ", line)         && (data["veri_total_size"] = tryparse(Int, split(line)[end]))
+
+        # M2: step-type breakdown
+        match(r"^grim CONE RUP (\d+)", line)   !== nothing && (data["grim_cone_rup"]   = tryparse(Int, match(r"^grim CONE RUP (\d+)", line).captures[1]))
+        match(r"^grim CONE POL (\d+)", line)   !== nothing && (data["grim_cone_pol"]   = tryparse(Int, match(r"^grim CONE POL (\d+)", line).captures[1]))
+        match(r"^grim CONE RED (\d+)", line)   !== nothing && (data["grim_cone_red"]   = tryparse(Int, match(r"^grim CONE RED (\d+)", line).captures[1]))
+        match(r"^grim CONE IA (\d+)", line)    !== nothing && (data["grim_cone_ia"]    = tryparse(Int, match(r"^grim CONE IA (\d+)", line).captures[1]))
+        # M2: cone depth
+        match(r"^grim CONE DEPTH MAX (\d+)", line)        !== nothing && (data["grim_cone_depth_max"]  = tryparse(Int,     match(r"^grim CONE DEPTH MAX (\d+)", line).captures[1]))
+        match(r"^grim CONE DEPTH MEAN ([\d.]+)", line)    !== nothing && (data["grim_cone_depth_mean"] = tryparse(Float64, match(r"^grim CONE DEPTH MEAN ([\d.]+)", line).captures[1]))
+        # M2: resolv shrinkage curve
+        let m = match(r"^resolv ITER \d+ PAT (\d+) TAR (\d+)$", line)
+            if m !== nothing
+                push!(get!(data, "resolv_iter_pat") do; Int[] end, parse(Int, m.captures[1]))
+                push!(get!(data, "resolv_iter_tar") do; Int[] end, parse(Int, m.captures[2]))
+            end
+        end
+        let m = match(r"^resolv STOP (\w+)", line)
+            m !== nothing && (data["resolv_stop_reason"] = m.captures[1])
+        end
 
         # Brim
         occursin("brim TIME ", line)         && (data["brim_time"] = tryparse(Float64, split(line)[end]))
@@ -445,6 +470,22 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, format_array(iter_nbeq))
             push!(row, format_array(iter_var))
             push!(row, format_array(iter_lit))
+
+            # M2: step-type breakdown
+            push!(row, get(data, "grim_cone_rup", ""))
+            push!(row, get(data, "grim_cone_pol", ""))
+            push!(row, get(data, "grim_cone_red", ""))
+            push!(row, get(data, "grim_cone_ia",  ""))
+
+            # M2: cone depth
+            push!(row, get(data, "grim_cone_depth_max",  ""))
+            push!(row, get(data, "grim_cone_depth_mean", ""))
+
+            # M2: resolv shrinkage curve and stop reason
+            push!(row, format_array(get(data, "resolv_iter_pat", [])))
+            push!(row, format_array(get(data, "resolv_iter_tar", [])))
+            stop = get(data, "resolv_stop_reason", "")
+            push!(row, stop == "" ? "" : "\"$stop\"")
 
             # Write row
             println(io, join(row, ","))

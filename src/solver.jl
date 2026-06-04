@@ -187,28 +187,35 @@
         patfile, tarfile = parsegraphfiles(ins)
         prev_np = parse(Int, readline(patfile))
         prev_nt = parse(Int, readline(tarfile))
+        outfile = _cfg[].proofs * ins * ".out"
+        open(outfile, "a") do f; println(f, "resolv ITER 0 PAT $prev_np TAR $prev_nt") end
         iter = 0
         while true
             iter += 1
             if !isfile(cur_pat) || !isfile(cur_tar)
+                open(outfile, "a") do f; println(f, "resolv STOP missing_lads") end
                 printstyled("  resolv: core LADs missing at iter $iter\n"; color=:red); return
             end
             np = parse(Int, readline(cur_pat))
             nt = parse(Int, readline(cur_tar))
             if np == prev_np && nt == prev_nt
+                open(outfile, "a") do f; println(f, "resolv STOP stabilized") end
                 tryrm(cur_pat); tryrm(cur_tar)
                 printstyled("  $ins resolv: fixpoint after $(iter-1) iteration(s) ($np pat, $nt tar nodes)\n"; color=:green); return
             end
             prev_np, prev_nt = np, nt
+            open(outfile, "a") do f; println(f, "resolv ITER $iter PAT $np TAR $nt") end
             core_ins = ins * ".core$iter"
             tryrm(_cfg[].proofs*core_ins*".out")
             tryrm(_cfg[].proofs*core_ins*".err")
             t = @elapsed ok = runsipsolver(core_ins, cur_pat, cur_tar)
             if !ok
+                open(outfile, "a") do f; println(f, "resolv STOP solver_failed") end
                 tryrm(cur_pat); tryrm(cur_tar)
                 printstyled("  resolv: solver failed/timeout at iter $iter ($(round(t;digits=1))s)\n"; color=:red); return
             end
             if isempty(pbpconclusion(core_ins))
+                open(outfile, "a") do f; println(f, "resolv STOP truncated") end
                 tryrm(cur_pat); tryrm(cur_tar)
                 printstyled("  $ins resolv iter $iter: truncated proof — aborting\n"; color=:red)
                 open(_cfg[].proofs*core_ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end

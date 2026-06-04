@@ -44,6 +44,63 @@
             println(f, prefix, " CONE VAR ", s.vars_used)
         end end
 
+    function count_step_types(systemlink::SystemLink, cone::Vector{Bool}, nbopb::Int)
+        n_rup = n_pol = n_red = n_ia = n_other = 0
+        @inbounds for i in nbopb+1:length(cone)
+            cone[i] || continue
+            k = systemlink.idx[i - nbopb]
+            if k == -1 || k == 0
+                n_rup += 1
+            elseif k == -4
+                n_red += 1
+            elseif k > 0
+                rt = systemlink.data[systemlink.ptr[k]]
+                if rt == -2;     n_pol += 1
+                elseif rt == -3; n_ia  += 1
+                else             n_other += 1 end
+            else
+                n_other += 1
+            end
+        end
+        (rup=n_rup, pol=n_pol, red=n_red, ia=n_ia, other=n_other) end
+
+    function writeout_step_types(ins, counts, prefix)
+        open(_cfg[].proofs*ins*".out", "a") do f
+            println(f, prefix, " CONE RUP ",  counts.rup)
+            println(f, prefix, " CONE POL ",  counts.pol)
+            println(f, prefix, " CONE RED ",  counts.red)
+            println(f, prefix, " CONE IA ",   counts.ia)
+            counts.other > 0 && println(f, prefix, " CONE OTHER ", counts.other)
+        end end
+
+    function compute_cone_depth(cone::Vector{Bool}, systemlink::SystemLink, nbopb::Int)
+        n = length(cone)
+        depth = zeros(Int32, n)
+        n_pbp = 0; d_sum = Int64(0); d_max = Int32(0)
+        for i in nbopb+1:n
+            cone[i] || continue
+            n_pbp += 1
+            link = systemlink[i - nbopb]
+            d = zero(Int32)
+            for j in eachindex(link)
+                t = link[j]
+                t > 0 || continue
+                j < length(link) && link[j+1] in (-2, -3) && continue  # skip POL scalars
+                cone[t] && (d = max(d, depth[t]))
+            end
+            depth[i] = d + Int32(1)
+            d_sum += depth[i]
+            depth[i] > d_max && (d_max = depth[i])
+        end
+        mean = n_pbp > 0 ? d_sum / n_pbp : 0.0
+        (max_depth=Int(d_max), mean_depth=mean) end
+
+    function writeout_cone_depth(ins, stats, prefix)
+        open(_cfg[].proofs*ins*".out", "a") do f
+            println(f, prefix, " CONE DEPTH MAX ",  stats.max_depth)
+            println(f, prefix, " CONE DEPTH MEAN ", round(stats.mean_depth; digits=2))
+        end end
+
     function writeout_write(ins, t1, t2, t3, prefix)
         open(_cfg[].proofs*ins*".out", "a") do f
             println(f, prefix, " WRITE TIME ", t3)

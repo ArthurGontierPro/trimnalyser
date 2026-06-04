@@ -119,6 +119,10 @@
             getcone!(cone, conelits, sys, systemlink, nbopb, prism, redwitness, conclusion, obj, mode)
         end
         writeout_trim(ins, trim_time, cone, nbopb, prefix)
+        step_counts = count_step_types(systemlink, cone, nbopb)
+        depth_stats = compute_cone_depth(cone, systemlink, nbopb)
+        writeout_step_types(ins, step_counts, prefix)
+        writeout_cone_depth(ins, depth_stats, prefix)
         writeout_conelits(ins, sys, cone, conelits, prefix)
         cone_stats = conelits_stats(sys, cone, conelits)
         printconestat(cone, cone_stats)
