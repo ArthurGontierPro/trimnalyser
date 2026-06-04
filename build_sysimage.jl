@@ -32,7 +32,16 @@ t0 = time()
 
 using Pkg
 Pkg.activate(ROOT; io=devnull)
-using PackageCompiler   # errors clearly if not installed
+
+try
+    using PackageCompiler
+catch
+    println("┌ Sysimage build skipped: PackageCompiler not found in the global Julia env.")
+    println("│   Subprocess startup will be ~5s slower per instance.")
+    println("│   To enable sysimage builds, run once:")
+    println("└   julia -e 'using Pkg; Pkg.add(\"PackageCompiler\")'")
+    exit(0)
+end
 
 PackageCompiler.create_sysimage(
     [:TrimAnalyser];

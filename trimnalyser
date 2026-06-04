@@ -5,5 +5,9 @@
 PROJ="$(cd "$(dirname "$0")" && pwd)"
 SO="$PROJ/trimnalyser.so"
 FLAGS=()
+
+# Auto-build sysimage (fast no-op if up to date; graceful if PackageCompiler missing)
+julia --startup-file=no "$PROJ/build_sysimage.jl"
+
 [ -f "$SO" ] && FLAGS+=(--sysimage "$SO")
 exec julia "${FLAGS[@]}" "$PROJ/bin/trimnalyser.jl" "$@"
