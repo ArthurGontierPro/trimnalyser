@@ -143,7 +143,72 @@ def generate_summary_stats(df):
 
     return stats
 
-def generate_html_report(df, stats, output_path):
+def add_cone_viz_section(html_parts, df, vis_dir):
+    """Embed or link cone SVGs for the top instances by trim time."""
+    if not vis_dir:
+        return
+    vis_path = Path(vis_dir)
+    if not vis_path.exists():
+        return
+
+    proof_df = df[df['has_proof'] == True].copy() if 'has_proof' in df.columns else df.copy()
+    if proof_df.empty:
+        return
+
+    time_col = 'grim_trim_time' if 'grim_trim_time' in proof_df.columns else None
+    if time_col and not proof_df[time_col].isna().all():
+        top_instances = proof_df.nlargest(10, time_col)['instance'].tolist()
+    else:
+        top_instances = proof_df['instance'].head(10).tolist()
+
+    html_parts.append("<h2>🌳 Proof Cone Visualizations</h2>")
+    html_parts.append("""<p>Top 10 instances by trim time.
+        Colour key: <span style='background:#aaddff;padding:0 4px'>RUP</span>
+        <span style='background:#ffcc88;padding:0 4px'>POL</span>
+        <span style='background:#cc88ff;padding:0 4px'>RED</span>
+        <span style='background:#88ffaa;padding:0 4px'>IA</span>
+        <span style='background:#dddddd;padding:0 4px'>OPB axiom</span>.
+        Dashed border = weakened by conelits.
+        Variants: <b>full</b> (all steps, ≤500 total),
+        <b>topk</b> (200 deepest, OPB collapsed, depth-ranked),
+        <b>bfs</b> (200 BFS from contradiction, same options),
+        <b>hist</b> (depth-level summary of full cone).</p>""")
+
+    found_any = False
+    for instance in top_instances:
+        inst = instance.strip('"')
+        for tag in ('hist', 'bfs', 'topk', 'full'):
+            svg_path = vis_path / f"{inst}.cone.{tag}.svg"
+            dot_path = vis_path / f"{inst}.cone.{tag}.dot"
+            if svg_path.exists():
+                sz = svg_path.stat().st_size
+                html_parts.append(f"<h3>{inst} — {tag}</h3>")
+                if sz < 500_000:
+                    svg = svg_path.read_text()
+                    if '<?xml' in svg:
+                        svg = svg[svg.index('<svg'):]
+                    html_parts.append('<div style="overflow:auto;border:1px solid #ddd;padding:10px;margin:10px 0;">')
+                    html_parts.append(svg)
+                    html_parts.append('</div>')
+                else:
+                    rel = svg_path.name
+                    html_parts.append(f'<p><a href="{rel}">{rel}</a> ({sz//1024} KB — open separately)</p>')
+                found_any = True
+                break
+            elif dot_path.exists():
+                html_parts.append(f"<h3>{inst} — {tag}</h3>")
+                html_parts.append(f"<p><em>DOT file available: {dot_path.name}</em>. "
+                                  f"Render with: <code>dot -Tsvg {dot_path.name} -o {inst}.cone.{tag}.svg</code></p>")
+                found_any = True
+                break
+
+    if not found_any:
+        html_parts.append("<p><em>No cone visualizations found in vis/ directory. "
+                          "Run trimnalyser with the <code>render</code> flag to generate SVGs, "
+                          "or pass <code>--vis-dir path/to/vis/</code> to this script.</em></p>")
+
+
+def generate_html_report(df, stats, output_path, vis_dir=None):
     """Generate interactive HTML report using Plotly."""
     try:
         import plotly.graph_objects as go
@@ -1222,6 +1287,9 @@ def generate_html_report(df, stats, output_path):
         html_parts.append("<h3>Least Reduced Instances</h3>")
         html_parts.append(worst_reduction.to_html(index=False, classes='', border=0, formatters={'constraint_reduction_ratio': lambda x: f'{x:.1%}'}))
 
+    # Cone visualizations (if vis_dir provided)
+    add_cone_viz_section(html_parts, df, vis_dir)
+
     # Most reduced pattern graphs
     if not proof_df.empty and 'pattern_vertices' in proof_df.columns and 'core_pattern_nodes' in proof_df.columns:
         proof_df_copy = proof_df.copy()
@@ -1251,6 +1319,8 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze proof trimming results and generate HTML report')
     parser.add_argument('csv_file', help='Input CSV file from aggregate_results.jl')
     parser.add_argument('output_html', nargs='?', default='analysis_report.html', help='Output HTML file')
+    parser.add_argument('--vis-dir', dest='vis_dir', default=None,
+                        help='Path to vis/ directory containing cone DOT/SVG files')
 
     args = parser.parse_args()
 
@@ -1268,7 +1338,7 @@ def main():
     stats = generate_summary_stats(df)
 
     print(f"Creating HTML report...")
-    generate_html_report(df, stats, args.output_html)
+    generate_html_report(df, stats, args.output_html, vis_dir=getattr(args, 'vis_dir', None))
 
     print(f"\n✓ Analysis complete!")
     print(f"  Total instances: {len(df)}")

@@ -32,6 +32,15 @@ julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv
 # Compute static graph features (separate CSV, join by instance)
 julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv
 
+# Generate cone DOT + SVG visualisations (requires graphviz `dot` on PATH)
+./trimnalyser LVg10g12 overwrite resolv render
+
+# Render all existing cone DOT files in batch (if `dot` is available)
+for f in /scratch/arthur/proofs/vis/*.cone.*.dot; do dot -Tsvg -o "${f%.dot}.svg" "$f"; done
+
+# HTML report with embedded cone SVGs
+python3 scripts/analyze_results.py cluster_results.csv report.html --vis-dir /scratch/arthur/proofs/vis/
+
 # Generate interactive HTML analysis
 python3 scripts/analyze_results.py cluster_results.csv cluster_analysis.html
 

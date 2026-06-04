@@ -158,18 +158,28 @@
         "#ffffff"  # other
     end
 
-    # Write one DOT file for the given PBP + OPB node subsets.
+    # Write one cone DOT file.
+    # collapse_opb=true: replace individual OPB leaf nodes with one summary node
+    #   and at most one edge per PBP step that has any OPB antecedent.
+    # depth_ranks=true: emit { rank=same } groups so steps at equal depth align.
     function _write_cone_dot_file(path, pbp_steps, opb_steps,
-                                  cone, systemlink, nbopb, depth_arr, conelits)
+                                  cone, systemlink, nbopb, depth_arr, conelits;
+                                  collapse_opb=false, depth_ranks=false)
         selected = Set{Int}(pbp_steps)
         for i in opb_steps; push!(selected, i); end
         open(path, "w") do f
             println(f, "digraph cone {")
             println(f, "  rankdir=TB; node [fontsize=7]; edge [arrowsize=0.4];")
-            for i in opb_steps
-                style = haskey(conelits, i) ? "filled,dashed" : "filled"
-                println(f, "  n$i [label=\"$i\", shape=box,",
-                           " style=\"$style\", fillcolor=\"#dddddd\"];")
+            if collapse_opb
+                n = length(opb_steps)
+                n > 0 && println(f, "  n_opb [label=\"$n OPB\\naxioms\", shape=box,",
+                                    " style=filled, fillcolor=\"#dddddd\"];")
+            else
+                for i in opb_steps
+                    style = haskey(conelits, i) ? "filled,dashed" : "filled"
+                    println(f, "  n$i [label=\"$i\", shape=box,",
+                               " style=\"$style\", fillcolor=\"#dddddd\"];")
+                end
             end
             for i in pbp_steps
                 color = _cone_node_color(systemlink, i, nbopb)
@@ -178,55 +188,113 @@
                 println(f, "  n$i [label=\"$(i-nbopb)\\nd=$d\", shape=ellipse,",
                            " style=\"$style\", fillcolor=\"$color\"];")
             end
+            if depth_ranks
+                depth_groups = Dict{Int,Vector{Int}}()
+                for i in pbp_steps
+                    push!(get!(depth_groups, Int(depth_arr[i]), Int[]), i)
+                end
+                for (_, grp) in sort(collect(depth_groups))
+                    length(grp) < 2 && continue
+                    println(f, "  { rank=same; ", join(("n$i" for i in grp), "; "), "; }")
+                end
+            end
+            has_opb_target = collapse_opb && !isempty(opb_steps)
+            opb_edge_from = Set{Int}()
             for i in pbp_steps
                 link = systemlink[i - nbopb]
                 for j in eachindex(link)
                     t = link[j]
                     t > 0 || continue
                     j < length(link) && link[j+1] in (-2, -3) && continue
-                    t in selected && println(f, "  n$i -> n$t;")
+                    if has_opb_target && t <= nbopb && cone[t]
+                        i ∉ opb_edge_from && (println(f, "  n$i -> n_opb;"); push!(opb_edge_from, i))
+                    elseif t in selected
+                        println(f, "  n$i -> n$t;")
+                    end
                 end
             end
             println(f, "}")
         end
     end
 
-    # Write up to three cone DOT variants into vis/:
-    #   full  — all cone steps, only if total ≤ CONE_MAX_FULL
-    #   topk  — CONE_TOP_K highest-depth PBP steps + their OPB leaves
-    #   bfs   — BFS-CONE_TOP_K steps from contradiction + their OPB leaves
-    # SVGs are rendered when _cfg[].render is true (requires graphviz `dot`).
+    # Write a depth-level histogram DOT from the full cone (not a sample).
+    # Each node = one depth level; height ∝ log(step count); colour = dominant type.
+    function _write_cone_hist_dot(path, cone, systemlink, nbopb, depth_arr)
+        n_opb_cone = sum(cone[i] for i in 1:nbopb; init=0)
+        pbp_cone   = [i for i in nbopb+1:length(cone) if cone[i]]
+        n_opb_cone == 0 && isempty(pbp_cone) && return
+        max_d = isempty(pbp_cone) ? 0 : Int(maximum(depth_arr[i] for i in pbp_cone))
+        counts = [zeros(Int, 5) for _ in 0:max_d]
+        for i in pbp_cone
+            d = Int(depth_arr[i]); k = systemlink.idx[i - nbopb]
+            col = if k == -1 || k == 0; 1
+                  elseif k == -4; 3
+                  elseif k > 0
+                      rt = systemlink.data[systemlink.ptr[k]]
+                      rt == -2 ? 2 : rt == -3 ? 4 : 5
+                  else 5 end
+            counts[d+1][col] += 1
+        end
+        type_names  = ("RUP", "POL", "RED", "IA", "?")
+        type_colors = ("#aaddff", "#ffcc88", "#cc88ff", "#88ffaa", "#ffffff")
+        open(path, "w") do f
+            println(f, "digraph hist {")
+            println(f, "  rankdir=BT; node [fontsize=8, style=filled]; edge [arrowsize=0.5];")
+            if n_opb_cone > 0
+                h = max(0.3, min(2.5, 0.3 * log2(n_opb_cone + 1)))
+                println(f, "  d0 [label=\"OPB\\n$n_opb_cone axioms\", height=$h, fillcolor=\"#dddddd\"];")
+            end
+            for d in 1:max_d
+                total = sum(counts[d+1]); total == 0 && continue
+                dom   = argmax(counts[d+1]); color = type_colors[dom]
+                parts = [type_names[t]*":"*string(counts[d+1][t]) for t in 1:5 if counts[d+1][t] > 0]
+                h = max(0.3, min(2.5, 0.3 * log2(total + 1)))
+                println(f, "  d$d [label=\"d=$d\\n$(join(parts, " "))\", height=$h, fillcolor=\"$color\"];")
+            end
+            prev = n_opb_cone > 0 ? "d0" : nothing
+            for d in 1:max_d
+                sum(counts[d+1]) == 0 && continue
+                prev !== nothing && println(f, "  $prev -> d$d;")
+                prev = "d$d"
+            end
+            println(f, "}")
+        end
+    end
+
+    #   full  — all steps, individual OPB, no rank groups (only if total ≤ CONE_MAX_FULL)
+    #   topk  — CONE_TOP_K highest-depth PBP, collapsed OPB, depth ranks
+    #   bfs   — CONE_TOP_K BFS-from-root, collapsed OPB, depth ranks
+    #   hist  — depth-level histogram of the full cone (always)
+    # SVGs rendered when _cfg[].render is set (requires graphviz `dot`).
     function write_cone_dot(ins, cone, systemlink, nbopb, depth_arr, conelits, prefix)
         vis_dir = _cfg[].proofs * "vis/"
         mkpath(vis_dir)
         pbp_steps = [i for i in nbopb+1:length(cone) if cone[i]]
         isempty(pbp_steps) && return
 
-        variants = Tuple{String,Vector{Int}}[]
-
-        # full: only when small enough to be readable
+        # (tag, pbp_selection, collapse_opb, depth_ranks)
+        variants = Tuple{String,Vector{Int},Bool,Bool}[]
         total = length(pbp_steps) + sum(cone[1:nbopb])
-        total <= CONE_MAX_FULL && push!(variants, ("full", pbp_steps))
-
-        # topk: highest-depth steps first
+        total <= CONE_MAX_FULL && push!(variants, ("full", pbp_steps, false, false))
         sorted_pbp = sort(pbp_steps; by = i -> depth_arr[i], rev=true)
-        push!(variants, ("topk", sorted_pbp[1:min(CONE_TOP_K, length(sorted_pbp))]))
-
-        # bfs: breadth-first from the final contradiction step
+        push!(variants, ("topk", sorted_pbp[1:min(CONE_TOP_K, length(sorted_pbp))], true, true))
         push!(variants, ("bfs", _cone_bfs_sample(pbp_steps, systemlink, nbopb,
-                                                  cone, depth_arr, CONE_TOP_K)))
+                                                  cone, depth_arr, CONE_TOP_K), true, true))
 
-        for (tag, sel_pbp) in variants
+        _render(p) = _cfg[].render && (try run(ignorestatus(`dot -Tsvg -o$(p*".svg") $p`)) catch; end)
+
+        for (tag, sel_pbp, coll, ranks) in variants
             isempty(sel_pbp) && continue
-            sel_opb = _cone_opb_leaves(sel_pbp, cone, systemlink, nbopb)
+            sel_opb  = _cone_opb_leaves(sel_pbp, cone, systemlink, nbopb)
             dot_path = vis_dir * ins * ".cone.$tag.dot"
-            _write_cone_dot_file(dot_path, sel_pbp, sel_opb,
-                                 cone, systemlink, nbopb, depth_arr, conelits)
-            if _cfg[].render
-                svg_path = vis_dir * ins * ".cone.$tag.svg"
-                try run(ignorestatus(`dot -Tsvg -o$svg_path $dot_path`)) catch; end
-            end
+            _write_cone_dot_file(dot_path, sel_pbp, sel_opb, cone, systemlink,
+                                 nbopb, depth_arr, conelits;
+                                 collapse_opb=coll, depth_ranks=ranks)
+            _render(dot_path)
         end
+        hist_path = vis_dir * ins * ".cone.hist.dot"
+        _write_cone_hist_dot(hist_path, cone, systemlink, nbopb, depth_arr)
+        _render(hist_path)
     end
 
     function writeout_write(ins, t1, t2, t3, prefix)
