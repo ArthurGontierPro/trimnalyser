@@ -160,11 +160,11 @@ function parse_err_file(filepath)
     content = read(filepath, String)
     isempty(strip(content)) && return (false, "", "")
 
-    # Check for OOM
+    # Check for OOM (monitor writes "OOM at X.XG", orchestrator writes "OOM killed (exceeded X GB)")
     m = match(r"OOM at ([\d.]+G)", content)
-    if m !== nothing
-        return (true, "OOM", m.captures[1])
-    end
+    m !== nothing && return (true, "OOM", m.captures[1])
+    m = match(r"OOM killed \(exceeded ([\d.]+ GB)\)", content)
+    m !== nothing && return (true, "OOM", m.captures[1])
 
     # Check for timeout
     if occursin("Timeout", content)

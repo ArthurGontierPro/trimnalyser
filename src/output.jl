@@ -46,18 +46,27 @@
 
     function count_step_types(systemlink::SystemLink, cone::Vector{Bool}, nbopb::Int)
         n_rup = n_pol = n_red = n_ia = n_other = 0
-        @inbounds for i in nbopb+1:length(cone)
+        for i in nbopb+1:length(cone)
             cone[i] || continue
             k = systemlink.idx[i - nbopb]
-            if k == -1 || k == 0
+            if k == -1
                 n_rup += 1
             elseif k == -4
                 n_red += 1
             elseif k > 0
+                # unmutated data slice — first element is rule type
                 rt = systemlink.data[systemlink.ptr[k]]
                 if rt == -2;     n_pol += 1
                 elseif rt == -3; n_ia  += 1
                 else             n_other += 1 end
+            elseif k == 0
+                # sl_get_mut! was called during cone building — original rule type is extra[i][1]
+                link = get(systemlink.extra, i - nbopb, nothing)
+                rt   = (link !== nothing && !isempty(link)) ? link[1] : -1
+                if rt == -2;     n_pol += 1
+                elseif rt == -3; n_ia  += 1
+                elseif rt == -1; n_rup += 1
+                else             n_rup += 1 end  # k=0 with no other marker = RUP with appended cone
             else
                 n_other += 1
             end

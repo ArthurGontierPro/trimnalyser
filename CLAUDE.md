@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./trimnalyser LVg10g12 overwrite resolv
 
 # Cluster full run
-./trimnalyser --threads 192,1 solve resolv verif allgraphs maxnodes=3000 st=180 tt=6000 rand
+./trimnalyser --threads 92,1 solve resolv verif allgraphs minnodes=50 maxnodes=200 st=18 tt=600 rand
 
 # Aggregate cluster results into CSV
 julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv

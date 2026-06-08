@@ -167,7 +167,7 @@
                 exitcode = p.exitcode
             end
         end
-        exitcode in (124, 137) && return false
+        exitcode in (124, 137) && return (false, true)
         if isfile(errfile)
             err = read(errfile, String)
             if !isempty(strip(err))
@@ -176,7 +176,7 @@
                 tryrm(errfile)
             end
         end
-        return isfile(_cfg[].proofs*out_prefix*opb) && isfile(_cfg[].proofs*out_prefix*pbp) end
+        return (isfile(_cfg[].proofs*out_prefix*opb) && isfile(_cfg[].proofs*out_prefix*pbp), false) end
 
         # Runs the solver on the core LAD files produced by writeunsatcore, then trims the result.
         # Iterates until fixpoint (core node counts stop shrinking) or solver fails.
@@ -208,9 +208,10 @@
             core_ins = ins * ".core$iter"
             tryrm(_cfg[].proofs*core_ins*".out")
             tryrm(_cfg[].proofs*core_ins*".err")
-            t = @elapsed ok = runsipsolver(core_ins, cur_pat, cur_tar)
+            t = @elapsed (ok, timed_out) = runsipsolver(core_ins, cur_pat, cur_tar)
             if !ok
-                open(outfile, "a") do f; println(f, "resolv STOP solver_failed") end
+                stop = timed_out ? "solver_timeout" : "solver_failed"
+                open(outfile, "a") do f; println(f, "resolv STOP $stop") end
                 tryrm(cur_pat); tryrm(cur_tar)
                 printstyled("  resolv: solver failed/timeout at iter $iter ($(round(t;digits=1))s)\n"; color=:red); return
             end

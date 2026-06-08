@@ -270,7 +270,7 @@
                 # addenv overrides JULIA_NUM_THREADS in case -t doesn't fully shadow it.
                 subout = _cfg[].proofs * ins * ".subout"
                 julia_flags = isfile(_sysimage) ? `--sysimage $_sysimage -t1,1` : `-t1,1`
-                proc = run(pipeline(addenv(`timeout $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`,
+                proc = run(pipeline(addenv(`timeout -s KILL $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`,
                                           "JULIA_NUM_THREADS" => "1",
                                           "OPENBLAS_NUM_THREADS" => "1",
                                           "MKL_NUM_THREADS" => "1"),

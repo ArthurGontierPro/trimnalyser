@@ -52,7 +52,7 @@
             if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
                 printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
             else
-                t = @elapsed ok = runsipsolver(ins, patfile, tarfile)
+                t = @elapsed (ok, _) = runsipsolver(ins, patfile, tarfile)
                 if !ok
                     out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
                     if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
