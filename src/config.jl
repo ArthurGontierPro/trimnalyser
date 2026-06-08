@@ -17,6 +17,7 @@ mutable struct Config
     render         ::Bool
     overwrite      ::Bool
     nosup          ::Bool
+    minnodes       ::Int
     maxnodes       ::Int
     solvertimeout  ::Int
     trimtimeout    ::Int
@@ -61,6 +62,7 @@ function parse_config!(args=ARGS)
         "render"           in args,
         "overwrite"        in args,
         "no-supplementals" in args,
+        argval("minnodes=", Int,     0),
         argval("maxnodes=", Int,     typemax(Int)),
         argval("st=",       Int,     5),
         argval("tt=",       Int,     45),

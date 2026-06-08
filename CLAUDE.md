@@ -52,7 +52,7 @@ julia --project=. build_sysimage.jl
 ```
 
 Key flags: `solve` (run SIP solver first), `resolv` (iterative re-solve on UNSAT cores), `verif` (run VeriPB after trim), `overwrite` (re-trim if .smol already exists), `profile` (StatProfilerHTML), `allgraphs` (enumerate all benchmark pairs), `bfs`/`clit` (alternative trimming modes).
-Timeout args: `st=N` (solver timeout seconds), `tt=N` (trim timeout seconds), `maxnodes=N` (filter graph pairs by size).
+Timeout args: `st=N` (solver timeout seconds), `tt=N` (trim timeout seconds), `maxnodes=N` (filter graph pairs by max size), `minnodes=N` (filter graph pairs by min size).
 
 ## Architecture: src/ (multi-file package)
 
