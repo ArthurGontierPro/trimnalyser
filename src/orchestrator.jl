@@ -280,15 +280,19 @@
                 # timeout command exits with 124 (SIGTERM) or 137 (SIGKILL) on timeout
                 # OOM killer also sends SIGKILL (exit 137), check subout for "OOM" to distinguish
                 if proc.exitcode == 124 || proc.exitcode == 137
-                    # Check if it was OOM or timeout
-                    oom_killed = false
-                    if isfile(subout)
-                        out_preview = read(subout, String)
-                        oom_killed = occursin("OOM", out_preview) || occursin("memory", lowercase(out_preview))
+                    # If output is complete the process just lived past the timer during Julia cleanup — not a real failure.
+                    if smol_complete(ins)
+                        printstyled("  $ins: process outlived timer but output complete — ok\n"; color=:blue)
+                    else
+                        oom_killed = false
+                        if isfile(subout)
+                            out_preview = read(subout, String)
+                            oom_killed = occursin("OOM", out_preview) || occursin("memory", lowercase(out_preview))
+                        end
+                        msg = oom_killed ? "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)" : "Timeout after $(_cfg[].trimtimeout)s"
+                        printstyled("  $ins: $msg\n"; color=:red)
+                        open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
                     end
-                    msg = oom_killed ? "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)" : "Timeout after $(_cfg[].trimtimeout)s"
-                    printstyled("  $ins: $msg\n"; color=:red)
-                    open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
                 end
                 if isfile(subout)
                     out = read(subout, String)
