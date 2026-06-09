@@ -179,17 +179,62 @@ end
 
 # ── Per-graph feature bundle ─────────────────────────────────────────────────────
 
+# Girth via BFS from every node: O(V*(V+E)). Returns nothing if too large, -1 if acyclic.
+function compute_girth(adj; max_n=500)
+    n = length(adj)
+    n < 3   && return -1
+    n > max_n && return nothing
+    girth  = typemax(Int)
+    dist   = Vector{Int}(undef, n)
+    parent = Vector{Int}(undef, n)
+    queue  = Vector{Int}(undef, n)
+    for src in 1:n
+        fill!(dist, -1); fill!(parent, 0)
+        dist[src] = 0; queue[1] = src; head = 1; tail = 1
+        while head <= tail
+            u = queue[head]; head += 1
+            for v in adj[u]
+                if dist[v] == -1
+                    dist[v] = dist[u] + 1; parent[v] = u
+                    tail += 1; queue[tail] = v
+                elseif v != parent[u]
+                    girth = min(girth, dist[u] + dist[v] + 1)
+                    girth == 3 && return 3
+                end
+            end
+        end
+    end
+    girth == typemax(Int) ? -1 : girth
+end
+
 function graph_features(adj; max_diameter_n=500)
     st = basic_stats(adj)
     tri = count_triangles(adj)
     cc  = global_clustering(adj, tri)
     bip = check_bipartite(adj)
     diam, rad = diameter_radius(adj; max_n=max_diameter_n)
+    girth = compute_girth(adj; max_n=max_diameter_n)
     (n=st.n, m=st.m, density=st.density,
      deg_min=st.deg_min, deg_max=st.deg_max, deg_mean=st.deg_mean, deg_var=st.deg_var,
      is_regular=st.is_regular, is_bipartite=bip,
      triangles=tri, clustering=cc,
-     diameter=diam, radius=rad)
+     diameter=diam, radius=rad, girth=girth,
+     _degrees=length.(adj))
+end
+
+# Per-instance relational features (pattern vs target).
+function relational_features(pf, tf)
+    node_ratio     = round(pf.n / tf.n; digits=4)
+    density_ratio  = tf.density > 0 ? round(pf.density / tf.density; digits=4) : nothing
+    max_deg_ratio  = tf.deg_max > 0 ? round(pf.deg_max / tf.deg_max; digits=4) : nothing
+    diam_ratio     = (pf.diameter !== nothing && tf.diameter !== nothing &&
+                      pf.diameter > 0 && tf.diameter > 0) ?
+                         round(pf.diameter / tf.diameter; digits=4) : nothing
+    compat         = count(d <= tf.deg_max for d in pf._degrees)
+    deg_compat_frac = round(compat / pf.n; digits=4)
+    (node_ratio=node_ratio, density_ratio=density_ratio,
+     max_degree_ratio=max_deg_ratio, diameter_ratio=diam_ratio,
+     degree_compat_frac=deg_compat_frac)
 end
 
 # ── CSV output ───────────────────────────────────────────────────────────────────
@@ -200,12 +245,15 @@ const GRAPH_COLS = [
     "pat_deg_min", "pat_deg_max", "pat_deg_mean", "pat_deg_var",
     "pat_is_regular", "pat_is_bipartite",
     "pat_triangles", "pat_clustering",
-    "pat_diameter", "pat_radius",
+    "pat_diameter", "pat_radius", "pat_girth",
     "tar_nodes", "tar_edges", "tar_density",
     "tar_deg_min", "tar_deg_max", "tar_deg_mean", "tar_deg_var",
     "tar_is_regular", "tar_is_bipartite",
     "tar_triangles", "tar_clustering",
-    "tar_diameter", "tar_radius",
+    "tar_diameter", "tar_radius", "tar_girth",
+    # Relational (pattern ÷ target)
+    "node_ratio", "density_ratio", "max_degree_ratio", "diameter_ratio",
+    "degree_compat_frac",
 ]
 
 fmt(x::Nothing) = ""
@@ -220,8 +268,11 @@ function features_row(ins, pat_f, tar_f)
               fmt(f.deg_min), fmt(f.deg_max), fmt(f.deg_mean), fmt(f.deg_var),
               fmt(f.is_regular), fmt(f.is_bipartite),
               fmt(f.triangles), fmt(f.clustering),
-              fmt(f.diameter), fmt(f.radius))
+              fmt(f.diameter), fmt(f.radius), fmt(f.girth))
     end
+    rf = relational_features(pat_f, tar_f)
+    push!(row, fmt(rf.node_ratio), fmt(rf.density_ratio), fmt(rf.max_degree_ratio),
+          fmt(rf.diameter_ratio), fmt(rf.degree_compat_frac))
     row
 end
 
