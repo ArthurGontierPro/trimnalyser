@@ -38,14 +38,14 @@ julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv
 # Render all existing cone DOT files in batch (if `dot` is available)
 for f in /scratch/arthur/proofs/vis/*.cone.*.dot; do dot -Tsvg -o "${f%.dot}.svg" "$f"; done
 
-# HTML report with embedded cone SVGs
-python3 scripts/analyze_results.py cluster_results.csv report.html --vis-dir /scratch/arthur/proofs/vis/
+# Quick terminal statistics (M2 columns, step types, depth, resolv)
+julia --project=scripts scripts/quick_stats.jl cluster_results.csv
 
-# Generate interactive HTML analysis
-python3 scripts/analyze_results.py cluster_results.csv cluster_analysis.html
+# M3 proof survey — family-stratified HTML report (add graph_features.csv for correlations)
+julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html
 
-# Quick CSV statistics
-python3 scripts/quick_stats.py cluster_results.csv
+# Install script dependencies once per machine
+julia --project=scripts -e 'using Pkg; Pkg.instantiate()'
 
 # Build sysimage (eliminates JIT startup, ~5s → ~0.1s)
 julia --project=. build_sysimage.jl
