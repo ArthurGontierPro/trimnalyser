@@ -214,7 +214,7 @@ julia --project=scripts -e 'using Pkg; Pkg.instantiate()'
 Quick terminal statistics (step types, depth distribution, resolv shrinkage):
 
 ```bash
-julia --project=scripts scripts/quick_stats.jl cluster_results.csv
+julia scripts/quick_stats.jl cluster_results.csv
 ```
 
 M3 proof survey — family-stratified HTML report. Pass both CSVs to include
