@@ -131,15 +131,24 @@ function main()
         nrow(sub) == 0 && continue
         push!(present, fam)
 
+        # Fractions of total cone (OPB + PBP) so OPB + RUP + POL + IA + RED sum to 1
+        total_v = nonnull(sub, "grim_total_cone")
+        function tot_frac(col)
+            num_v = nonnull(sub, col)
+            isempty(num_v) || isempty(total_v) && return NaN
+            avg([n / t for (n, t) in zip(num_v, total_v) if t > 0])
+        end
+
         fam_data[fam] = (
             n           = nrow(sub),
             med_cone    = med(nonnull(sub, "grim_total_cone")),
             med_depth   = med(nonnull(sub, "grim_cone_depth_max")),
             med_time    = med(nonnull(sub, "grim_total_time")),
-            mean_rup    = avg(nonnull(sub, "grim_rup_frac")),
-            mean_pol    = avg(nonnull(sub, "grim_pol_frac")),
-            mean_ia     = avg(nonnull(sub, "grim_ia_frac")),
-            mean_red    = avg(nonnull(sub, "grim_red_frac")),
+            mean_opb    = tot_frac("grim_opb_cone"),
+            mean_rup    = tot_frac("grim_cone_rup"),
+            mean_pol    = tot_frac("grim_cone_pol"),
+            mean_ia     = tot_frac("grim_cone_ia"),
+            mean_red    = tot_frac("grim_cone_red"),
             med_entropy = med(nonnull(sub, "grim_cone_depth_entropy")),
             med_botfrac = med(nonnull(sub, "grim_cone_bottom_frac")),
             med_p50     = med(nonnull(sub, "grim_cone_depth_p50")),
@@ -167,11 +176,13 @@ function main()
     ov_html = html_table(["Family", "n proofs", "median cone size", "median depth max", "median time (s)"], ov_rows)
 
     # ── Section 2: Step type mix ──────────────────────────────────────────────
-    st_rows = [[f, fd(f).n, fmtpct(fd(f).mean_rup), fmtpct(fd(f).mean_pol),
+    st_rows = [[f, fd(f).n,
+                fmtpct(fd(f).mean_opb), fmtpct(fd(f).mean_rup), fmtpct(fd(f).mean_pol),
                 fmtpct(fd(f).mean_ia), fmtpct(fd(f).mean_red)] for f in present]
-    st_html = html_table(["Family", "n", "RUP %", "POL %", "IA %", "RED %"], st_rows)
+    st_html = html_table(["Family", "n", "OPB %", "RUP %", "POL %", "IA %", "RED %"], st_rows)
     chart_html = stacked_bar_chart("stepChart", present,
-        [("RUP", "#4e9af1", json_num_arr([fd(f).mean_rup for f in present])),
+        [("OPB", "#888888", json_num_arr([fd(f).mean_opb for f in present])),
+         ("RUP", "#4e9af1", json_num_arr([fd(f).mean_rup for f in present])),
          ("POL", "#f18a4e", json_num_arr([fd(f).mean_pol for f in present])),
          ("IA",  "#5cb85c", json_num_arr([fd(f).mean_ia  for f in present])),
          ("RED", "#c44ef1", json_num_arr([fd(f).mean_red for f in present]))])
@@ -240,7 +251,7 @@ function main()
     $ov_html
 
     <h2>2 — Step Type Mix</h2>
-    <p class="note">Mean fraction of each step type across all proof instances in the family.</p>
+    <p class="note">Mean fraction of each step type as share of total cone (OPB axioms + derived PBP steps). All five sum to 100%.</p>
     $st_html
     $chart_html
 

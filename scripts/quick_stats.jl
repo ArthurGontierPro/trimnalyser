@@ -113,20 +113,28 @@ function main()
         rup_data = nonnull(proof_df, "grim_cone_rup")
         if !isempty(rup_data)
             sec(io, "CONE STEP TYPES  (n=$(length(rup_data)))")
-            for col in ["grim_cone_rup", "grim_cone_pol", "grim_cone_red", "grim_cone_ia"]
+            for (col, label) in [("grim_opb_cone","OPB"), ("grim_cone_rup","RUP"),
+                                  ("grim_cone_pol","POL"), ("grim_cone_ia","IA"),
+                                  ("grim_cone_red","RED")]
                 data = nonnull(proof_df, col)
                 isempty(data) && continue
-                label = uppercase(replace(col, "grim_cone_" => ""))
                 println(io, @sprintf("  %-6s  mean %9.1f   median %7.0f   max %7.0f",
                     label, mean(data), median(data), maximum(data)))
             end
+            # Fractions of total cone (OPB + PBP) so all five sum to 1
             println(io)
-            for col in ["grim_rup_frac", "grim_pol_frac", "grim_ia_frac", "grim_red_frac"]
-                data = nonnull(proof_df, col)
-                isempty(data) && continue
-                label = uppercase(replace(col, "grim_" => ""))
-                println(io, @sprintf("  %-12s  mean %6.1f%%   median %6.1f%%",
-                    label, mean(data)*100, median(data)*100))
+            println(io, "  Fractions of total cone (OPB + derived):")
+            opb_v   = nonnull(proof_df, "grim_opb_cone")
+            total_v = nonnull(proof_df, "grim_total_cone")
+            for (col, label) in [("grim_opb_cone","OPB"), ("grim_cone_rup","RUP"),
+                                  ("grim_cone_pol","POL"), ("grim_cone_ia","IA"),
+                                  ("grim_cone_red","RED")]
+                num_v = nonnull(proof_df, col)
+                isempty(num_v) || isempty(total_v) && continue
+                fracs = [n / t for (n, t) in zip(num_v, total_v) if t > 0]
+                isempty(fracs) && continue
+                println(io, @sprintf("  %-6s  mean %6.1f%%   median %6.1f%%",
+                    label, mean(fracs)*100, median(fracs)*100))
             end
         end
 
