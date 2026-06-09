@@ -134,8 +134,29 @@
         for i in pbp_cone
             di = Int(depth_arr[i]) + 1  # 1-indexed
             k  = systemlink.idx[i - nbopb]
-            if k == -1 || k == 0
+            # Determine rule type, handling the k=0 case (sl_get_mut! was called,
+            # original rule type is extra[i][1]).
+            if k == -1
                 depth_rup[di] += 1
+            elseif k == 0
+                link = get(systemlink.extra, i - nbopb, nothing)
+                rt   = (link !== nothing && !isempty(link)) ? link[1] : -1
+                if rt == -2
+                    depth_pol[di] += 1
+                    n_ante = 0; n_opb = 0
+                    for j in eachindex(link)
+                        t = link[j]
+                        t > 0 || continue
+                        j < length(link) && link[j+1] in (-2, -3) && continue
+                        n_ante += 1; t <= nbopb && (n_opb += 1)
+                    end
+                    push!(pol_depths, di - 1); push!(pol_ante_cnts, n_ante)
+                    pol_opb_antes += n_opb; pol_total_antes += n_ante
+                elseif rt == -3
+                    depth_ia[di] += 1
+                else
+                    depth_rup[di] += 1
+                end
             elseif k > 0
                 rt = systemlink.data[systemlink.ptr[k]]
                 if rt == -2
