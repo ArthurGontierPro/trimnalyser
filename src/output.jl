@@ -110,6 +110,142 @@
             println(f, prefix, " CONE DEPTH MEAN ", round(stats.mean_depth; digits=2))
         end end
 
+    function compute_cone_depth_dist(cone, systemlink, nbopb, depth_arr)
+        pbp_cone = [i for i in nbopb+1:length(cone) if cone[i]]
+        n_pbp = length(pbp_cone)
+        if n_pbp == 0
+            return (cone_depth_p50=0, cone_depth_p90=0, cone_depth_entropy=0.0,
+                    cone_bottom_frac=0.0, cone_bottleneck_depth=-1,
+                    cone_width_max=0, cone_width_cv=0.0, rup_depth_cv=0.0,
+                    pol_depth_mean=0.0, pol_depth_cv=0.0,
+                    pol_depth_frac_bot=0.0, pol_depth_frac_top=0.0,
+                    pol_ante_mean=0.0, pol_ante_max=0, pol_opb_frac=0.0,
+                    pol_before_rup_burst=false)
+        end
+        max_d = Int(maximum(depth_arr[i] for i in pbp_cone))
+        D = max_d + 1  # 1-indexed: depth d → index d+1
+        depth_rup = zeros(Int, D)
+        depth_pol = zeros(Int, D)
+        depth_ia  = zeros(Int, D)
+        pol_depths      = Int[]
+        pol_ante_cnts   = Int[]
+        pol_opb_antes   = 0
+        pol_total_antes = 0
+        for i in pbp_cone
+            di = Int(depth_arr[i]) + 1  # 1-indexed
+            k  = systemlink.idx[i - nbopb]
+            if k == -1 || k == 0
+                depth_rup[di] += 1
+            elseif k > 0
+                rt = systemlink.data[systemlink.ptr[k]]
+                if rt == -2
+                    depth_pol[di] += 1
+                    link = systemlink[i - nbopb]
+                    n_ante = 0; n_opb = 0
+                    for j in eachindex(link)
+                        t = link[j]
+                        t > 0 || continue
+                        j < length(link) && link[j+1] in (-2, -3) && continue
+                        n_ante += 1; t <= nbopb && (n_opb += 1)
+                    end
+                    push!(pol_depths, di - 1); push!(pol_ante_cnts, n_ante)
+                    pol_opb_antes += n_opb; pol_total_antes += n_ante
+                elseif rt == -3
+                    depth_ia[di] += 1
+                end
+            end
+        end
+        depth_total = depth_rup .+ depth_pol .+ depth_ia
+
+        # percentiles
+        sorted_d = sort!([Int(depth_arr[i]) for i in pbp_cone])
+        p50 = sorted_d[max(1, div(n_pbp + 1, 2))]
+        p90 = sorted_d[max(1, div(9 * n_pbp, 10))]
+
+        # Shannon entropy of per-depth histogram
+        entropy = 0.0
+        for c in depth_total
+            c == 0 && continue
+            p = c / n_pbp; entropy -= p * log2(p)
+        end
+
+        # bottom_frac: fraction at depth ≤ 2
+        bottom_frac = sum(depth_total[1:min(3, D)]) / n_pbp
+
+        # bottleneck_depth: shallowest non-zero depth band with ≤ 5 steps
+        bottleneck_depth = -1
+        for d in 2:D
+            c = depth_total[d]
+            if 1 <= c <= 5; bottleneck_depth = d - 1; break; end
+        end
+
+        # width CV
+        width_max  = maximum(depth_total)
+        width_mean = n_pbp / D
+        width_cv   = width_mean > 0 ? sqrt(sum((c - width_mean)^2 for c in depth_total) / D) / width_mean : 0.0
+
+        # RUP depth CV
+        n_rup    = sum(depth_rup)
+        rup_mean = n_rup / D
+        rup_depth_cv = rup_mean > 0 ? sqrt(sum((c - rup_mean)^2 for c in depth_rup) / D) / rup_mean : 0.0
+
+        # POL depth stats
+        n_pol = length(pol_depths)
+        pol_depth_mean_v  = n_pol > 0 ? sum(pol_depths) / n_pol : 0.0
+        pol_depth_cv      = (n_pol > 0 && pol_depth_mean_v > 0) ?
+            sqrt(sum((d - pol_depth_mean_v)^2 for d in pol_depths) / n_pol) / pol_depth_mean_v : 0.0
+        q1 = max_d ÷ 4; q3 = max_d - max_d ÷ 4
+        pol_frac_bot = n_pol > 0 ? count(d <= q1 for d in pol_depths) / n_pol : 0.0
+        pol_frac_top = n_pol > 0 ? count(d >= q3 for d in pol_depths) / n_pol : 0.0
+
+        # POL antecedent stats
+        pol_ante_mean = n_pol > 0 ? pol_total_antes / n_pol : 0.0
+        pol_ante_max  = n_pol > 0 ? maximum(pol_ante_cnts) : 0
+        pol_opb_frac  = pol_total_antes > 0 ? pol_opb_antes / pol_total_antes : 0.0
+
+        # pol_before_rup_burst: POL at depth d → RUP burst at d+1 (> 5× mean)
+        rup_burst_thr = 5 * (n_rup / D)
+        pol_before_rup_burst = false
+        for d in 2:D
+            if depth_pol[d-1] > 0 && depth_rup[d] > rup_burst_thr
+                pol_before_rup_burst = true; break
+            end
+        end
+
+        (cone_depth_p50=p50, cone_depth_p90=p90,
+         cone_depth_entropy=round(entropy; digits=3),
+         cone_bottom_frac=round(bottom_frac; digits=4),
+         cone_bottleneck_depth=bottleneck_depth,
+         cone_width_max=width_max, cone_width_cv=round(width_cv; digits=4),
+         rup_depth_cv=round(rup_depth_cv; digits=4),
+         pol_depth_mean=round(pol_depth_mean_v; digits=2),
+         pol_depth_cv=round(pol_depth_cv; digits=4),
+         pol_depth_frac_bot=round(pol_frac_bot; digits=4),
+         pol_depth_frac_top=round(pol_frac_top; digits=4),
+         pol_ante_mean=round(pol_ante_mean; digits=2),
+         pol_ante_max=pol_ante_max, pol_opb_frac=round(pol_opb_frac; digits=4),
+         pol_before_rup_burst=pol_before_rup_burst) end
+
+    function writeout_cone_depth_dist(ins, dist, prefix)
+        open(_cfg[].proofs*ins*".out", "a") do f
+            println(f, prefix, " CONE DEPTH P50 ",        dist.cone_depth_p50)
+            println(f, prefix, " CONE DEPTH P90 ",        dist.cone_depth_p90)
+            println(f, prefix, " CONE DEPTH ENTROPY ",    dist.cone_depth_entropy)
+            println(f, prefix, " CONE BOTTOM FRAC ",      dist.cone_bottom_frac)
+            println(f, prefix, " CONE BOTTLENECK DEPTH ", dist.cone_bottleneck_depth)
+            println(f, prefix, " CONE WIDTH MAX ",        dist.cone_width_max)
+            println(f, prefix, " CONE WIDTH CV ",         dist.cone_width_cv)
+            println(f, prefix, " RUP DEPTH CV ",          dist.rup_depth_cv)
+            println(f, prefix, " POL DEPTH MEAN ",        dist.pol_depth_mean)
+            println(f, prefix, " POL DEPTH CV ",          dist.pol_depth_cv)
+            println(f, prefix, " POL DEPTH FRAC BOT ",    dist.pol_depth_frac_bot)
+            println(f, prefix, " POL DEPTH FRAC TOP ",    dist.pol_depth_frac_top)
+            println(f, prefix, " POL ANTE MEAN ",         dist.pol_ante_mean)
+            println(f, prefix, " POL ANTE MAX ",          dist.pol_ante_max)
+            println(f, prefix, " POL OPB FRAC ",          dist.pol_opb_frac)
+            println(f, prefix, " POL BURST ",             Int(dist.pol_before_rup_burst))
+        end end
+
     # ── Proof-cone DOT visualisation ────────────────────────────────────────────
 
     const CONE_MAX_FULL = 500   # emit full variant only if total cone ≤ this

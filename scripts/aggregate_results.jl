@@ -57,6 +57,15 @@ const CSV_COLUMNS = [
     "grim_cone_rup", "grim_cone_pol", "grim_cone_red", "grim_cone_ia",
     # M2: cone depth stats
     "grim_cone_depth_max", "grim_cone_depth_mean",
+    # M2: cone depth distribution
+    "grim_cone_depth_p50", "grim_cone_depth_p90", "grim_cone_depth_entropy",
+    "grim_cone_bottom_frac", "grim_cone_bottleneck_depth",
+    "grim_cone_width_max", "grim_cone_width_cv",
+    "grim_rup_depth_cv",
+    "grim_pol_depth_mean", "grim_pol_depth_cv",
+    "grim_pol_depth_frac_bot", "grim_pol_depth_frac_top",
+    "grim_pol_ante_mean", "grim_pol_ante_max", "grim_pol_opb_frac",
+    "grim_pol_before_rup_burst",
     # M2: resolv shrinkage curve and stop reason
     "resolv_iter_pat_nodes", "resolv_iter_tar_nodes", "resolv_stop_reason"
 ]
@@ -125,6 +134,23 @@ function parse_out_file(filepath)
         # M2: cone depth
         match(r"^grim CONE DEPTH MAX (\d+)", line)        !== nothing && (data["grim_cone_depth_max"]  = tryparse(Int,     match(r"^grim CONE DEPTH MAX (\d+)", line).captures[1]))
         match(r"^grim CONE DEPTH MEAN ([\d.]+)", line)    !== nothing && (data["grim_cone_depth_mean"] = tryparse(Float64, match(r"^grim CONE DEPTH MEAN ([\d.]+)", line).captures[1]))
+        # M2: cone depth distribution
+        let m = match(r"^grim CONE DEPTH P50 (\d+)", line);         m !== nothing && (data["grim_cone_depth_p50"]         = parse(Int,     m.captures[1])); end
+        let m = match(r"^grim CONE DEPTH P90 (\d+)", line);         m !== nothing && (data["grim_cone_depth_p90"]         = parse(Int,     m.captures[1])); end
+        let m = match(r"^grim CONE DEPTH ENTROPY ([\d.]+)", line);  m !== nothing && (data["grim_cone_depth_entropy"]     = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim CONE BOTTOM FRAC ([\d.]+)", line);    m !== nothing && (data["grim_cone_bottom_frac"]       = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim CONE BOTTLENECK DEPTH (-?\d+)", line);m !== nothing && (data["grim_cone_bottleneck_depth"]  = parse(Int,     m.captures[1])); end
+        let m = match(r"^grim CONE WIDTH MAX (\d+)", line);         m !== nothing && (data["grim_cone_width_max"]         = parse(Int,     m.captures[1])); end
+        let m = match(r"^grim CONE WIDTH CV ([\d.]+)", line);       m !== nothing && (data["grim_cone_width_cv"]          = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim RUP DEPTH CV ([\d.]+)", line);        m !== nothing && (data["grim_rup_depth_cv"]           = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim POL DEPTH MEAN ([\d.]+)", line);      m !== nothing && (data["grim_pol_depth_mean"]         = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim POL DEPTH CV ([\d.]+)", line);        m !== nothing && (data["grim_pol_depth_cv"]           = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim POL DEPTH FRAC BOT ([\d.]+)", line);  m !== nothing && (data["grim_pol_depth_frac_bot"]     = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim POL DEPTH FRAC TOP ([\d.]+)", line);  m !== nothing && (data["grim_pol_depth_frac_top"]     = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim POL ANTE MEAN ([\d.]+)", line);       m !== nothing && (data["grim_pol_ante_mean"]          = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim POL ANTE MAX (\d+)", line);           m !== nothing && (data["grim_pol_ante_max"]           = parse(Int,     m.captures[1])); end
+        let m = match(r"^grim POL OPB FRAC ([\d.]+)", line);        m !== nothing && (data["grim_pol_opb_frac"]           = parse(Float64, m.captures[1])); end
+        let m = match(r"^grim POL BURST ([01])", line);             m !== nothing && (data["grim_pol_before_rup_burst"]   = parse(Int,     m.captures[1])); end
         # M2: resolv shrinkage curve
         let m = match(r"^resolv ITER \d+ PAT (\d+) TAR (\d+)$", line)
             if m !== nothing
