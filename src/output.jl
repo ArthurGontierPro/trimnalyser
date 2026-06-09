@@ -486,17 +486,22 @@
         smol_verif_time = full_verif_time = 0
         isfile(veripbpath) || (printstyled("  veripb not found at $veripbpath — skipping verif\n"; color=:yellow); return smol_verif_time,full_verif_time)
         ins2 = _cfg[].proofs*ins
-        ins3 = ins2*".smolverif"
-        ins4 = ins2*".verif"
-        ins31 = ins3*".out"; ins32 = ins3*".err"
-        ins41 = ins4*".out"; ins42 = ins4*".err"
-        tryrm(ins31); tryrm(ins32)
-        smol_verif_time = @elapsed try run(pipeline(ignorestatus(`timeout $(_cfg[].trimtimeout) $veripbpath $(ins2*smol_opb) $(ins2*smol_pbp)`),stdout=ins31,stderr=ins32)) catch e println("\nerr ",ins32) end
-        isfile(ins32) && isempty(strip(read(ins32,String))) && tryrm(ins32)
-        tryrm(ins41); tryrm(ins42)
-        full_verif_time = @elapsed try run(pipeline(ignorestatus(`timeout $(_cfg[].trimtimeout) $veripbpath $ins2$opb $ins2$pbp`),stdout=ins41,stderr=ins42)) catch e println("\nerr ",ins42) end
-        isfile(ins42) && isempty(strip(read(ins42,String))) && tryrm(ins42)
-        return trunc(Int,smol_verif_time),trunc(Int,full_verif_time) end
+        outfile = ins2*".out"
+        function run_verif(opb, pbp, tag)
+            tmp_out = opb*".veriptmp"; tmp_err = opb*".veriptmperr"
+            t = @elapsed try run(pipeline(ignorestatus(`timeout $(_cfg[].trimtimeout) $veripbpath $opb $pbp`),stdout=tmp_out,stderr=tmp_err)) catch e end
+            if isfile(tmp_out)
+                open(outfile,"a") do f; println(f,"veri $tag OUTPUT"); write(f,read(tmp_out)); end
+                tryrm(tmp_out)
+            end
+            if isfile(tmp_err)
+                s = read(tmp_err,String); isempty(strip(s)) ? tryrm(tmp_err) : write(ins2*".$tag.err",s); tryrm(tmp_err)
+            end
+            trunc(Int,t)
+        end
+        smol_verif_time = run_verif(ins2*smol_opb, ins2*smol_pbp, "smol")
+        full_verif_time = run_verif(ins2*opb,      ins2*pbp,      "full")
+        return smol_verif_time, full_verif_time end
 
     printgray(s)  = printstyled(s, color=:light_black)
     printyellow(s)= printstyled(s, color=:yellow)

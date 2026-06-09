@@ -125,8 +125,8 @@
         writeout_cone_depth(ins, depth_stats, prefix)
         depth_dist = compute_cone_depth_dist(cone, systemlink, nbopb, depth_stats.depth_arr)
         writeout_cone_depth_dist(ins, depth_dist, prefix)
-        (_cfg[].core || _cfg[].resolv) &&
-            write_cone_dot(ins, cone, systemlink, nbopb, depth_stats.depth_arr, conelits, prefix)
+        # (_cfg[].core || _cfg[].resolv) &&
+        #     write_cone_dot(ins, cone, systemlink, nbopb, depth_stats.depth_arr, conelits, prefix)
         writeout_conelits(ins, sys, cone, conelits, prefix)
         cone_stats = conelits_stats(sys, cone, conelits)
         printconestat(cone, cone_stats)
