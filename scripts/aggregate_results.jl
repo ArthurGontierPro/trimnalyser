@@ -66,8 +66,14 @@ const CSV_COLUMNS = [
     "grim_pol_depth_frac_bot", "grim_pol_depth_frac_top",
     "grim_pol_ante_mean", "grim_pol_ante_max", "grim_pol_opb_frac",
     "grim_pol_before_rup_burst",
+    # M2: step-type fractions (derived from counts / pbp_cone)
+    "grim_rup_frac", "grim_pol_frac", "grim_ia_frac", "grim_red_frac",
+    # M2: literal compression
+    "grim_literal_weakening_rate",
     # M2: resolv shrinkage curve and stop reason
-    "resolv_iter_pat_nodes", "resolv_iter_tar_nodes", "resolv_stop_reason"
+    "resolv_iter_pat_nodes", "resolv_iter_tar_nodes", "resolv_stop_reason",
+    # M2: resolv total shrinkage (derived)
+    "resolv_pat_shrinkage", "resolv_tar_shrinkage"
 ]
 
 function parse_out_file(filepath)
@@ -507,11 +513,59 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "grim_cone_depth_max",  ""))
             push!(row, get(data, "grim_cone_depth_mean", ""))
 
+            # M2: cone depth distribution
+            push!(row, get(data, "grim_cone_depth_p50",        ""))
+            push!(row, get(data, "grim_cone_depth_p90",        ""))
+            push!(row, get(data, "grim_cone_depth_entropy",    ""))
+            push!(row, get(data, "grim_cone_bottom_frac",      ""))
+            push!(row, get(data, "grim_cone_bottleneck_depth", ""))
+            push!(row, get(data, "grim_cone_width_max",        ""))
+            push!(row, get(data, "grim_cone_width_cv",         ""))
+            push!(row, get(data, "grim_rup_depth_cv",          ""))
+            push!(row, get(data, "grim_pol_depth_mean",        ""))
+            push!(row, get(data, "grim_pol_depth_cv",          ""))
+            push!(row, get(data, "grim_pol_depth_frac_bot",    ""))
+            push!(row, get(data, "grim_pol_depth_frac_top",    ""))
+            push!(row, get(data, "grim_pol_ante_mean",         ""))
+            push!(row, get(data, "grim_pol_ante_max",          ""))
+            push!(row, get(data, "grim_pol_opb_frac",          ""))
+            push!(row, get(data, "grim_pol_before_rup_burst",  ""))
+
+            # M2: step-type fractions (derived)
+            let pbp = get(data, "grim_pbp_cone", nothing)
+                function stepfrac(key)
+                    v = get(data, key, nothing)
+                    (v !== nothing && pbp !== nothing && pbp > 0) ? round(v / pbp; digits=4) : ""
+                end
+                push!(row, stepfrac("grim_cone_rup"))
+                push!(row, stepfrac("grim_cone_pol"))
+                push!(row, stepfrac("grim_cone_ia"))
+                push!(row, stepfrac("grim_cone_red"))
+            end
+
+            # M2: literal compression
+            let cl = get(data, "grim_cone_literals", nothing),
+                sl = get(data, "grim_smol_literals",  nothing)
+                push!(row, (cl !== nothing && sl !== nothing && cl > 0) ?
+                    round((cl - sl) / cl; digits=4) : "")
+            end
+
             # M2: resolv shrinkage curve and stop reason
-            push!(row, format_array(get(data, "resolv_iter_pat", [])))
-            push!(row, format_array(get(data, "resolv_iter_tar", [])))
+            iter_pat = get(data, "resolv_iter_pat", [])
+            iter_tar = get(data, "resolv_iter_tar", [])
+            push!(row, format_array(iter_pat))
+            push!(row, format_array(iter_tar))
             stop = get(data, "resolv_stop_reason", "")
             push!(row, stop == "" ? "" : "\"$stop\"")
+
+            # M2: resolv shrinkage totals (derived)
+            let pat0 = get(data, "pattern_vertices", nothing),
+                tar0 = get(data, "target_vertices",  nothing)
+                push!(row, (pat0 !== nothing && pat0 > 0 && !isempty(iter_pat)) ?
+                    round((pat0 - last(iter_pat)) / pat0; digits=4) : "")
+                push!(row, (tar0 !== nothing && tar0 > 0 && !isempty(iter_tar)) ?
+                    round((tar0 - last(iter_tar)) / tar0; digits=4) : "")
+            end
 
             # Write row
             println(io, join(row, ","))
