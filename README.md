@@ -205,16 +205,24 @@ julia scripts/aggregate_results.jl /path/to/proofs/ cluster_results.csv
 
 ## Analysing results
 
-Generate an interactive HTML report from the CSV:
+Install script dependencies once per machine (generates `scripts/Manifest.toml`):
 
 ```bash
-python3 scripts/analyze_results.py cluster_results.csv cluster_analysis.html
+julia --project=scripts -e 'using Pkg; Pkg.instantiate()'
 ```
 
-Quick terminal statistics:
+Quick terminal statistics (step types, depth distribution, resolv shrinkage):
 
 ```bash
-python3 scripts/quick_stats.py cluster_results.csv
+julia --project=scripts scripts/quick_stats.jl cluster_results.csv
+```
+
+M3 proof survey — family-stratified HTML report. Pass both CSVs to include
+graph-feature correlations:
+
+```bash
+julia scripts/graph_features.jl /path/to/proofs/ graph_features.csv
+julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html
 ```
 
 ---
@@ -263,8 +271,10 @@ src/
   orchestrator.jl    main(), OOM monitor, instance enumeration
 scripts/
   aggregate_results.jl   post-run CSV aggregation
-  analyze_results.py     interactive HTML analysis
-  quick_stats.py         quick terminal statistics
+  graph_features.jl      static graph structural features (separate CSV)
+  quick_stats.jl         quick terminal statistics
+  proof_survey.jl        M3 family-stratified HTML analysis report
+  Project.toml           script dependencies (CSV.jl, DataFrames.jl)
 build_sysimage.jl    staleness-aware sysimage builder
 test/
   runtests.jl        integration tests
