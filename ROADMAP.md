@@ -4,7 +4,7 @@ TrimAnalyser currently supports the LV and BIO benchmark families, extracts UNSA
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-04:** M1 complete. Code quality pass done between M1 and M2 (correctness audit §1–3, dead code §3, maintainability §5–6, performance §4.1–4.2). M2 is current.
+**Status as of 2026-06-09:** M1 and M2 complete. M3 is current.
 
 ---
 
@@ -27,37 +27,79 @@ All families use the same LAD graph format (`first line = node count; subsequent
 
 ---
 
-## M2 — Proof-to-feature extraction 🔜 CURRENT
+## M2 — Proof-to-feature extraction ✅
 
-**Goal:** Enrich the CSV with proof-structural and graph-structural features to power downstream analysis.
+**Goal:** Enrich the CSV with proof-structural and graph-structural features to power downstream analysis (M3 clustering).
 
 ### Proof features (extend `src/output.jl`)
 
-- Step-type breakdown: fraction of RUP / POL / RED / IA steps in the trimmed proof
-- Cone depth: max and mean depth of the backward-reachability DAG
-- Literal weakening rate: `(cone_literals − smol_literals) / cone_literals`
-- Resolv shrinkage curve: per-iteration `(core_pattern_nodes, core_target_nodes)` — already partially tracked, expose fully
-- Fixpoint reason: did the resolv loop stop because the core stabilised or hit the iteration cap?
+**Step composition**
+- `rup_frac`, `pol_frac`, `ia_frac`, `red_frac` — fraction of each step type in the trimmed proof
+
+**Cone depth distribution** (beyond max/mean — encodes proof *shape*)
+- `cone_depth_max`, `cone_depth_mean` — range and centre
+- `cone_depth_p50`, `cone_depth_p90` — where is most of the work?
+- `cone_depth_entropy` — Shannon entropy of the per-depth step counts; low = concentrated (ladder/chain), high = spread (wide pyramid)
+- `cone_bottom_frac` — fraction of PBP steps at depth ≤ 2; high means almost all reasoning is direct propagation from axioms, low means deep multi-step inference chains
+- `cone_bottleneck_depth` — shallowest depth band where step count drops below a threshold (≤ 5); measures the "waist" of the proof DAG, i.e. the minimum cut depth
+
+**Cone width distribution** (shape orthogonal to depth)
+- `cone_width_max` — peak number of steps at any single depth
+- `cone_width_cv` — coefficient of variation of per-depth counts; near-zero = uniform ("ladder" as in LVg15g20), high = spiky ("multi-wave" as in bio083147)
+
+**RUP / POL depth profiles** (proof strategy fingerprint)
+
+The interplay between RUP and POL across depth levels encodes the solver's proof strategy:
+- *pure RUP*: all propagation, no algebraic derivation needed
+- *POL bottom-heavy*: algebraic warm-up near axioms, then propagation cascades up
+- *POL top-heavy*: propagation first, algebraic reasoning closes the final gap
+- *interleaved*: alternating derivation and propagation bursts throughout
+
+Features:
+- `rup_depth_cv` — coefficient of variation of RUP step counts across depth bands; near-zero = RUP concentrated at one level (a burst), high = spread uniformly
+- `pol_depth_mean`, `pol_depth_cv` — centroid and spread of POL in depth space
+- `pol_depth_frac_bot` — fraction of POL steps in the bottom depth quartile (warm-up pattern indicator)
+- `pol_depth_frac_top` — fraction of POL steps in the top depth quartile (closing pattern indicator)
+- `pol_ante_mean`, `pol_ante_max` — average and max antecedent count per POL step; measures how heavy each algebraic derivation is (accessible directly from `systemlink` for k>0 steps)
+- `pol_opb_frac` — fraction of POL antecedents that are OPB axioms vs derived steps; low value means POL is building on a chain of prior derivations, not directly on axioms
+- `pol_before_rup_burst` — boolean: does any depth band contain a POL step immediately followed at depth+1 by a RUP count > 5× the per-depth mean? Captures the "POL unlocks propagation" pattern
+
+**Compression and weakening**
+- `literal_weakening_rate` — `(cone_literals − smol_literals) / cone_literals`
+
+**Resolv loop**
+- Shrinkage curve: per-iteration `(core_pattern_nodes, core_target_nodes)` — expose fully
+- `resolv_pat_shrinkage`, `resolv_tar_shrinkage` — total fractional reduction
+- `fixpoint_reason` — `stabilized` vs `iter_cap`
 
 ### Graph features (new `scripts/graph_features.jl`)
 
-Compute static properties of each pattern/target graph and join them into the CSV by instance name:
+Split into **per-graph** properties (computed once per LAD file, joined by instance) and **per-instance relational** properties (pattern vs target ratios, computed at pair level). The relational features are the primary predictors of SIP hardness.
 
-- Node count, edge count, density
-- Degree sequence statistics (min, max, mean, variance)
-- Diameter and radius (BFS)
-- Clustering coefficient, triangle count
-- Is-regular / is-bipartite / is-planar flags
+**Per-graph (prefix `pat_` / `tar_`)**
+- `nodes`, `edges`, `density`
+- Degree sequence: `deg_min`, `deg_max`, `deg_mean`, `deg_var`
+- `diameter`, `radius` (BFS)
+- `clustering`, `triangles`
+- `girth` — length of shortest cycle; governs how tight cycle-based domain filtering is
+- Flags: `regular`, `bipartite`, `planar`
 
-**Deliverable:** CSV grows by ~20 columns; `analyze_results.py` and `quick_stats.py` updated to display them.
+**Per-instance relational** (pattern ÷ target)
+- `node_ratio` = `pat_nodes / tar_nodes` — how tight is the embedding problem
+- `density_ratio` = `pat_density / tar_density` — sparse-in-dense vs equal-density
+- `max_degree_ratio` = `pat_deg_max / tar_deg_max` — degree headroom
+- `diameter_ratio` = `pat_diameter / tar_diameter`
+- `degree_compat_frac` — fraction of pattern nodes whose degree ≤ `tar_deg_max`; the simplest necessary condition for a valid mapping; values near 1 = structurally compatible, values < 1 = trivially UNSAT from degree alone
 
-### Bonus: proof-cone visualisation
+**Deliverable:** CSV grows by ~35 columns; `analyze_results.py` and `quick_stats.py` updated to display them.
 
-Extend the existing DOT output in `src/output.jl` to annotate cone nodes by step type (colour) and depth (label). Useful for manual inspection of hard or surprising instances.
+### Proof-cone visualisation (bonus, already partially done)
+
+DOT files (`cone.hist`, `cone.bfs`, `cone.topk`) are written per instance. The hist variant is the most analytically useful — it shows the per-depth step-count profile with step-type breakdown. The DAG variants (bfs, topk) are hard to read at scale; their main use is manual inspection of specific outlier instances.
 
 ---
 
-## M3 — Graph taxonomy and heuristic fingerprinting
+## M3 — Graph taxonomy and heuristic fingerprinting 🔜 CURRENT
 
 **Goal:** Characterise which graph families and structural properties predict proof difficulty and solver behaviour.
 
