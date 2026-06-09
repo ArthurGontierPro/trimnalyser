@@ -142,7 +142,7 @@
         # Inverse: variable → equations containing it
         var_ptr     ::Vector{Int64}  # length = n_vars + 1
         var_eqs     ::Vector{Int32}  # flat list of equation ids
-        var_lit_idx ::Vector{Int32}  # flat literal index k of var v in equation var_eqs[j]
+        var_lit_idx ::Vector{Int64}  # flat literal index k of var v in equation var_eqs[j]
         # Precomputed initial slack (all vars unassigned): used by init_slack_cache!
         initial_slack_fwd ::Vector{Int32}  # sum(coefs[e]) - rhs[e]
         initial_slack_rev ::Vector{Int32}  # rhs[e] - 1
@@ -238,7 +238,7 @@
             var_ptr[v+1] = var_ptr[v] + var_count[v]
         end
         var_eqs     = Vector{Int32}(undef, n_lits)
-        var_lit_idx = Vector{Int32}(undef, n_lits)
+        var_lit_idx = Vector{Int64}(undef, n_lits)
         fill!(var_count, 0)
         n_eqs = length(rhs)
         initial_slack_fwd = Vector{Int32}(undef, n_eqs)
