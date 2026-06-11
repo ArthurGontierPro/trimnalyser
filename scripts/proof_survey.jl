@@ -58,7 +58,32 @@ end
 json_str_arr(v)   = "[" * join(("\"$x\"" for x in v), ",") * "]"
 json_num_arr(v)   = "[" * join((isnan(x) ? "null" : @sprintf("%.4f", x) for x in v), ",") * "]"
 
-function stacked_bar_chart(id, labels, datasets)
+function grouped_bar_chart(id, labels, datasets; ytitle="", ymax=1.0)
+    # datasets: Vector of (label, color, num_array_json)
+    ds = join(["{ label: \"$(d[1])\", backgroundColor: \"$(d[2])\", data: $(d[3]) }"
+               for d in datasets], ",\n")
+    ymax_s = isnan(ymax) ? "undefined" : @sprintf("%.4f", ymax)
+    """
+    <div class="chart-box"><canvas id="$id"></canvas></div>
+    <script>
+    new Chart(document.getElementById("$id"), {
+      type: "bar",
+      data: { labels: $(json_str_arr(labels)), datasets: [$ds] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: {
+          x: { stacked: false },
+          y: { stacked: false, min: 0, max: $ymax_s,
+               title: { display: true, text: $(repr(ytitle)) } }
+        }
+      }
+    });
+    </script>
+    """
+end
+
+function stacked_bar_chart(id, labels, datasets; ytitle="fraction of cone steps")
     # datasets: Vector of (label, color, num_array_json)
     ds = join(["{ label: \"$(d[1])\", backgroundColor: \"$(d[2])\", data: $(d[3]) }"
                for d in datasets], ",\n")
@@ -74,7 +99,7 @@ function stacked_bar_chart(id, labels, datasets)
         scales: {
           x: { stacked: true },
           y: { stacked: true, min: 0, max: 1,
-               title: { display: true, text: "fraction of cone steps" } }
+               title: { display: true, text: $(repr(ytitle)) } }
         }
       }
     });
@@ -131,24 +156,63 @@ function main()
         nrow(sub) == 0 && continue
         push!(present, fam)
 
-        # Fractions of total cone (OPB + PBP) so OPB + RUP + POL + IA + RED sum to 1
-        total_v = nonnull(sub, "grim_total_cone")
-        function tot_frac(col)
-            num_v = nonnull(sub, col)
-            isempty(num_v) || isempty(total_v) && return NaN
-            avg([n / t for (n, t) in zip(num_v, total_v) if t > 0])
+        # Per-instance fraction vectors — used for mean/median/IQR
+        total_v  = nonnull(sub, "grim_total_cone")
+        full_v   = nonnull(sub, "inp_total_nbeq")
+        opb_in_v = nonnull(sub, "inp_opb_nbeq")
+        pbp_in_v = nonnull(sub, "inp_pbp_nbeq")
+
+        function frac_vec(num_col, denom_v)
+            num_v = nonnull(sub, num_col)
+            (isempty(num_v) || isempty(denom_v)) && return Float64[]
+            [n / d for (n, d) in zip(num_v, denom_v) if d > 0]
         end
+        function frac_stats(num_col, denom_v)
+            v = frac_vec(num_col, denom_v)
+            isempty(v) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN)
+            qs = quantile(v, [0.25, 0.5, 0.75])
+            (mean=avg(v), med=qs[2], q1=qs[1], q3=qs[3])
+        end
+        function removed_frac(inp_col, cone_col)
+            inp_v  = nonnull(sub, inp_col)
+            cone_v = nonnull(sub, cone_col)
+            (isempty(inp_v) || isempty(cone_v) || isempty(full_v)) && return NaN
+            avg([max(0.0, i - c) / t for (i, c, t) in zip(inp_v, cone_v, full_v) if t > 0])
+        end
+
+        # Step type fracs within cone
+        fs_opb = frac_stats("grim_opb_cone", total_v)
+        fs_rup = frac_stats("grim_cone_rup", total_v)
+        fs_pol = frac_stats("grim_cone_pol", total_v)
+        fs_ia  = frac_stats("grim_cone_ia",  total_v)
+        fs_red = frac_stats("grim_cone_red", total_v)
+        # OPB/PBP-specific survival rates (on their own denominator)
+        sv_opb = frac_stats("grim_opb_cone",  opb_in_v)
+        sv_pbp = frac_stats("grim_pbp_cone",  pbp_in_v)
 
         fam_data[fam] = (
             n           = nrow(sub),
             med_cone    = med(nonnull(sub, "grim_total_cone")),
             med_depth   = med(nonnull(sub, "grim_cone_depth_max")),
             med_time    = med(nonnull(sub, "grim_total_time")),
-            mean_opb    = tot_frac("grim_opb_cone"),
-            mean_rup    = tot_frac("grim_cone_rup"),
-            mean_pol    = tot_frac("grim_cone_pol"),
-            mean_ia     = tot_frac("grim_cone_ia"),
-            mean_red    = tot_frac("grim_cone_red"),
+            # cone step type fractions (mean / med / q1 / q3)
+            mean_opb=fs_opb.mean, med_opb=fs_opb.med, q1_opb=fs_opb.q1, q3_opb=fs_opb.q3,
+            mean_rup=fs_rup.mean, med_rup=fs_rup.med, q1_rup=fs_rup.q1, q3_rup=fs_rup.q3,
+            mean_pol=fs_pol.mean, med_pol=fs_pol.med, q1_pol=fs_pol.q1, q3_pol=fs_pol.q3,
+            mean_ia =fs_ia.mean,  med_ia =fs_ia.med,  q1_ia =fs_ia.q1,  q3_ia =fs_ia.q3,
+            mean_red=fs_red.mean, med_red=fs_red.med, q1_red=fs_red.q1, q3_red=fs_red.q3,
+            # survival fractions vs full proof (denominator = inp_total_nbeq)
+            surv_opb    = avg(frac_vec("grim_opb_cone", full_v)),
+            surv_rup    = avg(frac_vec("grim_cone_rup", full_v)),
+            surv_pol    = avg(frac_vec("grim_cone_pol", full_v)),
+            surv_ia     = avg(frac_vec("grim_cone_ia",  full_v)),
+            surv_red    = avg(frac_vec("grim_cone_red", full_v)),
+            surv_cone   = avg(frac_vec("grim_total_cone", full_v)),
+            rem_opb     = removed_frac("inp_opb_nbeq", "grim_opb_cone"),
+            rem_pbp     = removed_frac("inp_pbp_nbeq", "grim_pbp_cone"),
+            # OPB/PBP-specific survival rates (own denominator)
+            sv_opb_mean=sv_opb.mean, sv_opb_med=sv_opb.med, sv_opb_q1=sv_opb.q1, sv_opb_q3=sv_opb.q3,
+            sv_pbp_mean=sv_pbp.mean, sv_pbp_med=sv_pbp.med, sv_pbp_q1=sv_pbp.q1, sv_pbp_q3=sv_pbp.q3,
             med_entropy = med(nonnull(sub, "grim_cone_depth_entropy")),
             med_botfrac = med(nonnull(sub, "grim_cone_bottom_frac")),
             med_p50     = med(nonnull(sub, "grim_cone_depth_p50")),
@@ -180,12 +244,88 @@ function main()
                 fmtpct(fd(f).mean_opb), fmtpct(fd(f).mean_rup), fmtpct(fd(f).mean_pol),
                 fmtpct(fd(f).mean_ia), fmtpct(fd(f).mean_red)] for f in present]
     st_html = html_table(["Family", "n", "OPB %", "RUP %", "POL %", "IA %", "RED %"], st_rows)
-    chart_html = stacked_bar_chart("stepChart", present,
-        [("OPB", "#888888", json_num_arr([fd(f).mean_opb for f in present])),
-         ("RUP", "#4e9af1", json_num_arr([fd(f).mean_rup for f in present])),
-         ("POL", "#f18a4e", json_num_arr([fd(f).mean_pol for f in present])),
-         ("IA",  "#5cb85c", json_num_arr([fd(f).mean_ia  for f in present])),
-         ("RED", "#c44ef1", json_num_arr([fd(f).mean_red for f in present]))])
+    # Shared palette: OPB/RUP/POL/IA/RED use the same hues in both charts
+    # Removed segments use clearly distinct muted tones (warm salmon vs cool silver)
+    C = (opb="#004cc9", rup="#ed7d31", pol="#70ad47", ia="#ffc000", red="#7030a0",
+         rem_opb="#c0eeff", rem_pbp="#dbffc0")
+    # C = (opb="#5b9bd5", rup="#ed7d31", pol="#70ad47", ia="#ffc000", red="#7030a0",
+        #  rem_opb="#b0b0b0", rem_pbp="#f4a582")
+
+    # Step type mix — mean chart + median chart + IQR table
+    st_rows = [[f, fd(f).n,
+                "$(fmtpct(fd(f).mean_opb)) / $(fmtpct(fd(f).med_opb))",
+                "$(fmtpct(fd(f).mean_rup)) / $(fmtpct(fd(f).med_rup))",
+                "$(fmtpct(fd(f).mean_pol)) / $(fmtpct(fd(f).med_pol))",
+                "$(fmtpct(fd(f).mean_ia))  / $(fmtpct(fd(f).med_ia))",
+                "$(fmtpct(fd(f).mean_red)) / $(fmtpct(fd(f).med_red))"] for f in present]
+    st_html = html_table(["Family", "n", "OPB mean/med", "RUP mean/med", "POL mean/med", "IA mean/med", "RED mean/med"],
+                         st_rows)
+
+    iqr_rows = [[f, fd(f).n,
+                 "[$(fmtpct(fd(f).q1_opb)), $(fmtpct(fd(f).q3_opb))]",
+                 "[$(fmtpct(fd(f).q1_rup)), $(fmtpct(fd(f).q3_rup))]",
+                 "[$(fmtpct(fd(f).q1_pol)), $(fmtpct(fd(f).q3_pol))]",
+                 "[$(fmtpct(fd(f).q1_ia)),  $(fmtpct(fd(f).q3_ia))]",
+                 "[$(fmtpct(fd(f).q1_red)), $(fmtpct(fd(f).q3_red))]"] for f in present]
+    iqr_html = html_table(["Family", "n", "OPB [p25,p75]", "RUP [p25,p75]", "POL [p25,p75]", "IA [p25,p75]", "RED [p25,p75]"],
+                          iqr_rows)
+
+    chart_html     = stacked_bar_chart("stepChart",    present,
+        [("OPB", C.opb, json_num_arr([fd(f).mean_opb for f in present])),
+         ("RUP", C.rup, json_num_arr([fd(f).mean_rup for f in present])),
+         ("POL", C.pol, json_num_arr([fd(f).mean_pol for f in present])),
+         ("IA",  C.ia,  json_num_arr([fd(f).mean_ia  for f in present])),
+         ("RED", C.red, json_num_arr([fd(f).mean_red for f in present]))])
+    chart_med_html = stacked_bar_chart("stepChartMed", present,
+        [("OPB", C.opb, json_num_arr([fd(f).med_opb for f in present])),
+         ("RUP", C.rup, json_num_arr([fd(f).med_rup for f in present])),
+         ("POL", C.pol, json_num_arr([fd(f).med_pol for f in present])),
+         ("IA",  C.ia,  json_num_arr([fd(f).med_ia  for f in present])),
+         ("RED", C.red, json_num_arr([fd(f).med_red for f in present]))])
+
+    # Survival chart: each step type as fraction of full proof total
+    # Removed split into OPB-removed and PBP-removed
+    surv_rows = [[f, fd(f).n,
+                  fmtpct(fd(f).surv_opb), fmtpct(fd(f).surv_rup), fmtpct(fd(f).surv_pol),
+                  fmtpct(fd(f).surv_ia), fmtpct(fd(f).surv_red),
+                  fmtpct(fd(f).rem_opb), fmtpct(fd(f).rem_pbp)] for f in present]
+    surv_html  = html_table(
+        ["Family", "n", "OPB kept", "RUP kept", "POL kept", "IA kept", "RED kept", "OPB removed", "PBP removed"],
+        surv_rows)
+    surv_chart = stacked_bar_chart("survChart", present,
+        [("OPB kept",     C.opb,     json_num_arr([fd(f).surv_opb for f in present])),
+         ("RUP kept",     C.rup,     json_num_arr([fd(f).surv_rup for f in present])),
+         ("POL kept",     C.pol,     json_num_arr([fd(f).surv_pol for f in present])),
+         ("IA kept",      C.ia,      json_num_arr([fd(f).surv_ia  for f in present])),
+         ("RED kept",     C.red,     json_num_arr([fd(f).surv_red for f in present])),
+         ("OPB removed",  C.rem_opb, json_num_arr([fd(f).rem_opb  for f in present])),
+         ("PBP removed",  C.rem_pbp, json_num_arr([fd(f).rem_pbp  for f in present]))];
+        ytitle="fraction of full proof (OPB+PBP)")
+
+    # OPB/PBP survival rates on their own denominators (mean / med / IQR)
+    sv_rows = [[f, fd(f).n,
+                "$(fmtpct(fd(f).sv_opb_mean)) / $(fmtpct(fd(f).sv_opb_med))",
+                "[$(fmtpct(fd(f).sv_opb_q1)), $(fmtpct(fd(f).sv_opb_q3))]",
+                "$(fmtpct(fd(f).sv_pbp_mean)) / $(fmtpct(fd(f).sv_pbp_med))",
+                "[$(fmtpct(fd(f).sv_pbp_q1)), $(fmtpct(fd(f).sv_pbp_q3))]"] for f in present]
+    sv_html = html_table(
+        ["Family", "n", "OPB survival mean/med", "OPB survival [p25,p75]",
+         "PBP survival mean/med", "PBP survival [p25,p75]"],
+        sv_rows)
+    # Grouped charts: p25 / mean / median / p75 per family (no stacking — quartiles don't add up)
+    # Colors go light→dark for p25→p75 to suggest the IQR range visually
+    sv_chart_opb = grouped_bar_chart("svOpbChart", present,
+        [("p25",    "#aecde8", json_num_arr([fd(f).sv_opb_q1   for f in present])),
+         ("mean",   "#5b9bd5", json_num_arr([fd(f).sv_opb_mean for f in present])),
+         ("median", "#1a5fa8", json_num_arr([fd(f).sv_opb_med  for f in present])),
+         ("p75",    "#0d2f52", json_num_arr([fd(f).sv_opb_q3   for f in present]))];
+        ytitle="OPB axiom survival rate")
+    sv_chart_pbp = grouped_bar_chart("svPbpChart", present,
+        [("p25",    "#c6e9b0", json_num_arr([fd(f).sv_pbp_q1   for f in present])),
+         ("mean",   "#70ad47", json_num_arr([fd(f).sv_pbp_mean for f in present])),
+         ("median", "#3d7a1a", json_num_arr([fd(f).sv_pbp_med  for f in present])),
+         ("p75",    "#1a3a08", json_num_arr([fd(f).sv_pbp_q3   for f in present]))];
+        ytitle="PBP step survival rate")
 
     # ── Section 3: Proof shape ────────────────────────────────────────────────
     sh_rows = [[f, fd(f).n, fmtf(fd(f).med_entropy, 3), fmtf(fd(f).med_botfrac, 3),
@@ -203,7 +343,55 @@ function main()
         ["Family", "n resolved", "mean pat shrinkage", "mean tar shrinkage", "max pat shrinkage"],
         rs_rows)
 
-    # ── Section 5: Correlations with graph features ───────────────────────────
+    # ── Section 5: Step type mix — search vs no-search ───────────────────────
+    search_html = ""
+    if "solver_nodes" ∈ names(proof_jdf)
+        has_search  = proof_jdf[(!ismissing).(proof_jdf.solver_nodes) .& (proof_jdf.solver_nodes .> 1), :]
+        no_search   = proof_jdf[ismissing.(proof_jdf.solver_nodes) .| (proof_jdf.solver_nodes .<= 1), :]
+
+        function step_mix(sub)
+            total_v = nonnull(sub, "grim_pbp_cone")
+            function tf(col)
+                num_v = nonnull(sub, col)
+                isempty(num_v) || isempty(total_v) && return NaN
+                avg([n / t for (n, t) in zip(num_v, total_v) if t > 0])
+            end
+            (n=nrow(sub), opb=avg([r for r in skipmissing(sub.grim_opb_cone ./ sub.grim_total_cone)]),
+             rup=tf("grim_cone_rup"), pol=tf("grim_cone_pol"), ia=tf("grim_cone_ia"), red=tf("grim_cone_red"))
+        end
+
+        sm_search   = step_mix(has_search)
+        sm_nosearch = step_mix(no_search)
+
+        sc_rows = [
+            ["search (nodes>1)", sm_search.n,   fmtpct(sm_search.opb),   fmtpct(sm_search.rup),
+             fmtpct(sm_search.pol),   fmtpct(sm_search.ia),   fmtpct(sm_search.red)],
+            ["no/trivial search", sm_nosearch.n, fmtpct(sm_nosearch.opb), fmtpct(sm_nosearch.rup),
+             fmtpct(sm_nosearch.pol), fmtpct(sm_nosearch.ia), fmtpct(sm_nosearch.red)],
+        ]
+        search_table = html_table(["Group", "n", "OPB %", "RUP %", "POL %", "IA %", "RED %"], sc_rows)
+
+        # Per-family: how many instances have search?
+        sc_fam_rows = []
+        for f in present
+            mask = isequal.(proof_jdf.family, f)
+            sub_f = proof_jdf[mask, :]
+            n_s  = sum((!ismissing).(sub_f.solver_nodes) .& (sub_f.solver_nodes .> 1))
+            push!(sc_fam_rows, [f, nrow(sub_f), n_s, fmtpct(n_s / max(1, nrow(sub_f)))])
+        end
+        search_fam_table = html_table(["Family", "n total", "n with search", "search %"], sc_fam_rows)
+
+        search_html = """
+        <h2>5 — Step Type Mix: Search vs No-Search Proofs</h2>
+        <p class="note">Search = <code>solver_nodes &gt; 1</code> (solver had to backtrack). Low RUP is <em>not</em> explained
+        by a lack of search proofs: even with search, RUP remains rare — the main shift is IA vs POL balance.</p>
+        $search_table
+        <p class="note">Search incidence by family:</p>
+        $search_fam_table
+        """
+    end
+
+    # ── Section 6: Correlations with graph features ───────────────────────────
     corr_html = ""
     if gf !== nothing
         shrink_vals = [ismissing(x) ? NaN : Float64(x) for x in proof_jdf[!, :resolv_pat_shrinkage]]
@@ -250,10 +438,31 @@ function main()
     <p class="note">Median cone size = number of constraints kept in trimmed proof.</p>
     $ov_html
 
-    <h2>2 — Step Type Mix</h2>
-    <p class="note">Mean fraction of each step type as share of total cone (OPB axioms + derived PBP steps). All five sum to 100%.</p>
+    <h2>2 — Step Type Mix (within cone)</h2>
+    <p class="note">Fraction of each step type within the trimmed cone. Columns show mean / median per family.
+    Large mean–median gaps indicate a skewed distribution (a few outlier instances pull the average).</p>
     $st_html
+    <p class="note">Mean chart (outliers inflate):</p>
     $chart_html
+    <p class="note">Median chart (more robust):</p>
+    $chart_med_html
+    <p class="note">IQR [p25, p75] — wide range = high within-family variance:</p>
+    $iqr_html
+
+    <h2>2b — Survival: cone steps as fraction of full proof</h2>
+    <p class="note">Each segment = mean(cone_X / inp_total_nbeq). Removed is split into OPB-removed and PBP-removed.
+    The internal type breakdown of removed PBP steps is not available without a re-run.</p>
+    $surv_html
+    $surv_chart
+
+    <h2>2c — OPB vs PBP survival rates (separate denominators)</h2>
+    <p class="note">OPB survival = cone_opb / inp_opb_nbeq (what fraction of <em>axioms</em> were kept).
+    PBP survival = cone_pbp / inp_pbp_nbeq (what fraction of <em>derived steps</em> were kept).
+    Using separate denominators removes the "big OPB inflates the mix" confound.
+    Charts show median; table shows mean / median and [p25, p75].</p>
+    $sv_html
+    $sv_chart_opb
+    $sv_chart_pbp
 
     <h2>3 — Proof Shape</h2>
     <p class="note">
@@ -265,6 +474,8 @@ function main()
     <h2>4 — Resolv Shrinkage</h2>
     <p class="note">n resolved = instances where resolv ran and pattern graph shrank. Shrinkage = (initial − final) / initial.</p>
     $rs_html
+
+    $search_html
 
     $corr_html
     </body>
