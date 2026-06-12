@@ -182,21 +182,35 @@
             sleep(5)
         end
         subout = _cfg[].proofs * ins * ".subout"
+        suberr = _cfg[].proofs * ins * ".suberr"
         julia_flags = isfile(_sysimage) ? `--sysimage $_sysimage -t1,1` : `-t1,1`
         proc = run(pipeline(addenv(`timeout $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`,
                                   "JULIA_NUM_THREADS" => "1",
                                   "OPENBLAS_NUM_THREADS" => "1",
                                   "MKL_NUM_THREADS" => "1"),
-                           stdout=subout, stderr=subout),
+                           stdout=subout, stderr=suberr),
                    wait=false)
         wait(proc)
+        exitcode = proc.exitcode
         if isfile(subout)
             out = read(subout, String)
             !isempty(out) && (print(out); flush(stdout))
             rm(subout)
         end
+        # On timeout, Julia's signal thread prints a SIGTERM backtrace via sigdie_handler to fd2
+        # (bypasses our custom C handler — Julia masks SIGTERM and catches it via sigwait).
+        # Discard suberr on timeout: it contains only that spurious backtrace.
+        # On other exits, forward stderr so genuine crash info is visible.
+        if exitcode == 124
+            isfile(suberr) && rm(suberr)
+        else
+            if isfile(suberr)
+                err = read(suberr, String)
+                !isempty(err) && (print(Base.stderr, err); flush(Base.stderr))
+                rm(suberr)
+            end
+        end
         smol_complete(ins) && return :ok
-        exitcode = proc.exitcode
         if exitcode == 124
             msg = "Timeout after $(_cfg[].trimtimeout)s"
             printstyled("  $ins: $msg\n"; color=:red)
