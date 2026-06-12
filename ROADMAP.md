@@ -10,165 +10,26 @@ Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
 ## M1 — Full newSIP benchmark coverage ✅
 
-**Goal:** Run TrimAnalyser on all 9 families in the newSIP benchmark, not just LV and BIO.
-
-All families use the same LAD graph format (`first line = node count; subsequent lines = degree n1 n2 ...`), so no parser changes are required. The only work is instance enumeration and path resolution in `src/orchestrator.jl`.
-
-| Family | Layout | Pairing rule |
-|--------|--------|-------------|
-| images-CVIU11 | `images-CVIU11/patterns/patternN` + `…/targets/targetN` | match by N |
-| images-PR15 | `images-PR15/patternN` (targets TBD) | match by N |
-| meshes-CVIU11 | `meshes-CVIU11/patterns/patternN` + `…/targets/targetN` | match by N |
-| phase | `phase/*-pattern` + `phase/*-target` siblings | pair by base name |
-| scalefree | `scalefree/A.NN/pattern` + `scalefree/A.NN/target` | one pair per directory |
-| si | `si/<group>/<instance>/pattern` + `…/target` (deeply nested) | one pair per instance dir |
-
-**Deliverable:** `./trimnalyser --threads 192,1 solve resolv verif allgraphs` runs across all families; results land in the CSV with a new `family` column for stratified analysis.
+Instance enumeration for all 8 newSIP families added to `src/orchestrator.jl`. All families share the LAD graph format; pairing rules vary by directory layout (flat pairs, pattern×target cross-product, or one pair per subdirectory). See `allgraphinstances()` for the full mapping.
 
 ---
 
 ## M2 — Proof-to-feature extraction ✅
 
-**Goal:** Enrich the CSV with proof-structural and graph-structural features to power downstream analysis (M3 clustering).
+~100 CSV columns added across `src/output.jl` and `scripts/aggregate_results.jl`:
+- Step-type fractions: `rup_frac`, `pol_frac`, `ia_frac`, `red_frac`
+- Cone depth distribution: `cone_depth_max/mean/p50/p90/entropy`, `cone_bottom_frac`, `cone_bottleneck_depth`, `cone_width_max/cv`
+- RUP/POL depth profiles: `pol_depth_mean/cv`, `pol_depth_frac_bot/top`, `pol_ante_mean/max`, `pol_opb_frac`, `pol_before_rup_burst`, `rup_depth_cv`
+- Compression: `literal_weakening_rate`
+- Resolv: `resolv_pat_shrinkage`, `resolv_tar_shrinkage`, `fixpoint_reason`
 
-### Proof features (extend `src/output.jl`)
-
-**Step composition**
-- `rup_frac`, `pol_frac`, `ia_frac`, `red_frac` — fraction of each step type in the trimmed proof
-
-**Cone depth distribution** (beyond max/mean — encodes proof *shape*)
-- `cone_depth_max`, `cone_depth_mean` — range and centre
-- `cone_depth_p50`, `cone_depth_p90` — where is most of the work?
-- `cone_depth_entropy` — Shannon entropy of the per-depth step counts; low = concentrated (ladder/chain), high = spread (wide pyramid)
-- `cone_bottom_frac` — fraction of PBP steps at depth ≤ 2; high means almost all reasoning is direct propagation from axioms, low means deep multi-step inference chains
-- `cone_bottleneck_depth` — shallowest depth band where step count drops below a threshold (≤ 5); measures the "waist" of the proof DAG, i.e. the minimum cut depth
-
-**Cone width distribution** (shape orthogonal to depth)
-- `cone_width_max` — peak number of steps at any single depth
-- `cone_width_cv` — coefficient of variation of per-depth counts; near-zero = uniform ("ladder" as in LVg15g20), high = spiky ("multi-wave" as in bio083147)
-
-**RUP / POL depth profiles** (proof strategy fingerprint)
-
-The interplay between RUP and POL across depth levels encodes the solver's proof strategy:
-- *pure RUP*: all propagation, no algebraic derivation needed
-- *POL bottom-heavy*: algebraic warm-up near axioms, then propagation cascades up
-- *POL top-heavy*: propagation first, algebraic reasoning closes the final gap
-- *interleaved*: alternating derivation and propagation bursts throughout
-
-Features:
-- `rup_depth_cv` — coefficient of variation of RUP step counts across depth bands; near-zero = RUP concentrated at one level (a burst), high = spread uniformly
-- `pol_depth_mean`, `pol_depth_cv` — centroid and spread of POL in depth space
-- `pol_depth_frac_bot` — fraction of POL steps in the bottom depth quartile (warm-up pattern indicator)
-- `pol_depth_frac_top` — fraction of POL steps in the top depth quartile (closing pattern indicator)
-- `pol_ante_mean`, `pol_ante_max` — average and max antecedent count per POL step; measures how heavy each algebraic derivation is (accessible directly from `systemlink` for k>0 steps)
-- `pol_opb_frac` — fraction of POL antecedents that are OPB axioms vs derived steps; low value means POL is building on a chain of prior derivations, not directly on axioms
-- `pol_before_rup_burst` — boolean: does any depth band contain a POL step immediately followed at depth+1 by a RUP count > 5× the per-depth mean? Captures the "POL unlocks propagation" pattern
-
-**Compression and weakening**
-- `literal_weakening_rate` — `(cone_literals − smol_literals) / cone_literals`
-
-**Resolv loop**
-- Shrinkage curve: per-iteration `(core_pattern_nodes, core_target_nodes)` — expose fully
-- `resolv_pat_shrinkage`, `resolv_tar_shrinkage` — total fractional reduction
-- `fixpoint_reason` — `stabilized` vs `iter_cap`
-
-### Graph features (new `scripts/graph_features.jl`)
-
-Split into **per-graph** properties (computed once per LAD file, joined by instance) and **per-instance relational** properties (pattern vs target ratios, computed at pair level). The relational features are the primary predictors of SIP hardness.
-
-**Per-graph (prefix `pat_` / `tar_`)**
-- `nodes`, `edges`, `density`
-- Degree sequence: `deg_min`, `deg_max`, `deg_mean`, `deg_var`
-- `diameter`, `radius` (BFS)
-- `clustering`, `triangles`
-- `girth` — length of shortest cycle; governs how tight cycle-based domain filtering is
-- Flags: `regular`, `bipartite`, `planar`
-
-**Per-instance relational** (pattern ÷ target)
-- `node_ratio` = `pat_nodes / tar_nodes` — how tight is the embedding problem
-- `density_ratio` = `pat_density / tar_density` — sparse-in-dense vs equal-density
-- `max_degree_ratio` = `pat_deg_max / tar_deg_max` — degree headroom
-- `diameter_ratio` = `pat_diameter / tar_diameter`
-- `degree_compat_frac` — fraction of pattern nodes whose degree ≤ `tar_deg_max`; the simplest necessary condition for a valid mapping; values near 1 = structurally compatible, values < 1 = trivially UNSAT from degree alone
-
-**Deliverable:** CSV grows by ~35 columns; `analyze_results.py` and `quick_stats.py` updated to display them.
-
-### Proof-cone visualisation (bonus, already partially done)
-
-DOT files (`cone.hist`, `cone.bfs`, `cone.topk`) are written per instance. The hist variant is the most analytically useful — it shows the per-depth step-count profile with step-type breakdown. The DAG variants (bfs, topk) are hard to read at scale; their main use is manual inspection of specific outlier instances.
+Graph features in `scripts/graph_features.jl`: per-graph (nodes/edges/density/deg stats/diameter/radius/girth/clustering/triangles/bipartite/regular) and relational (node_ratio, density_ratio, max_degree_ratio, diameter_ratio, degree_compat_frac).
 
 ---
 
-## M2.5 — Pipeline timeout correctness
+## M2.5 — Pipeline timeout correctness ✅
 
-**Goal:** Give each phase (`st`/`tt`/`vt`) a semantically correct, independent time budget. Required before the next large cluster run: `st=180 tt=6000` with resolv currently puts all iterations and verif under a shared `tt`, making the individual budgets meaningless.
-
-### Current problem
-
-One subprocess handles solve + trim + verif + the entire resolv loop under a single outer `timeout tt julia`. `vt` does not exist — VeriPB borrows `tt`. Each resolv iteration consumes the same shared budget.
-
-### Target architecture
-
-Two external binaries (solver, verifier) plus one Julia subprocess strictly for trimming:
-
-```
-orchestrator — per instance (and per resolv iteration):
-  1. clear ins.out / ins.err
-  2. run solver      [timeout st sipsolver ...]      external binary, orchestrator thread
-  3. spawn subprocess [timeout tt julia]             Julia GC isolation, trim-only
-  4. run verif       [timeout vt veripb ...]          external binary, orchestrator thread
-  if graph reduced and resolv → loop from step 2 with core_ins
-```
-
-| Phase | Timeout | Runs as |
-|-------|---------|---------|
-| Solve | `st` | external binary, orchestrator thread |
-| Trim  | `tt` | Julia subprocess (one independent GC heap per instance) |
-| Verif | `vt` (default = `tt`) | external binary, orchestrator thread |
-
-Only the trimmer needs a subprocess — it is Julia code and must have an isolated GC heap to avoid stop-the-world pauses across concurrent instances. Solver and verifier are external binaries with no Julia GC involvement.
-
-### `.out` file interaction
-
-Each instance has two append-only logs: `<ins>.out` for the base instance, `<ins>.coreN.out` for each resolv core. Writes within one file are strictly sequential:
-
-**`<ins>.out`** (base instance):
-1. **Orchestrator** clears it before starting
-2. **Solver** (orchestrator): appends solver stats (`pattern_vertices`, `runtime`, `status`, ...)
-3. **Trim subprocess**: appends parse/trim/write times, cone stats, step types, depth distribution
-4. **Verifier** (orchestrator): appends `veri smol VERIFIED` or `veri smol NOT VERIFIED` and time
-5. **Resolv loop** (orchestrator): appends `resolv ITER 0 PAT X TAR Y` before iterating, then `resolv ITER N ...` and `resolv STOP reason` between core iterations
-
-**`<ins>.coreN.out`** (one per resolv iteration):
-- Same structure as above (steps 1–4) but scoped to the core instance
-
-No locking needed — the orchestrator and subprocess never write to the same file concurrently.
-
-### Implementation plan
-
-**`src/config.jl`**
-- Add `veriftimeout::Int` (`vt=`, default = `trimtimeout`)
-
-**`src/pipeline.jl`**
-- `trimnalyseandcie` becomes trim-only: remove solve call, remove verif call, remove resolv call, remove smol cleanup, remove `.out`/`.err` clearing (moves to orchestrator)
-- Subprocess exits after: parse + trim + write + raw `.opb`/`.pbp` cleanup + core LAD file writing (triggered by `_cfg[].resolv`, still forwarded as subarg)
-
-**`src/solver.jl`**
-- `runsipsolver`: unchanged, called from orchestrator
-- `resolvecore`: removed — loop moves to orchestrator
-
-**`src/orchestrator.jl`**
-- Per-instance logic gains: `.out`/`.err` clearing; solve call; SAT/timeout/OOM detection after solve; smol cleanup and `.done` after verif
-- Resolve loop added: write `resolv ITER 0` baseline; loop spawning trim subprocesses and running verif per core; write `resolv STOP` at fixpoint
-- Solve resume check moves here: skip solver if `.opb`/`.pbp` already exist with valid conclusion
-- Single-instance interactive path: run solve → `trimnalyse` inline (no subprocess, no `tt` wall) → verif → resolv loop
-
-### Constraints
-- Single-instance interactive mode has no hard trim timeout — user is at terminal, acceptable
-- **OOM monitor will no longer watch the solver**: Glasgow now runs in an orchestrator thread, not a subprocess; the monitor only finds processes with `trimnalyser.jl` in their cmdline. A memory-runaway solver will not be caught. Glasgow is typically memory-light so this is acceptable, but worth noting.
-- Trim subprocess still writes core LAD files via `writeunsatcore` — orchestrator reads them after subprocess exits to decide whether to iterate
-
-**Deliverable:** `./trimnalyser --threads 92,1 solve resolv verif allgraphs st=120 tt=3600 vt=600` gives each instance 120 s to solve, 3600 s to trim, and 600 s to verify, independently per resolv iteration.
+Verif and resolv loop moved from subprocess into the orchestrator. Trim subprocess is now trim-only (GC-isolated Julia); solver and VeriPB run as external binaries in orchestrator threads with independent `st`/`tt`/`vt` budgets per resolv iteration. OOM monitor extended to cover Glasgow solver processes.
 
 ---
 
