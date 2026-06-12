@@ -4,7 +4,7 @@ TrimAnalyser currently supports the LV and BIO benchmark families, extracts UNSA
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-12:** M1 and M2 complete. M2.5 (pipeline timeout correctness) is planned — needed before the next cluster re-run. M3 is current (first-pass manual analysis done for LV, bio, images-CVIU11, meshes-CVIU11; phase/scalefree/si pending targeted re-run).
+**Status as of 2026-06-12:** M1, M2, and M2.5 complete. M3 is current (first-pass manual analysis done for LV, bio, images-CVIU11, meshes-CVIU11; phase/scalefree/si pending targeted re-run).
 
 ---
 

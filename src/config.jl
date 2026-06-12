@@ -18,10 +18,12 @@ mutable struct Config
     overwrite      ::Bool
     nosup          ::Bool
     keepraw        ::Bool
+    subprocess     ::Bool
     minnodes       ::Int
     maxnodes       ::Int
     solvertimeout  ::Int
     trimtimeout    ::Int
+    veriftimeout   ::Int
     minfreemem     ::Int
     maxinstmem_gb  ::Float64
     proofs         ::String
@@ -30,7 +32,7 @@ end
 const _cfg = Ref{Config}()
 
 const argflags = Set(["clit","core","verif","no","rand","sort","clean","atable",
-                      "profile","solve","resolv","allgraphs","keepraw"])
+                      "profile","solve","resolv","allgraphs","keepraw","subprocess"])
 
 function parse_config!(args=ARGS)
     argval(prefix, T, default) = (i = findfirst(x -> startswith(x, prefix), args);
@@ -45,6 +47,7 @@ function parse_config!(args=ARGS)
         i === nothing && (i = findfirst(x -> !isdir(x) && is_instance_name(x), args))
         i !== nothing ? args[i] : nothing
     end
+    tt = argval("tt=", Int, 45)
     _cfg[] = Config(
         inst_val,
         "clit"             in args,
@@ -64,10 +67,12 @@ function parse_config!(args=ARGS)
         "overwrite"        in args,
         "no-supplementals" in args,
         "keepraw"          in args,
+        "subprocess"       in args,
         argval("minnodes=", Int,     0),
         argval("maxnodes=", Int,     typemax(Int)),
         argval("st=",       Int,     5),
-        argval("tt=",       Int,     45),
+        tt,
+        argval("vt=",       Int,     tt),
         argval("minmem=",   Int,     _cluster ? 100 : 4) * 1024^3,
         argval("maxmem=",   Float64, _cluster ? 50.0 : 8.0),
         proofs_dir,

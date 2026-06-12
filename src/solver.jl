@@ -178,69 +178,6 @@
         end
         return (isfile(_cfg[].proofs*out_prefix*opb) && isfile(_cfg[].proofs*out_prefix*pbp), false) end
 
-        # Runs the solver on the core LAD files produced by writeunsatcore, then trims the result.
-        # Iterates until fixpoint (core node counts stop shrinking) or solver fails.
-        # Instances are named ins.core1, ins.core2, ... ; LADs chain naturally from each trim.
-    function resolvecore(ins)
-        cur_pat = _cfg[].proofs * "vis/" * ins * ".core.pat.lad"
-        cur_tar = _cfg[].proofs * "vis/" * ins * ".core.tar.lad"
-        patfile, tarfile = parsegraphfiles(ins)
-        prev_np = parse(Int, readline(patfile))
-        prev_nt = parse(Int, readline(tarfile))
-        outfile = _cfg[].proofs * ins * ".out"
-        open(outfile, "a") do f; println(f, "resolv ITER 0 PAT $prev_np TAR $prev_nt") end
-        iter = 0
-        while true
-            iter += 1
-            if !isfile(cur_pat) || !isfile(cur_tar)
-                open(outfile, "a") do f; println(f, "resolv STOP missing_lads") end
-                printstyled("  resolv: core LADs missing at iter $iter\n"; color=:red); return
-            end
-            np = parse(Int, readline(cur_pat))
-            nt = parse(Int, readline(cur_tar))
-            if np == prev_np && nt == prev_nt
-                open(outfile, "a") do f; println(f, "resolv STOP stabilized") end
-                tryrm(cur_pat); tryrm(cur_tar)
-                printstyled("  $ins resolv: fixpoint after $(iter-1) iteration(s) ($np pat, $nt tar nodes)\n"; color=:green); return
-            end
-            prev_np, prev_nt = np, nt
-            open(outfile, "a") do f; println(f, "resolv ITER $iter PAT $np TAR $nt") end
-            core_ins = ins * ".core$iter"
-            tryrm(_cfg[].proofs*core_ins*".out")
-            tryrm(_cfg[].proofs*core_ins*".err")
-            t = @elapsed (ok, timed_out) = runsipsolver(core_ins, cur_pat, cur_tar)
-            if !ok
-                stop = timed_out ? "solver_timeout" : "solver_failed"
-                open(outfile, "a") do f; println(f, "resolv STOP $stop") end
-                tryrm(cur_pat); tryrm(cur_tar)
-                printstyled("  resolv: solver failed/timeout at iter $iter ($(round(t;digits=1))s)\n"; color=:red); return
-            end
-            if isempty(pbpconclusion(core_ins))
-                open(outfile, "a") do f; println(f, "resolv STOP truncated") end
-                tryrm(cur_pat); tryrm(cur_tar)
-                printstyled("  $ins resolv iter $iter: truncated proof — aborting\n"; color=:red)
-                open(_cfg[].proofs*core_ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
-                return
-            end
-            printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
-            printabline(core_ins)
-            parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
-            smol_verif_time,full_verif_time = _cfg[].verif ? verify(core_ins) : (-1,-1)
-            printabline2(core_ins, parse_time, trim_time, write_time, smol_verif_time, full_verif_time, cone_stats)
-            !isempty(coremsg) && println(coremsg)
-            writeout_verif(core_ins, smol_verif_time, full_verif_time)
-            if !_cfg[].keepraw
-                tryrm(_cfg[].proofs * core_ins * pbp)
-                tryrm(_cfg[].proofs * core_ins * opb)
-                if _cfg[].verif && verif_ok(core_ins)
-                    tryrm(_cfg[].proofs * core_ins * smol_pbp)
-                    tryrm(_cfg[].proofs * core_ins * smol_opb)
-                end
-            end
-            cur_pat = _cfg[].proofs * "vis/" * core_ins * ".core.pat.lad"
-            cur_tar = _cfg[].proofs * "vis/" * core_ins * ".core.tar.lad"
-        end end
-
     function writeunsatcore(ins, sys::PBSystem, cone::Vector{Bool},
                             conelits::Dict{Int,Set{Int}}, varmap_inv::Vector{String}, nbopb::Int)
         patfile, tarfile = parsegraphfiles(ins)

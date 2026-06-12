@@ -177,6 +177,269 @@
         println("%Generated ", length(list), " instances from benchmark graphs (minnodes=", _cfg[].minnodes, " maxnodes=", _cfg[].maxnodes, ")")
         return list end
 
+    function run_trim_subprocess(ins, subargs, script)
+        while available_memory() < _cfg[].minfreemem
+            sleep(5)
+        end
+        subout = _cfg[].proofs * ins * ".subout"
+        julia_flags = isfile(_sysimage) ? `--sysimage $_sysimage -t1,1` : `-t1,1`
+        proc = run(pipeline(addenv(`timeout $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`,
+                                  "JULIA_NUM_THREADS" => "1",
+                                  "OPENBLAS_NUM_THREADS" => "1",
+                                  "MKL_NUM_THREADS" => "1"),
+                           stdout=subout, stderr=subout),
+                   wait=false)
+        wait(proc)
+        if proc.exitcode == 124 || proc.exitcode == 137
+            if smol_complete(ins)
+                printstyled("  $ins: process outlived timer but output complete — ok\n"; color=:blue)
+            else
+                oom_killed = isfile(subout) && let s = read(subout, String)
+                    occursin("OOM", s) || occursin("memory", lowercase(s))
+                end
+                msg = oom_killed ? "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)" : "Timeout after $(_cfg[].trimtimeout)s"
+                printstyled("  $ins: $msg\n"; color=:red)
+                open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
+            end
+        end
+        if isfile(subout)
+            out = read(subout, String)
+            !isempty(out) && (print(out); flush(stdout))
+            rm(subout)
+        end end
+
+    function run_resolv_loop(ins, use_subprocess::Bool, subargs=nothing, script=nothing)
+        cur_pat = _cfg[].proofs * "vis/" * ins * ".core.pat.lad"
+        cur_tar = _cfg[].proofs * "vis/" * ins * ".core.tar.lad"
+        patfile, tarfile = parsegraphfiles(ins)
+        prev_np = parse(Int, readline(patfile))
+        prev_nt = parse(Int, readline(tarfile))
+        outfile = _cfg[].proofs * ins * ".out"
+        open(outfile, "a") do f; println(f, "resolv ITER 0 PAT $prev_np TAR $prev_nt") end
+        iter = 0
+        while true
+            iter += 1
+            if !isfile(cur_pat) || !isfile(cur_tar)
+                open(outfile, "a") do f; println(f, "resolv STOP missing_lads") end
+                printstyled("  resolv: core LADs missing at iter $iter\n"; color=:red); return
+            end
+            np = parse(Int, readline(cur_pat))
+            nt = parse(Int, readline(cur_tar))
+            if np == prev_np && nt == prev_nt
+                open(outfile, "a") do f; println(f, "resolv STOP stabilized") end
+                tryrm(cur_pat); tryrm(cur_tar)
+                printstyled("  $ins resolv: fixpoint after $(iter-1) iteration(s) ($np pat, $nt tar nodes)\n"; color=:green); return
+            end
+            prev_np, prev_nt = np, nt
+            open(outfile, "a") do f; println(f, "resolv ITER $iter PAT $np TAR $nt") end
+            core_ins = ins * ".core$iter"
+            tryrm(_cfg[].proofs*core_ins*".out")
+            tryrm(_cfg[].proofs*core_ins*".err")
+            t = @elapsed (ok, timed_out) = runsipsolver(core_ins, cur_pat, cur_tar)
+            if !ok
+                stop = timed_out ? "solver_timeout" : "solver_failed"
+                open(outfile, "a") do f; println(f, "resolv STOP $stop") end
+                tryrm(cur_pat); tryrm(cur_tar)
+                printstyled("  resolv: solver failed/timeout at iter $iter ($(round(t;digits=1))s)\n"; color=:red); return
+            end
+            if isempty(pbpconclusion(core_ins))
+                open(outfile, "a") do f; println(f, "resolv STOP truncated") end
+                tryrm(cur_pat); tryrm(cur_tar)
+                printstyled("  $ins resolv iter $iter: truncated proof — aborting\n"; color=:red)
+                open(_cfg[].proofs*core_ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
+                return
+            end
+            printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
+            if use_subprocess
+                run_trim_subprocess(core_ins, subargs, script)
+                smol_verif_time,full_verif_time = _cfg[].verif ? verify(core_ins) : (-1,-1)
+                writeout_verif(core_ins, smol_verif_time, full_verif_time)
+            else
+                printabline(core_ins)
+                parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
+                smol_verif_time,full_verif_time = _cfg[].verif ? verify(core_ins) : (-1,-1)
+                printabline2(core_ins, parse_time, trim_time, write_time, smol_verif_time, full_verif_time, cone_stats)
+                !isempty(coremsg) && println(coremsg)
+                writeout_verif(core_ins, smol_verif_time, full_verif_time)
+            end
+            if !_cfg[].keepraw
+                tryrm(_cfg[].proofs * core_ins * pbp)
+                tryrm(_cfg[].proofs * core_ins * opb)
+                if _cfg[].verif && verif_ok(core_ins)
+                    tryrm(_cfg[].proofs * core_ins * smol_pbp)
+                    tryrm(_cfg[].proofs * core_ins * smol_opb)
+                end
+            end
+            cur_pat = _cfg[].proofs * "vis/" * core_ins * ".core.pat.lad"
+            cur_tar = _cfg[].proofs * "vis/" * core_ins * ".core.tar.lad"
+        end end
+
+    function run_instance_batch(ins, subargs, script)
+        oom_killed, mem_info = was_oom_killed(ins)
+        if !_cfg[].overwrite && oom_killed
+            mem_str = isempty(mem_info) ? "" : " at $mem_info"
+            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow); return
+        end
+        tryrm(_cfg[].proofs*ins*".out")
+        tryrm(_cfg[].proofs*ins*".err")
+        if _cfg[].solve
+            patfile, tarfile = parsegraphfiles(ins)
+            if patfile === nothing
+                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red); return
+            end
+            if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
+                printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
+            else
+                t = @elapsed (ok, timed_out) = runsipsolver(ins, patfile, tarfile)
+                if !ok
+                    out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
+                    if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
+                        touch(_cfg[].proofs * ins * ".sat")
+                        tryrm(_cfg[].proofs * ins * pbp)
+                        tryrm(_cfg[].proofs * ins * opb)
+                        printstyled("  $ins SAT — skipping\n"; color=:yellow)
+                    elseif timed_out
+                        touch(_cfg[].proofs * ins * ".timeout$(_cfg[].solvertimeout)")
+                        tryrm(_cfg[].proofs * ins * pbp)
+                        tryrm(_cfg[].proofs * ins * opb)
+                        printstyled("  $ins solver timed out ($(round(t;digits=1))s)\n"; color=:red)
+                    else
+                        printstyled("  $ins solve failed ($(round(t;digits=1))s)\n"; color=:red)
+                    end
+                    return
+                end
+                printstyled("  $ins solved $(round(t;digits=1))s\n"; color=:cyan)
+            end
+        end
+        let c = pbpconclusion(ins)
+            if c == "SAT" || c == "NONE"
+                touch(_cfg[].proofs * ins * ".sat")
+                tryrm(_cfg[].proofs * ins * pbp)
+                tryrm(_cfg[].proofs * ins * opb)
+                printstyled("  $ins $c — skipping\n"; color=:yellow); return
+            end
+            if isempty(c)
+                tryrm(_cfg[].proofs * ins * pbp)
+                tryrm(_cfg[].proofs * ins * opb)
+                printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
+                open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
+                return
+            end
+        end
+        let sz = (isfile(_cfg[].proofs*ins*opb) ? filesize(_cfg[].proofs*ins*opb) : 0) +
+                    (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
+            if sz > 50 * 1024^3
+                printstyled("  $ins too large ($(round(sz/1024^3; digits=1)) GB) — skipping\n"; color=:yellow)
+                return
+            end
+        end
+        run_trim_subprocess(ins, subargs, script)
+        smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+        writeout_verif(ins, smol_verif_time, full_verif_time)
+        grim_verif_ok = _cfg[].verif && verif_ok(ins)
+        if !_cfg[].keepraw && grim_verif_ok
+            tryrm(_cfg[].proofs * ins * smol_pbp)
+            tryrm(_cfg[].proofs * ins * smol_opb)
+            touch(_cfg[].proofs * ins * ".done")
+        end
+        _cfg[].resolv && run_resolv_loop(ins, true, subargs, script) end
+
+    function run_instance_full(ins)
+        if !_cfg[].overwrite && smol_complete(ins)
+            printstyled("  $ins already done — skipping\n"; color=:blue); return
+        end
+        if isfile(_cfg[].proofs * ins * ".sat")
+            tryrm(_cfg[].proofs * ins * pbp)
+            tryrm(_cfg[].proofs * ins * opb)
+            printstyled("  $ins SAT (cached) — skipping\n"; color=:yellow); return
+        end
+        if !_cfg[].overwrite && timed_out_at_current_st(ins)
+            printstyled("  $ins timed out (cached st≤$(_cfg[].solvertimeout)s) — skipping\n"; color=:yellow); return
+        end
+        oom_killed, mem_info = was_oom_killed(ins)
+        if !_cfg[].overwrite && oom_killed
+            mem_str = isempty(mem_info) ? "" : " at $mem_info"
+            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow); return
+        end
+        tryrm(_cfg[].proofs*ins*".out")
+        tryrm(_cfg[].proofs*ins*".err")
+        if _cfg[].solve
+            patfile, tarfile = parsegraphfiles(ins)
+            if patfile === nothing
+                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red); return
+            end
+            if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
+                printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
+            else
+                t = @elapsed (ok, timed_out) = runsipsolver(ins, patfile, tarfile)
+                if !ok
+                    out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
+                    if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
+                        touch(_cfg[].proofs * ins * ".sat")
+                        tryrm(_cfg[].proofs * ins * pbp)
+                        tryrm(_cfg[].proofs * ins * opb)
+                        printstyled("  $ins SAT — skipping\n"; color=:yellow)
+                    elseif timed_out
+                        touch(_cfg[].proofs * ins * ".timeout$(_cfg[].solvertimeout)")
+                        tryrm(_cfg[].proofs * ins * pbp)
+                        tryrm(_cfg[].proofs * ins * opb)
+                        printstyled("  $ins solver timed out ($(round(t;digits=1))s)\n"; color=:red)
+                    else
+                        printstyled("  $ins solve failed ($(round(t;digits=1))s)\n"; color=:red)
+                    end
+                    return
+                end
+                printstyled("  $ins solved $(round(t;digits=1))s\n"; color=:cyan)
+            end
+        end
+        let c = pbpconclusion(ins)
+            if c == "SAT" || c == "NONE"
+                touch(_cfg[].proofs * ins * ".sat")
+                tryrm(_cfg[].proofs * ins * pbp)
+                tryrm(_cfg[].proofs * ins * opb)
+                printstyled("  $ins $c — skipping\n"; color=:yellow); return
+            end
+            if isempty(c)
+                tryrm(_cfg[].proofs * ins * pbp)
+                tryrm(_cfg[].proofs * ins * opb)
+                printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
+                open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
+                return
+            end
+        end
+        let sz = (isfile(_cfg[].proofs*ins*opb) ? filesize(_cfg[].proofs*ins*opb) : 0) +
+                    (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
+            if sz > 50 * 1024^3
+                printstyled("  $ins too large ($(round(sz/1024^3; digits=1)) GB) — skipping\n"; color=:yellow)
+                return
+            end
+        end
+        grim_verif_ok = false
+        if !_cfg[].nonorm
+            printabline(ins)
+            parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
+            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            !isempty(coremsg) && println(coremsg)
+            writeout_verif(ins,smol_verif_time,full_verif_time)
+            grim_verif_ok = _cfg[].verif && verif_ok(ins)
+            _cfg[].resolv && run_resolv_loop(ins, false)
+        end
+        if _cfg[].clit
+            printabline(ins)
+            parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
+            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            writeout_verif(ins,smol_verif_time,full_verif_time)
+        end
+        if !_cfg[].keepraw && grim_verif_ok
+            tryrm(_cfg[].proofs * ins * pbp)
+            tryrm(_cfg[].proofs * ins * opb)
+            tryrm(_cfg[].proofs * ins * smol_pbp)
+            tryrm(_cfg[].proofs * ins * smol_opb)
+            touch(_cfg[].proofs * ins * ".done")
+        end end
+
     function _run_main(args)
         if _cfg[].pack   packdots();   return
         elseif _cfg[].render renderdots(); return
@@ -195,13 +458,14 @@
                 rm.(filter(f -> any(endswith(f, e) for e in (".lad", ".dot")), readdir(visdir; join=true)))
             end
             return
-        elseif _cfg[].inst !== nothing
+        elseif _cfg[].inst !== nothing && _cfg[].subprocess
             trimnalyseandcie(_cfg[].inst); return
+        elseif _cfg[].inst !== nothing
+            run_instance_full(_cfg[].inst); return
         elseif (_cfg[].solve || _cfg[].resolv) && !_cfg[].allgraphs
-            # proof files don't exist yet: find instance name by known prefix in args
             j = findfirst(x -> x ∉ argflags && !isdir(x) && is_instance_name(x), args)
             if j !== nothing
-                trimnalyseandcie(args[j]); return
+                run_instance_full(args[j]); return
             end
         end
         list = _cfg[].allgraphs ? allgraphinstances() : getinstancesfromdir(_cfg[].proofs)
@@ -258,13 +522,12 @@
                 end
             end
         end
-        # Each instance runs in its own julia subprocess (single-threaded) so GC heaps are isolated:
-        # no stop-the-world across instances. The outer @threads loop provides parallelism.
-        # maxparse= and allgraphs are stripped: subprocess handles one instance, not a batch.
-        # Directory paths are stripped and proofs_abs is passed explicitly (absolute, cluster-safe).
-        subargs = filter(a -> a in Set(["solve","resolv","verif","render","profile","no-supplementals","keepraw"]) ||
-                              startswith(a, "st=") || startswith(a, "tt=") ||
+        # Each trim subprocess is trim-only (GC-isolated Julia). Solve/verif/resolv run in orchestrator thread.
+        # "subprocess" flag distinguishes trim-only subprocesses from interactive invocations.
+        subargs = filter(a -> a in Set(["resolv","clit","render","profile","no-supplementals","keepraw","overwrite"]) ||
+                              startswith(a, "tt=") ||
                               startswith(a, "maxmem=") || startswith(a, "minmem="), args)
+        push!(subargs, "subprocess")
         script = "bin/trimnalyser.jl"
         # Pre-scan for .timeoutNNN sentinels so we can skip without spawning subprocesses
         timeout_cache = Dict{String,Int}()
@@ -287,44 +550,7 @@
                      !isfile(_cfg[].proofs * ins * ".sat")  &&
                      get(timeout_cache, ins, 0) < _cfg[].solvertimeout)
                 if spawn
-                while available_memory() < _cfg[].minfreemem
-                    sleep(5)
-                end
-                # -t1,1: 1 worker thread + 1 GC thread. Without ,1, Julia 1.10+ spawns
-                # nCPUs/4 GC threads by default — 48 per subprocess on a 192-core machine,
-                # which adds up to ~18k OS threads with 192 concurrent subprocesses.
-                # addenv overrides JULIA_NUM_THREADS in case -t doesn't fully shadow it.
-                subout = _cfg[].proofs * ins * ".subout"
-                julia_flags = isfile(_sysimage) ? `--sysimage $_sysimage -t1,1` : `-t1,1`
-                proc = run(pipeline(addenv(`timeout $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`,
-                                          "JULIA_NUM_THREADS" => "1",
-                                          "OPENBLAS_NUM_THREADS" => "1",
-                                          "MKL_NUM_THREADS" => "1"),
-                                   stdout=subout, stderr=subout),
-                           wait=false)
-                wait(proc)
-                # timeout command exits with 124 (SIGTERM) or 137 (SIGKILL) on timeout
-                # OOM killer also sends SIGKILL (exit 137), check subout for "OOM" to distinguish
-                if proc.exitcode == 124 || proc.exitcode == 137
-                    # If output is complete the process just lived past the timer during Julia cleanup — not a real failure.
-                    if smol_complete(ins)
-                        printstyled("  $ins: process outlived timer but output complete — ok\n"; color=:blue)
-                    else
-                        oom_killed = false
-                        if isfile(subout)
-                            out_preview = read(subout, String)
-                            oom_killed = occursin("OOM", out_preview) || occursin("memory", lowercase(out_preview))
-                        end
-                        msg = oom_killed ? "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)" : "Timeout after $(_cfg[].trimtimeout)s"
-                        printstyled("  $ins: $msg\n"; color=:red)
-                        open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
-                    end
-                end
-                if isfile(subout)
-                    out = read(subout, String)
-                    !isempty(out) && (print(out); flush(stdout))
-                    rm(subout)
-                end
+                    run_instance_batch(ins, subargs, script)
                 end # if spawn
             catch e
                 msg = sprint(showerror, e, catch_backtrace())
@@ -347,14 +573,14 @@
 
     function main(args=ARGS)
         parse_config!(args)
-        # Only install SIGTERM handler when running as subprocess (inst is set)
-        if _cfg[].inst !== nothing
+        # SIGTERM handler only in subprocess mode: exits with 124 so the outer timeout command can detect it.
+        # Interactive mode uses normal Julia signal handling.
+        if _cfg[].subprocess
             ccall(:signal, Ptr{Cvoid}, (Cint, Ptr{Cvoid}), Base.SIGTERM, @cfunction(handle_timeout, Cvoid, (Cint,)))
         end
-        if _cfg[].inst !== nothing
-            # Subprocess mode: this process was spawned by the batch loop to handle one instance.
+        if _cfg[].subprocess
+            # Subprocess mode: spawned by the orchestrator batch loop for trim-only work.
             # Output goes directly to the inherited stdout (parent's pipe → parent's tee → terminal + logfile).
-            # No second tee needed — adding one would double-buffer and prevent output from flushing.
             _run_main(args)
         else
             logfile = open(joinpath(abspath_base, "output.log"), "a")

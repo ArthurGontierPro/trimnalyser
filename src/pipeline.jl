@@ -37,57 +37,10 @@
     end
 
     function trimnalyseandcie(ins)
-        # already fully processed
+        # trim-only: called in subprocess mode (_cfg[].subprocess = true).
+        # Orchestrator handles solve / verif / resolv / smol cleanup / .done.
         if !_cfg[].overwrite && smol_complete(ins)
             printstyled("  $ins already done — skipping\n"; color=:blue); return
-        end
-        # SAT is a permanent result — not bypassed by overwrite; clean up any leftover proof files
-        if isfile(_cfg[].proofs * ins * ".sat")
-            tryrm(_cfg[].proofs * ins * pbp)
-            tryrm(_cfg[].proofs * ins * opb)
-            printstyled("  $ins SAT (cached) — skipping\n"; color=:yellow); return
-        end
-        # previously timed out at timeout >= current st (bypassed by overwrite)
-        if !_cfg[].overwrite && timed_out_at_current_st(ins)
-            printstyled("  $ins timed out (cached st≤$(_cfg[].solvertimeout)s) — skipping\n"; color=:yellow); return
-        end
-        # skip instances that previously OOM killed (unless overwrite)
-        oom_killed, mem_info = was_oom_killed(ins)
-        if !_cfg[].overwrite && oom_killed
-            mem_str = isempty(mem_info) ? "" : " at $mem_info"
-            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow); return
-        end
-        tryrm(_cfg[].proofs*ins*".out")
-        tryrm(_cfg[].proofs*ins*".err")
-        if _cfg[].solve
-            patfile, tarfile = parsegraphfiles(ins)
-            if patfile === nothing
-                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red); return
-            end
-            # resume: proof files already exist and pbp tail confirms a complete write — skip solver.
-            if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
-                printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
-            else
-                t = @elapsed (ok, timed_out) = runsipsolver(ins, patfile, tarfile)
-                if !ok
-                    out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
-                    if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
-                        touch(_cfg[].proofs * ins * ".sat")
-                        tryrm(_cfg[].proofs * ins * pbp)
-                        tryrm(_cfg[].proofs * ins * opb)
-                        printstyled("  $ins SAT — skipping\n"; color=:yellow)
-                    elseif timed_out
-                        touch(_cfg[].proofs * ins * ".timeout$(_cfg[].solvertimeout)")
-                        tryrm(_cfg[].proofs * ins * pbp)
-                        tryrm(_cfg[].proofs * ins * opb)
-                        printstyled("  $ins solver timed out ($(round(t;digits=1))s)\n"; color=:red)
-                    else
-                        printstyled("  $ins solve failed ($(round(t;digits=1))s)\n"; color=:red)
-                    end
-                    return
-                end
-                printstyled("  $ins solved $(round(t;digits=1))s\n"; color=:cyan)
-            end
         end
         let c = pbpconclusion(ins)
             if c == "SAT" || c == "NONE"
@@ -97,7 +50,6 @@
                 printstyled("  $ins $c — skipping\n"; color=:yellow); return
             end
             if isempty(c)
-                # partial/truncated proof — useless, delete to reclaim space
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
                 printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
@@ -105,7 +57,6 @@
                 return
             end
         end
-        # size guard: skip instances whose combined opb+pbp exceeds 50 GB to avoid OOM during parsing.
         let sz = (isfile(_cfg[].proofs*ins*opb) ? filesize(_cfg[].proofs*ins*opb) : 0) +
                     (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
             if sz > 50 * 1024^3
@@ -113,31 +64,20 @@
                 return
             end
         end
-        grim_verif_ok = false
         if !_cfg[].nonorm
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
-            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
-            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            printabline2(ins,parse_time,trim_time,write_time,-1,-1,cone_stats)
             !isempty(coremsg) && println(coremsg)
-            writeout_verif(ins,smol_verif_time,full_verif_time)
-            grim_verif_ok = _cfg[].verif && verif_ok(ins)
-            _cfg[].resolv && resolvecore(ins)
         end
         if _cfg[].clit
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
-            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
-            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
-            writeout_verif(ins,smol_verif_time,full_verif_time)
+            printabline2(ins,parse_time,trim_time,write_time,-1,-1,cone_stats)
         end
-        # cleanup: delete all proof files and mark .done (requires verif success; keepraw suppresses)
-        if !_cfg[].keepraw && grim_verif_ok
+        if !_cfg[].keepraw
             tryrm(_cfg[].proofs * ins * pbp)
             tryrm(_cfg[].proofs * ins * opb)
-            tryrm(_cfg[].proofs * ins * smol_pbp)
-            tryrm(_cfg[].proofs * ins * smol_opb)
-            touch(_cfg[].proofs * ins * ".done")
         end
         end
 
