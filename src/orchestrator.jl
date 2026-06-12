@@ -190,22 +190,26 @@
                            stdout=subout, stderr=subout),
                    wait=false)
         wait(proc)
-        if proc.exitcode == 124 || proc.exitcode == 137
-            if smol_complete(ins)
-                printstyled("  $ins: process outlived timer but output complete — ok\n"; color=:blue)
-            else
-                oom_killed = isfile(subout) && let s = read(subout, String)
-                    occursin("OOM", s) || occursin("memory", lowercase(s))
-                end
-                msg = oom_killed ? "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)" : "Timeout after $(_cfg[].trimtimeout)s"
-                printstyled("  $ins: $msg\n"; color=:red)
-                open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
-            end
-        end
         if isfile(subout)
             out = read(subout, String)
             !isempty(out) && (print(out); flush(stdout))
             rm(subout)
+        end
+        smol_complete(ins) && return :ok
+        exitcode = proc.exitcode
+        if exitcode == 124
+            msg = "Timeout after $(_cfg[].trimtimeout)s"
+            printstyled("  $ins: $msg\n"; color=:red)
+            open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
+            return :timeout
+        elseif exitcode == 137
+            msg = "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)"
+            printstyled("  $ins: $msg\n"; color=:red)
+            open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
+            return :memout
+        else
+            exitcode != 0 && printstyled("  $ins: trim failed (exit $exitcode)\n"; color=:red)
+            return :failed
         end end
 
     function run_resolv_loop(ins, use_subprocess::Bool, subargs=nothing, script=nothing)
@@ -251,7 +255,19 @@
             end
             printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
             if use_subprocess
-                run_trim_subprocess(core_ins, subargs, script)
+                trim_status = run_trim_subprocess(core_ins, subargs, script)
+                if trim_status !== :ok
+                    stop = trim_status === :timeout ? "trim_timeout" :
+                           trim_status === :memout  ? "trim_memout"  : "trim_failed"
+                    open(outfile, "a") do f; println(f, "resolv STOP $stop") end
+                    if trim_status === :timeout || trim_status === :memout
+                        if !_cfg[].keepraw
+                            tryrm(_cfg[].proofs * core_ins * pbp)
+                            tryrm(_cfg[].proofs * core_ins * opb)
+                        end
+                    end
+                    return
+                end
                 smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(core_ins) : (-1,:missing,-1,:missing)
                 writeout_verif(core_ins, smol_vt, full_vt)
                 printverif(core_ins, smol_vt, smol_vs, full_vt, full_vs)
@@ -335,7 +351,16 @@
                 return
             end
         end
-        run_trim_subprocess(ins, subargs, script)
+        trim_status = run_trim_subprocess(ins, subargs, script)
+        if trim_status !== :ok
+            if trim_status === :timeout || trim_status === :memout
+                if !_cfg[].keepraw
+                    tryrm(_cfg[].proofs * ins * pbp)
+                    tryrm(_cfg[].proofs * ins * opb)
+                end
+            end
+            return
+        end
         smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
         writeout_verif(ins, smol_vt, full_vt)
         printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
@@ -349,7 +374,7 @@
             tryrm(_cfg[].proofs * ins * smol_opb)
             touch(_cfg[].proofs * ins * ".done")
         end
-        _cfg[].resolv && smol_complete(ins) && run_resolv_loop(ins, true, subargs, script) end
+        _cfg[].resolv && run_resolv_loop(ins, true, subargs, script) end
 
     function run_instance_full(ins)
         if !_cfg[].overwrite && smol_complete(ins)
