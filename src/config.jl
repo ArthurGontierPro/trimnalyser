@@ -17,6 +17,7 @@ mutable struct Config
     render         ::Bool
     overwrite      ::Bool
     nosup          ::Bool
+    keepraw        ::Bool
     minnodes       ::Int
     maxnodes       ::Int
     solvertimeout  ::Int
@@ -29,7 +30,7 @@ end
 const _cfg = Ref{Config}()
 
 const argflags = Set(["clit","core","verif","no","rand","sort","clean","atable",
-                      "profile","solve","resolv","allgraphs"])
+                      "profile","solve","resolv","allgraphs","keepraw"])
 
 function parse_config!(args=ARGS)
     argval(prefix, T, default) = (i = findfirst(x -> startswith(x, prefix), args);
@@ -62,6 +63,7 @@ function parse_config!(args=ARGS)
         "render"           in args,
         "overwrite"        in args,
         "no-supplementals" in args,
+        "keepraw"          in args,
         argval("minnodes=", Int,     0),
         argval("maxnodes=", Int,     typemax(Int)),
         argval("st=",       Int,     5),

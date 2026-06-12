@@ -500,8 +500,19 @@
             trunc(Int,t)
         end
         smol_verif_time = run_verif(ins2*smol_opb, ins2*smol_pbp, "smol")
-        full_verif_time = run_verif(ins2*opb,      ins2*pbp,      "full")
+        full_verif_time = _cfg[].keepraw ? run_verif(ins2*opb, ins2*pbp, "full") : -1
         return smol_verif_time, full_verif_time end
+
+    function verif_ok(ins)
+        outfile = _cfg[].proofs * ins * ".out"
+        isfile(outfile) || return false
+        sz = filesize(outfile)
+        sz == 0 && return false
+        open(outfile) do io
+            seek(io, max(0, sz - 3000))
+            s = read(io, String)
+            occursin("VERIFIED", s) && !occursin("NOT VERIFIED", s)
+        end end
 
     printgray(s)  = printstyled(s, color=:light_black)
     printyellow(s)= printstyled(s, color=:yellow)

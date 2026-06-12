@@ -229,6 +229,14 @@
             printabline2(core_ins, parse_time, trim_time, write_time, smol_verif_time, full_verif_time, cone_stats)
             !isempty(coremsg) && println(coremsg)
             writeout_verif(core_ins, smol_verif_time, full_verif_time)
+            if !_cfg[].keepraw
+                tryrm(_cfg[].proofs * core_ins * pbp)
+                tryrm(_cfg[].proofs * core_ins * opb)
+                if _cfg[].verif && verif_ok(core_ins)
+                    tryrm(_cfg[].proofs * core_ins * smol_pbp)
+                    tryrm(_cfg[].proofs * core_ins * smol_opb)
+                end
+            end
             cur_pat = _cfg[].proofs * "vis/" * core_ins * ".core.pat.lad"
             cur_tar = _cfg[].proofs * "vis/" * core_ins * ".core.tar.lad"
         end end

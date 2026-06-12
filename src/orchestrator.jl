@@ -182,7 +182,14 @@
         elseif _cfg[].render renderdots(); return
         elseif _cfg[].atable plotresultstable(); return
         elseif _cfg[].clean
-            rm.(filter(f -> endswith(f, ".out") || endswith(f, ".err"), readdir(_cfg[].proofs; join=true)))
+            for f in readdir(_cfg[].proofs; join=true)
+                b = basename(f)
+                if endswith(b, ".out") || endswith(b, ".err") ||
+                   endswith(b, ".done") || endswith(b, ".sat") ||
+                   match(r"\.timeout\d+$", b) !== nothing
+                    rm(f)
+                end
+            end
             visdir = _cfg[].proofs * "vis/"
             if isdir(visdir)
                 rm.(filter(f -> any(endswith(f, e) for e in (".lad", ".dot")), readdir(visdir; join=true)))
@@ -255,12 +262,31 @@
         # no stop-the-world across instances. The outer @threads loop provides parallelism.
         # maxparse= and allgraphs are stripped: subprocess handles one instance, not a batch.
         # Directory paths are stripped and proofs_abs is passed explicitly (absolute, cluster-safe).
-        subargs = filter(a -> a in Set(["solve","resolv","verif","render","profile","no-supplementals"]) ||
+        subargs = filter(a -> a in Set(["solve","resolv","verif","render","profile","no-supplementals","keepraw"]) ||
                               startswith(a, "st=") || startswith(a, "tt=") ||
                               startswith(a, "maxmem=") || startswith(a, "minmem="), args)
         script = "bin/trimnalyser.jl"
+        # Pre-scan for .timeoutNNN sentinels so we can skip without spawning subprocesses
+        timeout_cache = Dict{String,Int}()
+        if isdir(_cfg[].proofs)
+            for fname in readdir(_cfg[].proofs)
+                m = match(r"^(.+)\.timeout(\d+)$", fname)
+                if m !== nothing
+                    inst = String(m.captures[1])
+                    t    = parse(Int, m.captures[2])
+                    timeout_cache[inst] = max(get(timeout_cache, inst, 0), t)
+                end
+            end
+            isempty(timeout_cache) || println("%Skipping $(length(timeout_cache)) previously timed-out instance(s)")
+        end
         wall = @elapsed Threads.@threads :greedy for ins in list
             try
+                # Fast pre-checks — avoid spawning unnecessary subprocesses
+                spawn = _cfg[].overwrite ||
+                    (!isfile(_cfg[].proofs * ins * ".done") &&
+                     !isfile(_cfg[].proofs * ins * ".sat")  &&
+                     get(timeout_cache, ins, 0) < _cfg[].solvertimeout)
+                if spawn
                 while available_memory() < _cfg[].minfreemem
                     sleep(5)
                 end
@@ -299,6 +325,7 @@
                     !isempty(out) && (print(out); flush(stdout))
                     rm(subout)
                 end
+                end # if spawn
             catch e
                 msg = sprint(showerror, e, catch_backtrace())
                 printstyled("  ERROR $ins: $msg\n"; color=:red)
