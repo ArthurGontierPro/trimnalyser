@@ -526,7 +526,7 @@
         # Independent OOM monitor: scans all trimnalyser.jl subprocesses every 10s and kills OOM ones.
         # Runs on :interactive thread so worker saturation can't starve it.
         Threads.@spawn :interactive begin
-            script_name = "trimnalyser.jl"
+            solver_name = basename(sipsolverpath)
             while monitor_active[]
                 sleep(10)
                 try
@@ -538,11 +538,19 @@
                         cmdline_path = "/proc/$pid_str/cmdline"
                         isfile(cmdline_path) || continue
                         cmdline = read(cmdline_path, String)
-                        occursin(script_name, cmdline) || continue
+                        is_trimmer = occursin("trimnalyser.jl", cmdline)
+                        is_solver  = !is_trimmer && occursin(solver_name, cmdline)
+                        (is_trimmer || is_solver) || continue
                         # Extract instance name from cmdline (args are \0-separated)
                         cmdargs = split(cmdline, '\0')
-                        instance = findfirst(is_instance_name, cmdargs)
-                        inst_name = instance !== nothing ? cmdargs[instance] : "?"
+                        inst_name = if is_trimmer
+                            idx = findfirst(is_instance_name, cmdargs)
+                            idx !== nothing ? cmdargs[idx] : "?"
+                        else
+                            prove_idx = findfirst(==("--prove"), cmdargs)
+                            prove_idx !== nothing && prove_idx < length(cmdargs) ?
+                                basename(cmdargs[prove_idx + 1]) : "?"
+                        end
                         rss = process_rss_gb(pid)
                         rss == 0.0 && continue
                         if rss > _cfg[].maxinstmem_gb
@@ -616,6 +624,11 @@
             end
         end
         monitor_active[] = false  # stop the OOM monitor
+        n_empty = 0
+        for f in readdir(_cfg[].proofs; join=true)
+            endswith(f, ".err") && filesize(f) == 0 && (rm(f); n_empty += 1)
+        end
+        n_empty > 0 && println("%Removed $n_empty empty .err file(s)")
         println("%Wall time: ", round(wall; digits=1), "s")
     end
 

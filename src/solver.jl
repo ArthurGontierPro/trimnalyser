@@ -167,7 +167,10 @@
                 exitcode = p.exitcode
             end
         end
-        exitcode in (124, 137) && return (false, true)
+        if exitcode in (124, 137)
+            isfile(errfile) && filesize(errfile) == 0 && tryrm(errfile)
+            return (false, true)
+        end
         if isfile(errfile)
             err = read(errfile, String)
             if !isempty(strip(err))
