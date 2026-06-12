@@ -1,0 +1,509 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{parskip}
+
+\geometry{margin=2.5cm}
+
+\definecolor{darkblue}{RGB}{0,50,120}
+\hypersetup{colorlinks=true, linkcolor=darkblue, citecolor=darkblue, urlcolor=darkblue}
+
+\title{\textbf{TrimAnalyser: Empirical Observations on Proof Structure\\
+Across Subgraph Isomorphism Benchmark Families}}
+\author{Arthur Gontier}
+\date{June 2026 --- working notes}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We report empirical observations on the structure of VeriPB unsatisfiability certificates produced by
+the Glasgow subgraph isomorphism solver across four benchmark families: LV, biochemical reactions
+(bio), images-CVIU11, and meshes-CVIU11.
+Each family yields a distinct \emph{proof fingerprint} --- a characteristic combination of step-type
+mix, proof depth, algebraic complexity, and cone shape --- that traces directly back to the structural
+properties of the underlying graphs.
+We document the fingerprints quantitatively, explain their graph-theoretic origins, and derive
+implications for family-aware \emph{solver} heuristics.
+Grim is treated as the established trimming heuristic throughout; the open questions are at the
+solver level.
+\end{abstract}
+
+\tableofcontents
+\bigskip\hrule\bigskip
+
+% ─────────────────────────────────────────────
+\section{Setting and Methodology}
+
+We analyse pseudo-Boolean proofs of unsatisfiability produced by the Glasgow subgraph isomorphism
+solver~\cite{glasgow-icgt2020} extended with VeriPB proof
+logging~\cite{sip-meets-cp-ijcai2020,e2e-verification-aaai2024}.
+Proofs are trimmed by TrimAnalyser using the \textbf{Grim} heuristic, which has been established
+as the best trimming strategy: during RUP verification, constraints already in the cone are served
+first from a priority queue, steering conflict resolution toward the existing cone and minimising
+cone growth.
+Metrics are aggregated per instance by \texttt{scripts/aggregate\_results.jl} and joined with
+per-graph structural features from \texttt{scripts/graph\_features.jl}.
+All statistics below are averages over instances for which a valid trimmed cone was produced.
+
+\paragraph{Cluster run.} Results are from a cluster run (June 2026) with flags:
+\begin{quote}\ttfamily
+./trimnalyser --threads 92,1 solve resolv verif allgraphs st=180 tt=6000 maxmem=50
+\end{quote}
+(solver timeout 180\,s, trimmer timeout 6\,000\,s, memory limit 50\,GB per thread,
+no node-count filter).
+Instance counts and proof coverage are in Table~\ref{tab:instance-counts}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Family & Total & With cone & Coverage \\
+\midrule
+LV            & 4\,164 & 2\,486 & 60\% \\
+bio           & 6\,711 & 5\,504 & 82\% \\
+images-CVIU11 & 2\,997 &   506  & 17\% \\
+meshes-CVIU11 & 2\,253 & 1\,730 & 77\% \\
+\bottomrule
+\end{tabular}
+\caption{Instance counts. \emph{With cone}: instances for which TrimAnalyser produced a trimmed proof.
+Instances without a cone fall into one of three categories: SAT (subgraph found --- no proof generated,
+recorded in the \texttt{is\_sat} column of \texttt{cluster\_results.csv}), solver timeout (st=180\,s),
+or memory-out (maxmem=50\,GB).
+The 17\% coverage for images-CVIU11 likely reflects a high proportion of SAT instances and/or
+timeouts; the exact split is available in the \texttt{is\_sat} and \texttt{skip\_reason} columns.}
+\label{tab:instance-counts}
+\end{table}
+
+% ─────────────────────────────────────────────
+\section{VeriPB Proof Step Types}
+\label{sec:proof-steps}
+
+Glasgow outputs proofs in the VeriPB pseudo-Boolean format~\cite{veripb-aaai2020}.
+Each proof step derives a new linear inequality from existing ones.
+TrimAnalyser distinguishes the following rule types in SIP proofs.
+
+\begin{description}
+  \item[POL (linear combination).] The general rule: derives a new inequality as a non-negative
+    integer linear combination of existing constraints.
+    Encoded in the proof as \texttt{pol} with a list of (coefficient, constraint-id) antecedents.
+    The antecedent count per step (\texttt{pol\_ante\_mean}) measures algebraic complexity.
+
+  \item[IA (implied and add).] A VeriPB step that asserts a new constraint by adding a referenced
+    existing constraint to a supplied linear inequality.
+    In Glasgow SIP proofs, IA appears exclusively as part of a three-step pattern:
+    \begin{quote}\ttfamily
+      pol $c_1\ c_2\ \ldots$ ;\ \ \emph{\% derives transient @p}\\
+      ia @p $a x + b y \ge c$ ;\ \ \emph{\% adds @p to the explicit ineq, producing result}\\
+      del @p\ \ \emph{\% removes the transient}
+    \end{quote}
+    The POL step derives an intermediate constraint \texttt{@p}; the IA step adds \texttt{@p} to
+    the supplied inequality to produce the domain-reduction conclusion; \texttt{del} immediately
+    discards the transient.
+    Every IA step in the cone therefore has a paired POL step at the same depth, which explains
+    why families with high IA fraction also show an approximately equal POL count
+    (the paired-POL steps are distinct from the free-standing POL steps that appear in
+    flat algebraic certificates).
+
+  \item[RUP (reverse unit propagation).] The proof does not supply the derivation explicitly;
+    the verifier reconstructs it by unit propagation.
+    RUP steps are cheap to write but more expensive to verify.
+
+  \item[RED (redundance-based extension).] Introduces an auxiliary constraint that is redundant
+    with respect to the proof goal.
+    RED does \emph{not} appear in SIP proofs: SIP is a pure feasibility problem with no
+    optimisation objective, so redundance-based reasoning is never required.
+    It is listed here for completeness.
+\end{description}
+
+% ─────────────────────────────────────────────
+\section{Benchmark Families}
+
+\subsection{LV (Larrosa--Valiente)}
+\label{sec:lv}
+
+The LV benchmark was introduced by Larrosa and Valiente~\cite{larrosa-valiente-2002} as a
+collection of 112 graphs spanning a range of structural types: connected, biconnected,
+triconnected, bipartite, planar, and regular, with node counts ranging from 10 to 6\,671.
+Instances are formed by taking all pairs $(P, T)$ with $|V(P)| \le |V(T)|$ from this pool.
+The benchmark is hosted as part of the newSIP benchmark suite of Solnon~\cite{newsip-gbrpr2019}.
+
+\paragraph{Graph structure.} LV graphs are among the densest in the benchmark suite.
+Pattern graphs average 259 nodes and 2\,836 edges (density 0.168, mean degree 13.7).
+The degree sequence is highly heterogeneous (degree variance 92.4): the pool contains both
+sparse and dense graph types, and density varies widely across pairs.
+About 27\% of LV pattern graphs are bipartite and 15\% are regular.
+The average pattern-to-target node ratio is 0.30 and the density ratio is 42.5,
+meaning patterns are typically much denser than their targets.
+The degree compatibility fraction (\texttt{degree\_compat\_frac}) is 0.810: in roughly one
+in five LV pairs, some pattern vertex has degree exceeding the target's maximum degree, making
+the instance trivially UNSAT from degree alone.
+
+\subsection{Bio (Biochemical Reactions)}
+\label{sec:bio}
+
+The bio benchmark consists of directed graphs representing biochemical reaction networks
+extracted from the BioModels repository~\cite{bonnici-bioinformatics2013}.
+Graphs encode metabolic networks: one vertex class represents reactions, the other represents
+chemical species, and edges connect species to the reactions they participate in.
+Instances are formed by taking all $(P, T)$ pairs from a pool of 136 graphs with 9--386 nodes.
+The benchmark is included in the newSIP suite~\cite{newsip-gbrpr2019}.
+
+\paragraph{Graph structure.} Bio patterns are extremely sparse (density 0.086, mean degree 1.61)
+with no triangles (clustering coefficient 0.000), reflecting the bipartite structure of
+reaction networks.
+Diameters are long: 9.4 for patterns and 12.6 for targets on average.
+The low degree and absence of triangles means the graphs are locally tree-like, with the embedding
+constraint transmitted along long paths.
+About 56\% of pattern graphs pass an undirected bipartiteness test.
+
+\paragraph{\textbf{TODO:} bipartite structure not exploited.}
+Biochemical reaction networks are bipartite \emph{by construction} (reaction nodes vs.\
+metabolite nodes), but the LAD files are treated as general undirected graphs throughout this
+analysis.
+It is an open question whether exploiting bipartite structure in the solver
+(e.g.\ restricting search to bipartite-structure-preserving mappings) or in the trimmer
+would significantly change the proof fingerprint or improve performance.
+This should be investigated as a dedicated experiment.
+
+\subsection{Images-CVIU11}
+\label{sec:images}
+
+The images-CVIU11 family originates from Damiand~et~al.~\cite{damiand-solnon-cviu2011}, a study of
+submap isomorphism algorithms for image analysis.
+Pattern graphs are derived from small segmented image regions (22--151 nodes); target graphs are
+region adjacency graphs (RAGs) of full images (1\,072--5\,972 nodes).
+Each node represents an image region and each edge represents spatial adjacency.
+Instances are formed by crossing all patterns against all targets with $|V(P)| \le |V(T)|$
+(44 patterns $\times$ 146 targets).
+
+\paragraph{Graph structure.} Image RAGs are sparse and irregular.
+Pattern graphs average 83 nodes with density 0.053 and mean degree 2.78; triangles are rare
+(clustering coefficient 0.11).
+Diameters are long (17.4 for patterns; target diameters are often undefined due to disconnected
+components from image segmentation).
+The most striking structural feature is the size disparity: the average pattern-to-target node
+ratio is only 0.026 (pattern $\approx$ 82 nodes, target $\approx$ 3\,696 nodes).
+Despite both being sparse in absolute terms, patterns are 67$\times$ denser than their targets.
+Degree compatibility is trivially satisfied (fraction 1.000) since target graphs are large enough
+to accommodate any pattern degree.
+
+\subsection{Meshes-CVIU11}
+\label{sec:meshes}
+
+Also from Damiand~et~al.~\cite{damiand-solnon-cviu2011}, meshes-CVIU11 contains graphs derived
+from 3D mesh combinatorial maps of three-dimensional objects.
+Nodes correspond to mesh facets or vertices; edges reflect topological adjacency in the mesh.
+The family has 6 patterns (40--199 nodes) and 503 targets (208--5\,873 nodes),
+with instances formed by crossing all pairs.
+
+\paragraph{Graph structure.} Mesh graphs exhibit the regularity characteristic of triangulated
+3D surfaces: bounded degree (mean degree 5.33 for patterns), high local clustering (0.325),
+and relatively uniform degree sequences (degree variance 19.3 for patterns).
+Unlike images, mesh targets have high degree variance (1\,312) because large meshes can include
+both high-valence interior vertices and low-degree boundary vertices.
+Pattern-to-target node ratio is 0.117 and degree compatibility fraction is 0.990.
+
+% ─────────────────────────────────────────────
+\section{Proof Fingerprints}
+
+Table~\ref{tab:proof-features} summarises the key proof-structural metrics per family.
+We discuss each fingerprint below.
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{lrrrr}
+\toprule
+Metric & LV & bio & images & meshes \\
+\midrule
+\multicolumn{5}{l}{\emph{Proof size (cone steps)}} \\
+\quad Total cone (OPB + PBP)    & 50\,480 & 8\,473 & 229\,147 & 113\,996 \\
+\quad OPB cone (original)       & 43\,415 &  2\,220 &  82\,249 & 101\,049 \\
+\quad PBP cone (derived)        &  7\,065 &  6\,253 & 146\,898 &  12\,947 \\
+\midrule
+\multicolumn{5}{l}{\emph{Step-type fractions}} \\
+\quad $f_{\mathrm{POL}}$   & 0.934 & 0.719 & 0.496 & 0.998 \\
+\quad $f_{\mathrm{IA}}$    & 0.037 & 0.268 & 0.503 & 0.002 \\
+\quad $f_{\mathrm{RUP}}$   & 0.029 & 0.013 & 0.001 & 0.001 \\
+\midrule
+\multicolumn{5}{l}{\emph{Proof depth}} \\
+\quad Max depth              &   9.2 &   6.2 &  93.6 &   2.0 \\
+\quad Mean depth             &   3.3 &   1.6 &   2.9 &   1.0 \\
+\quad Depth entropy          &  0.29 &  1.09 &  2.18 &  0.01 \\
+\quad Bottom fraction        &  0.97 &  0.89 &  0.66 &  1.00 \\
+\midrule
+\multicolumn{5}{l}{\emph{Algebraic complexity (POL steps)}} \\
+\quad Antecedents per POL    & 34.96 &  9.06 &  5.45 & 15.97 \\
+\quad OPB fraction of antes  &  0.977 & 0.931 & 0.830 & 1.000 \\
+\quad POL unlocks RUP burst  & 5.5\% & 49.7\% & 72.3\% & 0.3\% \\
+\midrule
+\multicolumn{5}{l}{\emph{Resolv loop}} \\
+\quad Pattern shrinkage      &  0.495 &  0.353 &  0.129 &  0.377 \\
+\quad Iterations             &  0.294 &  0.387 &  0.074 &  0.406 \\
+\midrule
+\multicolumn{5}{l}{\emph{Cone shape}} \\
+\quad Max width              & 4\,618 & 2\,836 & 47\,776 & 12\,903 \\
+\quad Width CV               &  1.46  &  1.43  &   2.57  &   1.41  \\
+\quad Literal weakening rate &  0.32  &  0.37  &  0.28   &  0.45   \\
+\midrule
+\multicolumn{5}{l}{\emph{Runtime}} \\
+\quad Avg runtime (ms)   & 20\,777 & 518 & 65\,533 & 22\,046 \\
+\bottomrule
+\end{tabular}
+\caption{Proof-structural metrics averaged over instances with valid cone data.
+\emph{Bottom fraction}: fraction of cone steps at depth $\le 2$.
+\emph{POL unlocks RUP burst}: fraction of instances where a depth band contains a POL step
+followed at depth$+1$ by a RUP count $>5\times$ the per-depth mean.
+\emph{Literal weakening rate}: $(L_{\mathrm{cone}} - L_{\mathrm{smol}}) / L_{\mathrm{cone}}$.}
+\label{tab:proof-features}
+\end{table}
+
+\subsection{LV: Large-Scale Algebraic Certificates from Dense Graphs}
+\label{sec:fingerprint-lv}
+
+LV proofs are \textbf{algebraically heavy}: the average POL step combines 34.96 antecedents
+(the highest of all families), 97.7\% of which are original OPB constraints.
+The step-type mix is nearly pure POL ($f_{\mathrm{POL}} = 0.934$) with negligible IA
+and RUP fractions, indicating almost no domain-reduction chains during search.
+Proofs are \textbf{shallow} (max depth 9.2, entropy 0.29, bottom fraction 0.97): almost all steps
+are within two hops of the axioms.
+
+The resolv loop is \textbf{highly effective}: pattern graphs shrink by 49.5\% on average.
+The PBP cone is small relative to the OPB cone (7\,065 vs.\ 43\,415): the certificate is
+essentially a short sequence of large algebraic aggregations of many original constraints.
+
+\paragraph{Interpretation.} Dense, heterogeneous graphs create many simultaneously tight degree
+and adjacency constraints.
+When a pattern vertex has higher degree than any target vertex
+(degree\_compat\_frac $= 0.810$), the infeasibility is immediate from degree algebra.
+In less trivial cases, the solver combines many neighbourhood constraints in one large POL step.
+The resulting certificate is wide (many antecedents) but shallow.
+
+\subsection{Bio: Mixed Propagation--Algebra on Sparse Networks}
+\label{sec:fingerprint-bio}
+
+Bio proofs show the most complex \textbf{step-type interleaving}: $f_{\mathrm{POL}} = 0.719$ and
+$f_{\mathrm{IA}} = 0.268$.
+Depth entropy is the highest of all families (1.094), meaning proof steps are spread across
+many depth levels with no dominant tier.
+Almost half of bio instances (49.7\%) exhibit the ``POL unlocks RUP burst'' pattern.
+
+The resolv loop is moderately effective (0.353 pattern shrinkage, mean 0.387 non-zero iterations),
+suggesting the UNSAT core emerges gradually.
+
+\paragraph{Interpretation.} Tree-like, long-diameter networks require the solver to propagate
+domain reductions along long paths before the infeasibility becomes apparent.
+The IA steps (paired with transient POL steps, as in Section~\ref{sec:proof-steps}) chain the
+resulting domain reductions along the path until a contradiction accumulates.
+The high depth entropy reflects the long diameter: there is no preferred depth at which most
+reasoning happens.
+
+\subsection{Images-CVIU11: Propagation Cascades on Irregular Adjacency Graphs}
+\label{sec:fingerprint-images}
+
+Images-CVIU11 proofs are the most extreme in the dataset along multiple axes.
+Step types split almost equally between POL and IA ($f_{\mathrm{POL}} \approx f_{\mathrm{IA}}
+\approx 0.50$); since every IA step is paired with a transient POL step
+(Section~\ref{sec:proof-steps}), approximately \emph{half of all proof steps} are
+domain-reduction triplets \texttt{pol\,;\,ia\,;\,del}.
+Proofs are \textbf{very deep}: the maximum depth averages 93.6 and entropy reaches 2.18.
+The \textbf{PBP cone dominates}: 146\,898 derived steps vs.\ 82\,249 original constraints
+(ratio 1.79, reversed compared to all other families).
+The ``POL unlocks RUP burst'' pattern occurs in 72.3\% of instances.
+The resolv loop is the \textbf{least effective} (pattern shrinkage 0.129).
+
+\paragraph{Interpretation.} The 0.026 pattern-to-target node ratio means the solver eliminates
+candidate mappings over a 37$\times$ larger target, generating many \texttt{pol\,;\,ia\,;\,del}
+triplets.
+These chain into a deep proof DAG: algebraic steps derive new bounds, which unlock cascades of
+domain reductions, which force the next algebraic step.
+Because the conflict spans the full irregular adjacency structure of the pattern, the resolv loop
+has little room to shrink it.
+
+\subsection{Meshes-CVIU11: Flat One-Wave Certificates from Regular 3D Topology}
+\label{sec:fingerprint-meshes}
+
+Meshes-CVIU11 is the most algebraically uniform family.
+Proofs are \textbf{almost perfectly flat}: mean depth 1.002, depth entropy 0.011, bottom
+fraction 1.000.
+The step-type mix is pure POL ($f_{\mathrm{POL}} = 0.998$, $f_{\mathrm{IA}} = 0.002$),
+meaning almost no domain-reduction triplets occur.
+Every POL antecedent is an original OPB constraint (\texttt{pol\_opb\_frac} $= 1.000$).
+The resolv loop achieves moderate pattern shrinkage (0.377) in few iterations.
+
+\paragraph{Interpretation.} High local clustering (0.325) means triangles enforce three mutual
+constraints simultaneously, making the combined constraint tight enough to certify UNSAT
+algebraically without any propagation chain.
+The resolv loop is effective because the topological obstruction is localised to a compact
+substructure of the pattern.
+
+% ─────────────────────────────────────────────
+\section{Structural Drivers: Graph Properties $\to$ Proof Shape}
+\label{sec:drivers}
+
+Table~\ref{tab:graph-features} collects the graph-structural features that best predict the
+observed proof fingerprints.
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{lrrrr}
+\toprule
+Metric & LV & bio & images & meshes \\
+\midrule
+\multicolumn{5}{l}{\emph{Pattern graph}} \\
+\quad Nodes                 & 259 &  29 &  83 & 111 \\
+\quad Density               & 0.168 & 0.086 & 0.053 & 0.072 \\
+\quad Mean degree           & 13.7 & 1.61 & 2.78 & 5.33 \\
+\quad Degree variance       & 92.4 & 1.02 & 0.20 & 19.3 \\
+\quad Clustering coeff.     & 0.275 & 0.000 & 0.109 & 0.325 \\
+\quad Diameter              &  5.97 & 9.39 & 17.39 & 10.15 \\
+\quad Bipartite (\%)        & 27\% & 56\% & 0\% & 0\% \\
+\midrule
+\multicolumn{5}{l}{\emph{Target graph}} \\
+\quad Nodes                 & 1\,403 &  81 & 3\,696 & 1\,887 \\
+\quad Density               & 0.057 & 0.038 & 0.001 & 0.005 \\
+\quad Degree variance       & 248 & 1.77 & 0.13 & 1\,313 \\
+\midrule
+\multicolumn{5}{l}{\emph{Relational}} \\
+\quad Node ratio            & 0.299 & 0.481 & 0.026 & 0.117 \\
+\quad Density ratio         &  42.5 &  3.19 & 66.8 &  32.5 \\
+\quad Degree compat.\ frac. & 0.810 & 0.985 & 1.000 & 0.991 \\
+\bottomrule
+\end{tabular}
+\caption{Graph-structural features averaged over instances in the graph features dataset.
+\emph{Density ratio}: pattern density / target density.
+\emph{Degree compat.\ frac.}: fraction of pattern vertices with degree $\le \max_{v \in T}\deg(v)$.}
+\label{tab:graph-features}
+\end{table}
+
+\paragraph{Width--depth tradeoff.}
+A consistent inverse relationship holds between mean POL antecedents and proof depth:
+\[
+  \underbrace{\text{LV: 35 antes, depth 9.2}}_{\text{wide \& shallow}}
+  \quad
+  \underbrace{\text{meshes: 16 antes, depth 2.0}}_{\text{very flat}}
+  \quad
+  \underbrace{\text{bio: 9 antes, depth 6.2}}_{\text{balanced}}
+  \quad
+  \underbrace{\text{images: 5 antes, depth 93.6}}_{\text{narrow \& deep}}
+\]
+Families that aggregate many constraints per step produce wide but shallow proofs;
+families that proceed via many small domain-reduction triplets produce narrow but deep proofs.
+
+\paragraph{Graph density and algebraic step size.}
+Higher pattern density correlates with larger \texttt{pol\_ante\_mean}.
+Dense graphs (LV: 0.168) generate many simultaneously active neighbourhood constraints;
+combining them requires a single large POL step.
+Sparse graphs (images: 0.053) produce fewer simultaneous constraints per neighbourhood, so
+each POL step is small and many domain-reduction triplets are needed instead.
+
+\paragraph{Clustering and proof flatness.}
+High clustering (meshes: 0.325) enables flat, OPB-heavy proofs.
+Triangles impose three simultaneous constraints, making algebraic UNSAT certification
+possible without any propagation chain.
+Zero clustering (bio: 0.000) forces the solver into long propagation chains.
+
+\paragraph{Diameter and IA fraction.}
+Long diameter correlates with high IA fraction.
+Bio (diameter 9.4) and images (diameter 17.4) have the highest IA fractions (26.8\% and 50.3\%).
+Long propagation paths produce long chains of \texttt{pol\,;\,ia\,;\,del} triplets.
+
+\paragraph{Node ratio and resolv effectiveness.}
+The pattern-to-target node ratio is the strongest predictor of resolv loop effectiveness.
+Images (ratio 0.026) achieve shrinkage 0.129; bio (ratio 0.481) achieves 0.353;
+LV (ratio 0.299) achieves 0.495.
+A small ratio means the conflict is spread across many candidate mappings, making it
+hard for the resolv loop to isolate a compact UNSAT core.
+
+% ─────────────────────────────────────────────
+\section{Implications for Solver Heuristics}
+\label{sec:solver-heuristics}
+
+The Grim heuristic has been established as the best trimming strategy and is used uniformly.
+The open research questions are at the \emph{solver} level.
+The two primary axes are \textbf{variable ordering} (which pattern vertex to branch on next)
+and \textbf{preprocessing / propagation ordering} (how aggressively to filter domains before
+and during search).
+A full A/B evaluation across these axes is planned for M4.
+
+\paragraph{Mesh-like families: preprocessing first.}
+The flat, OPB-heavy proof structure indicates that infeasibility is fully detectable from the
+original degree and adjacency constraints before any deep search.
+Aggressive preprocessing (degree-based domain filtering, neighbourhood compatibility checks,
+triangle-aware propagation given clustering 0.325) should reduce the search space to near-zero.
+Variable ordering plays a secondary role.
+
+\paragraph{LV-like families: exploit trivial degree incompatibility early.}
+With degree\_compat\_frac $= 0.810$, one in five LV instances can be certified UNSAT by a
+lightweight pre-check (does any pattern vertex exceed the target's max degree?).
+For non-trivial cases, the high \texttt{pol\_ante\_mean} (34.96) suggests that many constraints
+are simultaneously tight at the conflict; a global constraint propagator covering all
+neighbourhood constraints at once may be more effective than local pairwise propagation.
+
+\paragraph{Image-like families: variable ordering is critical.}
+The 0.026 node ratio means the initial candidate set for each pattern vertex is enormous.
+Branching first on the most-constrained pattern vertex can prune large subtrees early.
+The 72.3\% POL-before-RUP-burst signature means heuristics that trigger domain-reduction cascades
+early in the search would reduce both solve time and proof depth.
+
+\paragraph{Bio-like families: propagation along long paths.}
+With mean degree 1.61 and diameter 9.4, constraint propagation must reach the far end of long
+chains before detecting a contradiction.
+Variable ordering based on graph topology (e.g.\ BFS-order from a high-betweenness seed vertex)
+may guide propagation toward the conflict end of the path more efficiently.
+Multi-iteration resolv should be prioritised here given moderate but consistent shrinkage (0.353)
+across several iterations.
+
+% ─────────────────────────────────────────────
+\section{Open Questions}
+\label{sec:open}
+
+\begin{enumerate}
+  \item \textbf{Remaining families.}
+    The phase, scalefree, and si families have too few instances with cone data in the current run
+    to characterise reliably.
+    A targeted run with relaxed timeout or node bounds is needed.
+
+  \item \textbf{Depth entropy as a classifier.}
+    Depth entropy cleanly separates the four families (0.01, 0.29, 1.09, 2.18) and may serve
+    as the primary axis of a two-dimensional taxonomy (entropy $\times$ ia\_frac) for runtime
+    solver configuration selection.
+
+  \item \textbf{Intra-family scaling laws.}
+    Does proof size scale as $O(|V(P)|)$, $O(|V(T)|)$, or $O(|V(P)| \cdot |V(T)|)$ within each
+    family?
+
+  \item \textbf{Bio bipartite structure.}
+    (See TODO in Section~\ref{sec:bio}.)
+    A dedicated experiment exploiting bipartiteness in the solver and trimmer for bio instances.
+
+  \item \textbf{Degree variance as a predictor within LV.}
+    LV's internal diversity (bipartite, regular, planar sub-families) suggests that
+    \texttt{pat\_deg\_var} and \texttt{pat\_is\_bipartite} stratify LV into distinct
+    sub-fingerprints.
+
+  \item \textbf{Images-CVIU11 coverage.}
+    Determine the exact SAT / timeout / memout split for images to understand whether
+    low coverage is structural or a resource limit.
+
+  \item \textbf{Width--depth tradeoff: formal characterisation.}
+    The observed inverse relationship between \texttt{pol\_ante\_mean} and
+    \texttt{cone\_depth\_max} invites a proof-complexity explanation in terms of the Glasgow
+    proof strategy.
+\end{enumerate}
+
+% ─────────────────────────────────────────────
+\bibliographystyle{plain}
+\bibliography{notes}
+
+\end{document}

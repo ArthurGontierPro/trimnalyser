@@ -153,7 +153,7 @@
         # Solver stdout/stderr are appended to out_prefix.{out,err} (tryrm clears them beforehand for the original instance).
         # Returns true if both output files were produced.
     function runsipsolver(out_prefix, pat_lad, tar_lad)
-        isfile(sipsolverpath) || (printstyled("  solver not found: $sipsolverpath\n"; color=:red); return false)
+        isfile(sipsolverpath) || (printstyled("  solver not found: $sipsolverpath\n"; color=:red); return (false, false))
         errfile = _cfg[].proofs*out_prefix*".err"
         options = ["--no-clique-detection"]
         _cfg[].nosup && push!(options, "--no-supplementals")

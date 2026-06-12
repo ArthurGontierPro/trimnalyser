@@ -491,7 +491,11 @@
             tmp_out = opb*".veriptmp"; tmp_err = opb*".veriptmperr"
             t = @elapsed try run(pipeline(ignorestatus(`timeout $(_cfg[].trimtimeout) $veripbpath $opb $pbp`),stdout=tmp_out,stderr=tmp_err)) catch e end
             if isfile(tmp_out)
-                open(outfile,"a") do f; println(f,"veri $tag OUTPUT"); write(f,read(tmp_out)); end
+                vcontent = read(tmp_out, String)
+                verified = occursin("VERIFIED", vcontent) && !occursin("NOT VERIFIED", vcontent)
+                open(outfile, "a") do f
+                    println(f, "veri $tag ", verified ? "VERIFIED" : "NOT VERIFIED")
+                end
                 tryrm(tmp_out)
             end
             if isfile(tmp_err)

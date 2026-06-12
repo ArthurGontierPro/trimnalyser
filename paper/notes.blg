@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99d (TeX Live 2025)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: notes.aux
+The style file: plain.bst
+Database file #1: notes.bib
+Warning--can't use both volume and number fields in e2e-verification-aaai2024
+You've used 8 entries,
+            2118 wiz_defined-function locations,
+            553 strings with 5850 characters,
+and the built_in function-call counts, 3763 in all, are:
+= -- 377
+> -- 168
+< -- 8
++ -- 68
+- -- 58
+* -- 279
+:= -- 566
+add.period$ -- 26
+call.type$ -- 8
+change.case$ -- 53
+chr.to.int$ -- 0
+cite$ -- 9
+duplicate$ -- 152
+empty$ -- 290
+format.name$ -- 58
+if$ -- 820
+int.to.chr$ -- 0
+int.to.str$ -- 8
+missing$ -- 8
+newline$ -- 43
+num.names$ -- 16
+pop$ -- 56
+preamble$ -- 1
+purify$ -- 45
+quote$ -- 0
+skip$ -- 124
+stack$ -- 0
+substring$ -- 275
+swap$ -- 66
+text.length$ -- 8
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 32
+warning$ -- 1
+while$ -- 36
+width$ -- 9
+write$ -- 95
+(There was 1 warning)

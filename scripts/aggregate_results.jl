@@ -37,6 +37,7 @@ const CSV_COLUMNS = [
     "gbfs_cone_literals", "gbfs_smol_literals", "gbfs_cone_variables",
     # Verification
     "veri_smol_time", "veri_total_time",
+    "veri_smol_verified",
     "veri_opb_size", "veri_pbp_size", "veri_total_size",
     # Solver stats (if available)
     "pattern_vertices", "target_vertices", "runtime_ms", "status", "solver_nodes", "solver_propagations",
@@ -126,8 +127,10 @@ function parse_out_file(filepath)
         match(r"^gbfs SMOL LIT (\d+)", line) !== nothing   && (data["gbfs_smol_literals"] = tryparse(Int, match(r"^gbfs SMOL LIT (\d+)", line).captures[1]))
 
         # Verification
-        occursin("veri smol TIME ", line)    && (data["veri_smol_time"] = tryparse(Float64, split(line)[end]))
-        occursin("veri TIME ", line)         && (data["veri_total_time"] = tryparse(Float64, split(line)[end]))
+        occursin("veri smol TIME ", line)        && (data["veri_smol_time"] = tryparse(Float64, split(line)[end]))
+        occursin("veri TIME ", line)             && (data["veri_total_time"] = tryparse(Float64, split(line)[end]))
+        line == "veri smol VERIFIED"             && (data["veri_smol_verified"] = 1)
+        line == "veri smol NOT VERIFIED"         && (data["veri_smol_verified"] = 0)
         occursin("veri OPB SIZE ", line)     && (data["veri_opb_size"] = tryparse(Int, split(line)[end]))
         occursin("veri PBP SIZE ", line)     && (data["veri_pbp_size"] = tryparse(Int, split(line)[end]))
         occursin("veri SIZE ", line)         && (data["veri_total_size"] = tryparse(Int, split(line)[end]))

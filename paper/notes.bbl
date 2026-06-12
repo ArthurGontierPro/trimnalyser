@@ -1,0 +1,58 @@
+\begin{thebibliography}{1}
+
+\bibitem{bonnici-bioinformatics2013}
+Vincenzo Bonnici, Rosalba Giugno, Alfredo Pulvirenti, Dennis Shasha, and
+  Alfredo Ferro.
+\newblock A subgraph isomorphism algorithm and its application to biochemical
+  data.
+\newblock {\em BMC Bioinformatics}, 14(Suppl 7):S13, 2013.
+
+\bibitem{damiand-solnon-cviu2011}
+Guillaume Damiand, Christine Solnon, Colin de~la Higuera, Jean-Christophe
+  Janodet, and {\'E}milie Samuel.
+\newblock Polynomial algorithms for subisomorphism of n{D} open combinatorial
+  maps.
+\newblock {\em Computer Vision and Image Understanding}, 115(7):996--1010,
+  2011.
+
+\bibitem{veripb-aaai2020}
+Jan Elffers, Stephan Gocht, Ciaran McCreesh, and Jakob Nordstr{\"o}m.
+\newblock Justifying all differences using pseudo-{B}oolean reasoning.
+\newblock In {\em Proceedings of the 34th AAAI Conference on Artificial
+  Intelligence (AAAI 2020)}, pages 1486--1494, 2020.
+
+\bibitem{e2e-verification-aaai2024}
+Stephan Gocht, Ciaran McCreesh, Magnus~O. Myreen, Jakob Nordstr{\"o}m, Andy
+  Oertel, and Yong~Kiam Tan.
+\newblock End-to-end verification for subgraph solving.
+\newblock In {\em Proceedings of the 38th AAAI Conference on Artificial
+  Intelligence (AAAI 2024)}, volume~38, pages 8038--8047, 2024.
+
+\bibitem{sip-meets-cp-ijcai2020}
+Stephan Gocht, Ciaran McCreesh, and Jakob Nordstr{\"o}m.
+\newblock Subgraph isomorphism meets cutting planes: Solving with certified
+  solutions.
+\newblock In {\em Proceedings of the 29th International Joint Conference on
+  Artificial Intelligence (IJCAI 2020)}, pages 1134--1140, 2020.
+
+\bibitem{larrosa-valiente-2002}
+Javier Larrosa and Gabriel Valiente.
+\newblock Constraint satisfaction algorithms for graph pattern matching.
+\newblock {\em Mathematical Structures in Computer Science}, 12(4):403--422,
+  2002.
+
+\bibitem{glasgow-icgt2020}
+Ciaran McCreesh, Patrick Prosser, and James Trimble.
+\newblock The {Glasgow} subgraph solver: Using constraint programming to tackle
+  hard subgraph isomorphism problem variants.
+\newblock In {\em Graph Transformation (ICGT 2020)}, volume 12150 of {\em
+  Lecture Notes in Computer Science}, pages 316--324. Springer, 2020.
+
+\bibitem{newsip-gbrpr2019}
+Christine Solnon.
+\newblock Experimental evaluation of subgraph isomorphism solvers.
+\newblock In {\em Graph-Based Representations in Pattern Recognition (GbRPR
+  2019)}, volume 11510 of {\em Lecture Notes in Computer Science}, pages 1--10.
+  Springer, 2019.
+
+\end{thebibliography}
