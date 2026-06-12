@@ -252,22 +252,22 @@
             printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
             if use_subprocess
                 run_trim_subprocess(core_ins, subargs, script)
-                smol_verif_time,full_verif_time = _cfg[].verif ? verify(core_ins) : (-1,-1)
-                writeout_verif(core_ins, smol_verif_time, full_verif_time)
-                printverif(core_ins, smol_verif_time, full_verif_time)
+                smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(core_ins) : (-1,:missing,-1,:missing)
+                writeout_verif(core_ins, smol_vt, full_vt)
+                printverif(core_ins, smol_vt, smol_vs, full_vt, full_vs)
             else
                 printabline(core_ins)
                 parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
-                smol_verif_time,full_verif_time = _cfg[].verif ? verify(core_ins) : (-1,-1)
+                smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(core_ins) : (-1,:missing,-1,:missing)
                 printabline2(core_ins, parse_time, trim_time, write_time, cone_stats)
                 !isempty(coremsg) && println(coremsg)
-                writeout_verif(core_ins, smol_verif_time, full_verif_time)
-                printverif(core_ins, smol_verif_time, full_verif_time)
+                writeout_verif(core_ins, smol_vt, full_vt)
+                printverif(core_ins, smol_vt, smol_vs, full_vt, full_vs)
             end
             if !_cfg[].keepraw
                 tryrm(_cfg[].proofs * core_ins * pbp)
                 tryrm(_cfg[].proofs * core_ins * opb)
-                if _cfg[].verif && verif_ok(core_ins)
+                if _cfg[].verif && smol_vs === :verified
                     tryrm(_cfg[].proofs * core_ins * smol_pbp)
                     tryrm(_cfg[].proofs * core_ins * smol_opb)
                 end
@@ -336,14 +336,14 @@
             end
         end
         run_trim_subprocess(ins, subargs, script)
-        smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
-        writeout_verif(ins, smol_verif_time, full_verif_time)
-        printverif(ins, smol_verif_time, full_verif_time)
+        smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
+        writeout_verif(ins, smol_vt, full_vt)
+        printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
         if !_cfg[].keepraw
             tryrm(_cfg[].proofs * ins * pbp)
             tryrm(_cfg[].proofs * ins * opb)
         end
-        grim_verif_ok = _cfg[].verif && verif_ok(ins)
+        grim_verif_ok = smol_vs === :verified
         if !_cfg[].keepraw && grim_verif_ok
             tryrm(_cfg[].proofs * ins * smol_pbp)
             tryrm(_cfg[].proofs * ins * smol_opb)
@@ -425,21 +425,21 @@
         if !_cfg[].nonorm
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
-            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+            smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
             printabline2(ins,parse_time,trim_time,write_time,cone_stats)
             !isempty(coremsg) && println(coremsg)
-            writeout_verif(ins,smol_verif_time,full_verif_time)
-            printverif(ins, smol_verif_time, full_verif_time)
-            grim_verif_ok = _cfg[].verif && verif_ok(ins)
+            writeout_verif(ins,smol_vt,full_vt)
+            printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
+            grim_verif_ok = smol_vs === :verified
             _cfg[].resolv && run_resolv_loop(ins, false)
         end
         if _cfg[].clit
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
-            smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
+            smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
             printabline2(ins,parse_time,trim_time,write_time,cone_stats)
-            writeout_verif(ins,smol_verif_time,full_verif_time)
-            printverif(ins, smol_verif_time, full_verif_time)
+            writeout_verif(ins,smol_vt,full_vt)
+            printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
         end
         if !_cfg[].keepraw && grim_verif_ok
             tryrm(_cfg[].proofs * ins * pbp)

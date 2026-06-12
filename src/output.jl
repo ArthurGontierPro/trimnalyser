@@ -483,28 +483,40 @@
         _cluster ? "/scratch/arthur/veripb" : "/home/arthur_gla/veriPB/trim/VeriPB/target/release/veripb")
 
     function verify(ins)
-        smol_verif_time = full_verif_time = 0
-        isfile(veripbpath) || (printstyled("  veripb not found at $veripbpath — skipping verif\n"; color=:yellow); return smol_verif_time,full_verif_time)
+        if !isfile(veripbpath)
+            printstyled("  veripb not found at $veripbpath — skipping verif\n"; color=:yellow)
+            return -1, :missing, -1, :missing
+        end
         ins2 = _cfg[].proofs*ins
         outfile = ins2*".out"
         function run_verif(opb, pbp, tag)
             tmp_out = opb*".veriptmp"; tmp_err = opb*".veriptmperr"
-            t = @elapsed try run(pipeline(ignorestatus(`timeout $(_cfg[].veriftimeout) $veripbpath $opb $pbp`),stdout=tmp_out,stderr=tmp_err)) catch e end
-            if isfile(tmp_out)
-                verified = occursin("VERIFIED", read(tmp_out, String))
-                open(outfile, "a") do f
-                    println(f, "veri $tag ", verified ? "VERIFIED" : "NOT VERIFIED")
-                end
-                tryrm(tmp_out)
-            end
+            proc = nothing
+            t = @elapsed try
+                proc = run(pipeline(ignorestatus(`timeout $(_cfg[].veriftimeout) $veripbpath $opb $pbp`),
+                                   stdout=tmp_out, stderr=tmp_err))
+            catch e end
+            exitcode = proc !== nothing ? proc.exitcode : -1
+            status = if exitcode == 124; :timeout
+                     elseif exitcode == 137; :memout
+                     elseif isfile(tmp_out) && occursin("VERIFIED", read(tmp_out, String)); :verified
+                     else; :failed
+                     end
+            open(outfile, "a") do f; println(f, "veri $tag ", uppercase(string(status))) end
+            isfile(tmp_out) && tryrm(tmp_out)
             if isfile(tmp_err)
-                s = read(tmp_err,String); isempty(strip(s)) ? tryrm(tmp_err) : write(ins2*".$tag.err",s); tryrm(tmp_err)
+                s = read(tmp_err, String)
+                isempty(strip(s)) ? tryrm(tmp_err) : (write(ins2*".$tag.veripberr", s); tryrm(tmp_err))
             end
-            trunc(Int,t)
+            return trunc(Int, t), status
         end
-        smol_verif_time = run_verif(ins2*smol_opb, ins2*smol_pbp, "smol")
-        full_verif_time = (isfile(ins2*opb) && isfile(ins2*pbp)) ? run_verif(ins2*opb, ins2*pbp, "full") : -1
-        return smol_verif_time, full_verif_time end
+        if !isfile(ins2*smol_opb) || !isfile(ins2*smol_pbp)
+            open(outfile, "a") do f; println(f, "veri smol MISSING") end
+            return 0, :missing, -1, :missing
+        end
+        smol_time, smol_status = run_verif(ins2*smol_opb, ins2*smol_pbp, "smol")
+        full_time, full_status = (isfile(ins2*opb) && isfile(ins2*pbp)) ? run_verif(ins2*opb, ins2*pbp, "full") : (-1, :missing)
+        return smol_time, smol_status, full_time, full_status end
 
     function verif_ok(ins)
         outfile = _cfg[].proofs * ins * ".out"
@@ -513,15 +525,8 @@
         sz == 0 && return false
         open(outfile) do io
             seek(io, max(0, sz - 3000))
-            s = read(io, String)
-            occursin("VERIFIED", s) && !occursin("NOT VERIFIED", s)
+            occursin("veri smol VERIFIED", read(io, String))
         end end
-
-    function full_verif_ok(ins)
-        outfile = _cfg[].proofs * ins * ".out"
-        isfile(outfile) || return false
-        s = read(outfile, String)
-        occursin("veri full VERIFIED", s) && !occursin("veri full NOT VERIFIED", s) end
 
     printgray(s)  = printstyled(s, color=:light_black)
     printyellow(s)= printstyled(s, color=:yellow)
@@ -537,14 +542,13 @@
         # (would interleave), or a single-threaded subprocess handling one instance in a batch run.
     par() = Threads.nthreads() > 1 || _cfg[].inst !== nothing
 
-    function printverif(ins, smol_verif_time, full_verif_time)
-        smol_verif_time >= 0 || return
-        ok = verif_ok(ins)
-        printstyled("  $ins smol veri $(smol_verif_time)s $(ok ? "VERIFIED" : "FAILED")\n"; color = ok ? :green : :red)
-        if full_verif_time >= 0
-            fok = full_verif_ok(ins)
-            printstyled("  $ins full veri $(full_verif_time)s $(fok ? "VERIFIED" : "FAILED")\n"; color = fok ? :green : :red)
-        end end
+    function printverif(ins, smol_time, smol_status, full_time, full_status)
+        smol_time >= 0 || return
+        smol_color = smol_status === :verified ? :green : smol_status === :failed ? :red : :yellow
+        printstyled("  $ins smol veri $(smol_time)s $(uppercase(string(smol_status)))\n"; color=smol_color)
+        full_time >= 0 || return
+        full_color = full_status === :verified ? :green : full_status === :failed ? :red : :yellow
+        printstyled("  $ins full veri $(full_time)s $(uppercase(string(full_status)))\n"; color=full_color) end
 
     function printabline(f)
         par() && return  # parallel: skip placeholder, full line printed atomically in printabline2
