@@ -1,18 +1,16 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Testing Constraints
 
-## Critical: Testing Constraints
-
-**Laptop disk is full.** The proof benchmark set is gigantic and cannot fit locally.
+**Local disk can't hold the full benchmark set.**
 
 - **Never** run without specifying an instance name or without reading memory first.
 - **Standard local test** after any code change:
   ```bash
   ./trimnalyser LVg10g12 overwrite resolv
   ```
-  Proof files are at `/home/arthur_gla/veriPB/subgraphsolver/proofs/`. This instance is 858 KB OPB + 24 MB PBP and exercises the full resolv loop.
-- **Syntax-only check** (no execution, zero disk writes — only catches parse errors):
+  Proof files at `/home/arthur_gla/veriPB/subgraphsolver/proofs/`. This instance is 858 KB OPB + 24 MB PBP and exercises the full resolv loop.
+- **Syntax-only check** (no execution, zero disk writes):
   ```bash
   julia --startup-file=no -e 'for f in readdir("src"; join=true); endswith(f,".jl") && Meta.parseall(read(f,String)); end; println("OK")'
   ```
@@ -20,107 +18,93 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Common Commands
 
 ```bash
-# Single instance
-./trimnalyser LVg10g12 overwrite resolv
-
-# Cluster full run
-./trimnalyser --threads 92,1 solve resolv verif allgraphs minnodes=50 maxnodes=200 st=18 tt=600 rand
-
-# Aggregate cluster results into CSV
-julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv
-
-# Compute static graph features (separate CSV, join by instance)
-julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv
-
-# Generate cone DOT + SVG visualisations (requires graphviz `dot` on PATH)
-./trimnalyser LVg10g12 overwrite resolv render
-
-# Render all existing cone DOT files in batch (if `dot` is available)
-for f in /scratch/arthur/proofs/vis/*.cone.*.dot; do dot -Tsvg -o "${f%.dot}.svg" "$f"; done
-
-# Quick terminal statistics (M2 columns, step types, depth, resolv)
-julia --project=scripts scripts/quick_stats.jl cluster_results.csv
-
-# M3 proof survey — family-stratified HTML report (add graph_features.csv for correlations)
-julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html
-
-# Install script dependencies once per machine
-julia --project=scripts -e 'using Pkg; Pkg.instantiate()'
-
-# Build sysimage (eliminates JIT startup, ~5s → ~0.1s)
-julia --project=. build_sysimage.jl
+./trimnalyser LVg10g12 overwrite resolv                                          # single instance
+./trimnalyser --threads 92,1 solve resolv verif allgraphs minnodes=50 maxnodes=200 st=18 tt=600 rand  # cluster run
+julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv  # aggregate → CSV
+julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv      # static graph features
+julia --project=scripts scripts/quick_stats.jl cluster_results.csv              # terminal stats
+julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html  # HTML report
+julia --project=scripts -e 'using Pkg; Pkg.instantiate()'                       # install script deps
+julia --project=. build_sysimage.jl                                              # build sysimage (~5s → ~0.1s)
 ```
 
-Key flags: `solve` (run SIP solver first), `resolv` (iterative re-solve on UNSAT cores), `verif` (run VeriPB after trim), `overwrite` (re-trim if .smol already exists), `profile` (StatProfilerHTML), `allgraphs` (enumerate all benchmark pairs), `bfs`/`clit` (alternative trimming modes).
-Timeout args: `st=N` (solver timeout seconds), `tt=N` (trim timeout seconds), `maxnodes=N` (filter graph pairs by max size), `minnodes=N` (filter graph pairs by min size).
+Key flags: `solve` (run SIP solver), `resolv` (iterative re-solve on UNSAT cores), `verif` (run VeriPB), `overwrite`, `profile`, `allgraphs`, `bfs`/`clit` (alternative trim modes).
+Timeout args: `st=N` (solver), `tt=N` (trim), `vt=N` (verif), `maxnodes=N`, `minnodes=N`.
 
-## Architecture: src/ (multi-file package)
+## Architecture
 
-The tool operates in two modes depending on how it is invoked:
+**Orchestrator mode** (no instance in ARGS, or `allgraphs`): spawns one subprocess per instance via `julia bin/trimnalyser.jl <instance>`. OOM monitor on `:interactive` thread polls `/proc` every 10s, kills trimmer subprocesses and Glasgow solver processes exceeding `maxmem=` GB. Solve/verif/resolv run in orchestrator threads with independent timeouts.
 
-**Orchestrator mode** (no instance in ARGS, or `allgraphs`): spawns one subprocess per instance via `julia bin/trimnalyser.jl <instance>`, with an OOM monitor thread watching `/proc/<pid>/status` every 10s and killing processes exceeding `maxmem=` GB.
+**Subprocess mode** (instance name in ARGS): trim-only. Writes `.smol.opb` + `.smol.pbp`, then exits. SIGTERM caught cleanly (exit 124). Output routed via `.subout` temp file to avoid interleaving.
 
-**Subprocess mode** (instance name in ARGS): trims a single proof instance, writes `.smol.opb` + `.smol.pbp` output, then exits. SIGTERM is caught cleanly (exit 124) to prevent signal corruption of `@inbounds` code during timeout.
+### Source layout
 
-Subprocess output is routed via a `.subout` temp file so it doesn't interleave with orchestrator output.
-
-### Source layout (use code folding; `end` stays on same line for short functions)
-
-| File | Lines | Contents |
-|------|-------|----------|
-| `src/TrimAnalyser.jl` | 57 | Module root, static constants, include chain, precompile workload |
-| `src/config.jl` | 73 | `Config` struct, `parse_config!`, `argflags` |
-| `src/utilities.jl` | 32 | `available_memory`, file helpers |
-| `src/types.jl` | 392 | Core structs: `FlatEqStore`, `SystemLink`, `PBSystem`, `Trail`, `Ante`, `PolScratch` |
-| `src/parser.jl` | 417 | `readopb`, `readproof`, `tokenize!` |
-| `src/pol.jl` | 263 | `PolScratch`, `solvepol_flat!` |
-| `src/trimmer.jl` | 702 | `getcone!`, `propagate_level0!`, `conflicttrail`, `ruptrail` |
-| `src/writer.jl` | 315 | `writeconedel`, `writeeq`, `writered`, `writepol` |
-| `src/solver.jl` | 204 | `runsipsolver`, `resolvecore`, `writecoreladfile` |
-| `src/output.jl` | 372 | `writeout_*`, `verify`, `printconestat`, statistics |
-| `src/pipeline.jl` | 148 | `trimnalyseandcie`, `trimnalyse`, `smol_complete` |
-| `src/orchestrator.jl` | 250 | `main()`, OOM monitor, instance enumeration |
+| File | Contents |
+|------|----------|
+| `src/TrimAnalyser.jl` | Module root, static constants, include chain, precompile workload |
+| `src/config.jl` | `Config` struct, `parse_config!`, `argflags` |
+| `src/utilities.jl` | `available_memory`, file helpers |
+| `src/types.jl` | Core structs: `FlatEqStore`, `SystemLink`, `PBSystem`, `Trail`, `Ante`, `PolScratch` |
+| `src/parser.jl` | `readopb`, `readproof`, `tokenize!` |
+| `src/pol.jl` | `PolScratch`, `solvepol_flat!` |
+| `src/trimmer.jl` | `getcone!`, `propagate_level0!`, `conflicttrail`, `ruptrail` |
+| `src/writer.jl` | `writeconedel`, `writeeq`, `writered`, `writepol` |
+| `src/solver.jl` | `runsipsolver`, `resolvecore`, `writecoreladfile` |
+| `src/output.jl` | `writeout_*`, `verify`, `printconestat`, statistics |
+| `src/pipeline.jl` | `trimnalyseandcie`, `trimnalyse`, `smol_complete` |
+| `src/orchestrator.jl` | `main()`, OOM monitor, instance enumeration |
 
 ### Key data structures
 
-**`FlatEqStore`** — CSR-like flat storage for all parsed equations. Replaces `Vector{Eq}` to eliminate millions of heap allocations. Fields: `vars/coefs/signs/rhs` (flat arrays) + `row_ptr` (offsets). Used by both parser and POL evaluator.
+**`FlatEqStore`** — CSR-like flat storage for all parsed equations. Fields: `vars/coefs/signs/rhs` (flat arrays) + `row_ptr` (offsets). Eliminates millions of heap allocations vs `Vector{Eq}`.
 
-**`SystemLink`** — CSR storage for proof step link data. `idx[i]` encodes: `k>0` → slice in flat `data[ptr[k]:ptr[k+1]-1]`; `k<0` → shared singleton constant (rule type); `k=0` → mutable `Vector{Int}` in `extra` dict (for RUP cone / RED refs). Zero allocation per step during parsing.
+**`SystemLink`** — CSR for proof step link data. `idx[i]`: `k>0` → slice in flat `data[ptr[k]:ptr[k+1]-1]`; `k<0` → shared singleton (rule type); `k=0` → mutable `Vector{Int}` in `extra` dict (RUP cone / RED refs). Zero allocation per step during parsing.
 
-**`PBSystem`** — Dual-index CSR for the constraint system. Forward index: `row_ptr/vars/coefs/signs/rhs`; inverse index: `var_ptr/var_eqs/var_lit_idx` (equations containing each variable, plus the flat literal index of that variable within each equation — eliminates the O(k) inner scan in `update_slack_on_assign!`). Also stores `initial_slack_fwd/rev`: precomputed all-unassigned slack values, used to reset `Trail` caches in O(n) per RUP step instead of O(n·k). Built once from `FlatEqStore` for the trimmer.
+**`PBSystem`** — Dual-index CSR. Forward: `row_ptr/vars/coefs/signs/rhs`; inverse: `var_ptr/var_eqs/var_lit_idx` (equations per variable + flat literal index within each — eliminates O(k) inner scan in `update_slack_on_assign!`). Stores `initial_slack_fwd/rev` for O(n) Trail reset per RUP step. Built once from `FlatEqStore`.
 
-**`PolScratch`** — Task-local scratch pool for POL evaluation. Stack-based expression evaluator that operates directly on flat arrays; pushes the final result into `FlatEqStore` without allocating any `Eq` or `Lit` structs. Retrieved via `task_local_storage(:pol_scratch)`.
+**`PolScratch`** — Task-local scratch for POL evaluation. Stack-based evaluator on flat arrays; pushes result into `FlatEqStore` without allocating. Retrieved via `task_local_storage(:pol_scratch)`.
 
-**`Trail`** — Propagation trail with `pos[]` (step index per variable) and `assi[]` (assignment: 0=unset, 1=true, 2=false) for O(1) lookup.
+**`Trail`** — Propagation trail: `pos[]` (step index per var) + `assi[]` (0=unset, 1=true, 2=false), O(1) lookup.
 
-**`Ante`** — Antecedent set: O(1) membership + O(k) iteration, used by `getcone!` to track which constraints justify each assignment.
+**`Ante`** — Antecedent set: O(1) membership + O(k) iteration, used by `getcone!`.
 
-### Parser internals
+### Parser
 
-Files are read via `Mmap.mmap` → byte array. `tokenize!` splits into `ByteSpan` tokens (contiguous views, no copies). `varmap::Dict{Vector{UInt8},Int}` enables zero-allocation lookups with `ByteSpan` keys (same hash as `Vector{UInt8}`). New variables copy their bytes once (`copy(tmp)`) and are kept permanently. `varmap_inv::Vector{String}` is built at write time (not a hot path).
+Files read via `Mmap.mmap` → byte array. `tokenize!` produces `ByteSpan` tokens (no copies). `varmap::Dict{Vector{UInt8},Int}` with `ByteSpan` keys (same hash as `Vector{UInt8}`) for zero-allocation lookups. New variables copy bytes once and are kept permanently.
 
 ### Trimming algorithm
 
-`getcone!` does backward reachability from the UNSAT contradiction, accumulating the minimal set of proof steps (*cone*) needed to justify it.
+`getcone!` does backward reachability from the UNSAT contradiction, accumulating the minimal cone of proof steps needed to justify it.
 
-**Outer loop.** `frontier` is a `BinaryMaxHeap{Int}` — steps are processed highest-index-first (backward through the proof). When a step enters the frontier, `cone[i] = true` is set immediately. Each step dispatches by rule type read from `systemlink`: POL/IA steps have explicit antecedents; RUP steps are verified by unit propagation.
+**Outer loop.** `frontier` is a `BinaryMaxHeap{Int}` — highest-index-first. Each step dispatches by rule type: POL/IA have explicit antecedents; RUP is verified by unit propagation.
 
-**RUP verification — two-queue heuristic.** `do_rup!(i)` → `ruptrail(sys, i, ...)` runs unit propagation to find a contradiction among constraints `1:i`. The key invariant: `cone` already reflects all steps marked necessary by earlier (higher-index) iterations of the outer loop. `activate!` routes each equation to `pq_prio` if `cone[eid]` is already true, or `pq_nonprio` otherwise. `ruptrail` drains `pq_prio` completely before taking one step from `pq_nonprio`. This prefers propagation from already-needed constraints, steering the conflict toward antecedents already in the cone and minimising cone growth. `cone` is **read** by `activate!` but never written inside `ruptrail` — only the outer loop writes it via `push_frontier!`.
+**RUP — two-queue heuristic.** `ruptrail` routes each equation to `pq_prio` if `cone[eid]` is already true, `pq_nonprio` otherwise, and drains `pq_prio` completely before taking one step from `pq_nonprio`. This steers conflict toward already-needed constraints, minimising cone growth. `cone` is read by `activate!` but never written inside `ruptrail` — only the outer loop writes it via `push_frontier!`.
 
-**Conflict analysis — `conflicttrail`.** When a constraint is falsified (slack < 0), `conflicttrail` explains why. It is PB-specific, not CDCL: the slack value determines the minimum coefficient-sum of falsified literals that must be explained. Literals are iterated in order controlled by `_arrange_falsified_lits!(lits, mode)` until enough coefficient is accumulated to account for the violation. Each explained literal recurses to its own reason constraint. `Grim` mode sorts by proof index; `Clit` mode filters to essential and already-cone literals first to further minimise cone growth.
+**Conflict analysis — `conflicttrail`.** PB-specific (not CDCL): slack value determines minimum coefficient-sum of falsified literals to explain. `Grim` sorts by proof index; `Clit` filters to essential/already-cone literals first.
 
 **Full heuristic chain (do not break any link):**
 outer traversal → `cone` accumulation → `activate!` routing → `pq_prio`/`pq_nonprio` ordering → first conflict found → `conflicttrail(mode)` → antecedents added to cone
 
-**`propagate!` vs `ruptrail`.** The initial UNSAT contradiction is found once by `propagate!`, which uses a simpler linear forward scan with a flat `que` bitset and hardcodes `Grim`. This is correct because `cone` is nearly empty at that point (only `firstcontradiction` set), so the two-queue priority distinction is trivial. If `propagate!` is ever called with a non-empty cone it should be unified with `ruptrail`.
+**`propagate!` vs `ruptrail`.** Initial UNSAT contradiction found once by `propagate!` (simpler linear scan, hardcodes `Grim`). Correct because cone is nearly empty at that point. If ever called with non-empty cone, unify with `ruptrail`.
 
 ### Resolv loop
 
-`resolvecore` (`src/solver.jl`) iterates: extract UNSAT core → write reduced LAD graph → re-run Glasgow solver → trim new proof. Stops when the pattern graph no longer shrinks or a fixpoint is reached. Core graphs are written as `.lad` files; UNSAT core output is `.smol.opb`/`.smol.pbp`.
+`resolvecore` iterates: extract UNSAT core → write reduced LAD → re-run Glasgow solver → trim new proof. Stops at fixpoint or solver failure. Core LADs written to `vis/`; outputs are `.smol.opb`/`.smol.pbp`.
 
 ## Output files
 
-- `<instance>.smol.opb` — trimmed constraint file
-- `<instance>.smol.pbp` — trimmed proof file
-- `<instance>.out` / `<instance>.err` — per-instance stdout/stderr logs (parsed by `scripts/aggregate_results.jl`)
-- `cluster_results.csv` — aggregated metrics (60+ columns) from all `.out` files
+- `<instance>.smol.opb` / `.smol.pbp` — trimmed constraint + proof
+- `<instance>.out` / `.err` — per-instance logs (parsed by `aggregate_results.jl`)
+- `cluster_results.csv` — aggregated metrics (~100 columns) from all `.out` files
+
+## Known Design Flaws
+
+**`run_instance_full` / `run_instance_batch` duplication.** Both implement solve→check→trim→verify→resolv with different subprocess handling for the trim step. Any fix must be mirrored in both. Should be unified with a strategy parameter.
+
+**Global `_cfg[]`.** Every function reads global mutable config implicitly. Makes the call graph opaque and prevents unit-testing of individual stages.
+
+**Internal stdout tee pipe.** `main()` redirects stdout into a Julia pipe with a tee task writing to `output.log`. Fragile: tee task crash (e.g. disk full) breaks the pipe, which propagates to worker threads. Shell-level `tee` would be simpler and more robust.
+
+**Progress `printstyled` outside `@threads` try-catch** (`orchestrator.jl:609–616`). An IO error there escapes the thread loop and crashes the orchestrator while subprocesses are still running.
+
+**OOM monitor matching logic.** Now branches on two process types (trimmer vs solver) with different instance-name extraction. Needs a registered table of `(binary_name, extractor)` pairs if more process types are added.
