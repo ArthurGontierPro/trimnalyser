@@ -41,8 +41,10 @@
         if !_cfg[].overwrite && smol_complete(ins)
             printstyled("  $ins already done — skipping\n"; color=:blue); return
         end
-        # SAT is a permanent result — not bypassed by overwrite
+        # SAT is a permanent result — not bypassed by overwrite; clean up any leftover proof files
         if isfile(_cfg[].proofs * ins * ".sat")
+            tryrm(_cfg[].proofs * ins * pbp)
+            tryrm(_cfg[].proofs * ins * opb)
             printstyled("  $ins SAT (cached) — skipping\n"; color=:yellow); return
         end
         # previously timed out at timeout >= current st (bypassed by overwrite)
@@ -71,6 +73,8 @@
                     out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
                     if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
                         touch(_cfg[].proofs * ins * ".sat")
+                        tryrm(_cfg[].proofs * ins * pbp)
+                        tryrm(_cfg[].proofs * ins * opb)
                         printstyled("  $ins SAT — skipping\n"; color=:yellow)
                     elseif timed_out
                         touch(_cfg[].proofs * ins * ".timeout$(_cfg[].solvertimeout)")
@@ -88,6 +92,8 @@
         let c = pbpconclusion(ins)
             if c == "SAT" || c == "NONE"
                 touch(_cfg[].proofs * ins * ".sat")
+                tryrm(_cfg[].proofs * ins * pbp)
+                tryrm(_cfg[].proofs * ins * opb)
                 printstyled("  $ins $c — skipping\n"; color=:yellow); return
             end
             if isempty(c)
