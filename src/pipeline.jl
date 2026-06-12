@@ -75,7 +75,7 @@
             parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
             printabline2(ins,parse_time,trim_time,write_time,cone_stats)
         end
-        if !_cfg[].keepraw
+        if !_cfg[].keepraw && !_cfg[].subprocess
             tryrm(_cfg[].proofs * ins * pbp)
             tryrm(_cfg[].proofs * ins * opb)
         end

@@ -339,6 +339,10 @@
         smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
         writeout_verif(ins, smol_verif_time, full_verif_time)
         printverif(ins, smol_verif_time, full_verif_time)
+        if !_cfg[].keepraw
+            tryrm(_cfg[].proofs * ins * pbp)
+            tryrm(_cfg[].proofs * ins * opb)
+        end
         grim_verif_ok = _cfg[].verif && verif_ok(ins)
         if !_cfg[].keepraw && grim_verif_ok
             tryrm(_cfg[].proofs * ins * smol_pbp)

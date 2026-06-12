@@ -503,7 +503,7 @@
             trunc(Int,t)
         end
         smol_verif_time = run_verif(ins2*smol_opb, ins2*smol_pbp, "smol")
-        full_verif_time = _cfg[].keepraw ? run_verif(ins2*opb, ins2*pbp, "full") : -1
+        full_verif_time = (isfile(ins2*opb) && isfile(ins2*pbp)) ? run_verif(ins2*opb, ins2*pbp, "full") : -1
         return smol_verif_time, full_verif_time end
 
     function verif_ok(ins)
@@ -516,6 +516,12 @@
             s = read(io, String)
             occursin("VERIFIED", s) && !occursin("NOT VERIFIED", s)
         end end
+
+    function full_verif_ok(ins)
+        outfile = _cfg[].proofs * ins * ".out"
+        isfile(outfile) || return false
+        s = read(outfile, String)
+        occursin("veri full VERIFIED", s) && !occursin("veri full NOT VERIFIED", s) end
 
     printgray(s)  = printstyled(s, color=:light_black)
     printyellow(s)= printstyled(s, color=:yellow)
@@ -535,7 +541,10 @@
         smol_verif_time >= 0 || return
         ok = verif_ok(ins)
         printstyled("  $ins smol veri $(smol_verif_time)s $(ok ? "VERIFIED" : "FAILED")\n"; color = ok ? :green : :red)
-        full_verif_time >= 0 && printstyled("  $ins full veri $(full_verif_time)s\n"; color=:cyan) end
+        if full_verif_time >= 0
+            fok = full_verif_ok(ins)
+            printstyled("  $ins full veri $(full_verif_time)s $(fok ? "VERIFIED" : "FAILED")\n"; color = fok ? :green : :red)
+        end end
 
     function printabline(f)
         par() && return  # parallel: skip placeholder, full line printed atomically in printabline2
