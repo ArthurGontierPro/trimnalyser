@@ -254,13 +254,15 @@
                 run_trim_subprocess(core_ins, subargs, script)
                 smol_verif_time,full_verif_time = _cfg[].verif ? verify(core_ins) : (-1,-1)
                 writeout_verif(core_ins, smol_verif_time, full_verif_time)
+                printverif(core_ins, smol_verif_time, full_verif_time)
             else
                 printabline(core_ins)
                 parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
                 smol_verif_time,full_verif_time = _cfg[].verif ? verify(core_ins) : (-1,-1)
-                printabline2(core_ins, parse_time, trim_time, write_time, smol_verif_time, full_verif_time, cone_stats)
+                printabline2(core_ins, parse_time, trim_time, write_time, cone_stats)
                 !isempty(coremsg) && println(coremsg)
                 writeout_verif(core_ins, smol_verif_time, full_verif_time)
+                printverif(core_ins, smol_verif_time, full_verif_time)
             end
             if !_cfg[].keepraw
                 tryrm(_cfg[].proofs * core_ins * pbp)
@@ -336,13 +338,14 @@
         run_trim_subprocess(ins, subargs, script)
         smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
         writeout_verif(ins, smol_verif_time, full_verif_time)
+        printverif(ins, smol_verif_time, full_verif_time)
         grim_verif_ok = _cfg[].verif && verif_ok(ins)
         if !_cfg[].keepraw && grim_verif_ok
             tryrm(_cfg[].proofs * ins * smol_pbp)
             tryrm(_cfg[].proofs * ins * smol_opb)
             touch(_cfg[].proofs * ins * ".done")
         end
-        _cfg[].resolv && run_resolv_loop(ins, true, subargs, script) end
+        _cfg[].resolv && smol_complete(ins) && run_resolv_loop(ins, true, subargs, script) end
 
     function run_instance_full(ins)
         if !_cfg[].overwrite && smol_complete(ins)
@@ -419,9 +422,10 @@
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
             smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
-            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            printabline2(ins,parse_time,trim_time,write_time,cone_stats)
             !isempty(coremsg) && println(coremsg)
             writeout_verif(ins,smol_verif_time,full_verif_time)
+            printverif(ins, smol_verif_time, full_verif_time)
             grim_verif_ok = _cfg[].verif && verif_ok(ins)
             _cfg[].resolv && run_resolv_loop(ins, false)
         end
@@ -429,8 +433,9 @@
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
             smol_verif_time,full_verif_time = _cfg[].verif ? verify(ins) : (-1,-1)
-            printabline2(ins,parse_time,trim_time,write_time,smol_verif_time,full_verif_time,cone_stats)
+            printabline2(ins,parse_time,trim_time,write_time,cone_stats)
             writeout_verif(ins,smol_verif_time,full_verif_time)
+            printverif(ins, smol_verif_time, full_verif_time)
         end
         if !_cfg[].keepraw && grim_verif_ok
             tryrm(_cfg[].proofs * ins * pbp)

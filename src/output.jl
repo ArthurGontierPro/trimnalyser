@@ -531,34 +531,38 @@
         # (would interleave), or a single-threaded subprocess handling one instance in a batch run.
     par() = Threads.nthreads() > 1 || _cfg[].inst !== nothing
 
+    function printverif(ins, smol_verif_time, full_verif_time)
+        smol_verif_time >= 0 || return
+        ok = verif_ok(ins)
+        printstyled("  $ins smol veri $(smol_verif_time)s $(ok ? "VERIFIED" : "FAILED")\n"; color = ok ? :green : :red)
+        full_verif_time >= 0 && printstyled("  $ins full veri $(full_verif_time)s\n"; color=:cyan) end
+
     function printabline(f)
         par() && return  # parallel: skip placeholder, full line printed atomically in printabline2
-        printgray("         &          &          &          &      (                   ) &      & ")
+        printgray("         &          &          &          &      (            ) & ")
         printyellow(f)
         printgray(" \\\\\\hline")
         printcyan(leftcarriage(9, prettybytes(filesize(_cfg[].proofs*f*opb))))
         printcyan(leftcarriage(20,prettybytes(filesize(_cfg[].proofs*f*pbp)))) end
 
-    function printabline2(f, parse_time, trim_time, write_time, smol_verif_time, full_verif_time, cone_stats=nothing)
+    function printabline2(f, parse_time, trim_time, write_time, cone_stats=nothing)
         if par()
             pb(file) = isfile(file) ? prettybytes(filesize(file)) : "?"
             cone_s = cone_stats !== nothing ? " $(cone_stats.lits_smol)/$(cone_stats.lits_cone) $(cone_stats.vars_used)/$(cone_stats.vars_total)" : ""
             println(rpad(pb(_cfg[].proofs*f*opb),8),           " & ", rpad(pb(_cfg[].proofs*f*pbp),9),
                     " & ", rpad(pb(_cfg[].proofs*f*smol_opb),9)," & ", rpad(pb(_cfg[].proofs*f*smol_pbp),9),
-                    " & ", rpad(parse_time+trim_time+write_time+max(0,smol_verif_time),5),
-                    " (", rpad(parse_time,4), rpad(trim_time,4), rpad(write_time,4), rpad(smol_verif_time,5), ")",
-                    " & ", rpad(full_verif_time,5), " & ", f, " \\\\\\hline%", cone_s)
+                    " & ", rpad(parse_time+trim_time+write_time,5),
+                    " (", rpad(parse_time,4), rpad(trim_time,4), rpad(write_time,4), ")",
+                    " & ", f, " \\\\\\hline%", cone_s)
             flush(stdout)
             return
         end
         printgreen(leftcarriage(31,prettybytes(filesize(_cfg[].proofs*f*smol_opb))))
         printgreen(leftcarriage(42,prettybytes(filesize(_cfg[].proofs*f*smol_pbp))))
-        printgreen(leftcarriage(49,string(parse_time+trim_time+write_time+max(0,smol_verif_time))))
+        printgreen(leftcarriage(49,string(parse_time+trim_time+write_time)))
         printblue(leftcarriage(54,string(parse_time)))
         printgreen(leftcarriage(59,string(trim_time)))
         printblue(leftcarriage(64,string(write_time)))
-        printcyan(leftcarriage(69,string(smol_verif_time)))
-        printcyan(leftcarriage(78,string(full_verif_time)))
         println() end
 
     function printconestat(cone, cone_stats)

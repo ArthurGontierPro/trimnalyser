@@ -67,13 +67,13 @@
         if !_cfg[].nonorm
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
-            printabline2(ins,parse_time,trim_time,write_time,-1,-1,cone_stats)
+            printabline2(ins,parse_time,trim_time,write_time,cone_stats)
             !isempty(coremsg) && println(coremsg)
         end
         if _cfg[].clit
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
-            printabline2(ins,parse_time,trim_time,write_time,-1,-1,cone_stats)
+            printabline2(ins,parse_time,trim_time,write_time,cone_stats)
         end
         if !_cfg[].keepraw
             tryrm(_cfg[].proofs * ins * pbp)
