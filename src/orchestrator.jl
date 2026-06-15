@@ -153,26 +153,6 @@
             end
         end
 
-        # si: si/<group>/<instance>/pattern + .../target (three-level nesting)
-        # Instance names encode as si__<group>__<inst> (double-underscore separator;
-        # group and instance names only contain single underscores so this is unambiguous)
-        let dir = SIPgraphpath * "si/"
-            if isdir(dir)
-                for group in sort!(filter(d -> isdir(dir*d), readdir(dir)))
-                    gpath = dir * group * "/"
-                    for inst in sort!(filter(d -> isdir(gpath*d), readdir(gpath)))
-                        ipath = gpath * inst * "/"
-                        pat = ipath * "pattern"; tar = ipath * "target"
-                        isfile(pat) && isfile(tar) || continue
-                        np = ladnodes(pat); nt = ladnodes(tar)
-                        (np === nothing || nt === nothing) && continue
-                        (np > _cfg[].maxnodes || nt > _cfg[].maxnodes || np < _cfg[].minnodes || nt < _cfg[].minnodes) && continue
-                        np <= nt && push!(list, "si__$(group)__$(inst)")
-                    end
-                end
-            end
-        end
-
         _cfg[].rand && _shuffle!(list)
         println("%Generated ", length(list), " instances from benchmark graphs (minnodes=", _cfg[].minnodes, " maxnodes=", _cfg[].maxnodes, ")")
         return list end

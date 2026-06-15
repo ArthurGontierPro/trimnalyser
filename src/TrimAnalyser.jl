@@ -8,7 +8,7 @@ module TrimAnalyser
 using DataStructures, Mmap
 
 # ── Static constants (cluster detection, paths) ──────────────────────────────
-const instance_prefixes = ("LV", "bio", "cviu11", "pr15", "mesh11", "ph_", "sf_", "si__")
+const instance_prefixes = ("LV", "bio", "cviu11", "pr15", "mesh11", "ph_", "sf_")
 const is_instance_name(x) = any(startswith(x, p) for p in instance_prefixes)
 
 const opb = ".opb"
