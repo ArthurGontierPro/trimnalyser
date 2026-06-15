@@ -464,6 +464,7 @@ function aggregate_results(proofdir::String, output_csv::String)
             # Verification
             push!(row, get(data, "veri_smol_time", ""))
             push!(row, get(data, "veri_total_time", ""))
+            push!(row, haskey(data, "veri_smol_verified") ? data["veri_smol_verified"] : "")
             # Get verification file sizes from actual smol files
             veri_opb, veri_pbp, veri_total = get_verification_sizes(proofdir, instance)
             push!(row, veri_opb !== nothing ? veri_opb : "")

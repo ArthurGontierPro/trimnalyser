@@ -245,6 +245,20 @@ function main()
             max_pat_sh  = let ps = filter(x -> x > 0, nonnull(sub, "resolv_pat_shrinkage"))
                               isempty(ps) ? NaN : maximum(ps)
                           end,
+            # M3.5: cone width
+            med_width_max  = med(nonnull(sub, "grim_cone_width_max")),
+            med_width_cv   = med(nonnull(sub, "grim_cone_width_cv")),
+            med_lit_weak   = med(nonnull(sub, "grim_literal_weakening_rate")),
+            # M3.5: POL step structure
+            med_pol_depth_mean     = med(nonnull(sub, "grim_pol_depth_mean")),
+            med_pol_depth_cv       = med(nonnull(sub, "grim_pol_depth_cv")),
+            med_pol_depth_frac_bot = med(nonnull(sub, "grim_pol_depth_frac_bot")),
+            med_pol_depth_frac_top = med(nonnull(sub, "grim_pol_depth_frac_top")),
+            med_pol_ante_mean      = med(nonnull(sub, "grim_pol_ante_mean")),
+            med_pol_ante_max       = med(nonnull(sub, "grim_pol_ante_max")),
+            med_pol_opb_frac       = med(nonnull(sub, "grim_pol_opb_frac")),
+            # M3.5.3: branching heuristic — unique pattern nodes in OPB cone
+            med_uniq_pat = med(nonnull(sub, "grim_cone_uniq_pat")),
             # M3.5: CP constraint provenance — fraction of OPB cone per label category
             ls_al1     = lbl_frac_stats(sub, "grim_cone_al1",     "grim_opb_cone"),
             ls_am1     = lbl_frac_stats(sub, "grim_cone_am1",     "grim_opb_cone"),
@@ -365,11 +379,14 @@ function main()
 
     # ── Section 3: Proof shape ────────────────────────────────────────────────
     sh_rows = [[f, fd(f).n, fmtf(fd(f).med_entropy, 3), fmtf(fd(f).med_botfrac, 3),
-                fmtf(fd(f).med_p50, 1), fmtf(fd(f).med_p90, 1), fmtpct(fd(f).burst_pct)]
+                fmtf(fd(f).med_p50, 1), fmtf(fd(f).med_p90, 1),
+                fmtf(fd(f).med_width_max, 0), fmtf(fd(f).med_width_cv, 3),
+                fmtf(fd(f).med_lit_weak, 4), fmtpct(fd(f).burst_pct)]
                for f in present]
     sh_html = html_table(
         ["Family", "n", "median entropy", "median bottom_frac", "median depth p50",
-         "median depth p90", "POL-burst %"],
+         "median depth p90", "median width_max", "median width_cv",
+         "median lit_weak_rate", "POL-burst %"],
         sh_rows)
 
     # ── Section 4: Resolv shrinkage ───────────────────────────────────────────
@@ -574,6 +591,22 @@ function main()
     </script>
     """
 
+    # ── Section 12: POL step structure ───────────────────────────────────────────
+    pol_rows = [[f, fd(f).n,
+                 fmtf(fd(f).med_pol_depth_mean, 2), fmtf(fd(f).med_pol_depth_cv, 3),
+                 fmtpct(fd(f).med_pol_depth_frac_bot), fmtpct(fd(f).med_pol_depth_frac_top),
+                 fmtf(fd(f).med_pol_ante_mean, 2), fmtf(fd(f).med_pol_ante_max, 0),
+                 fmtpct(fd(f).med_pol_opb_frac)] for f in present]
+    pol_html = html_table(
+        ["Family", "n", "pol_depth_mean", "pol_depth_cv",
+         "pol_frac_bot", "pol_frac_top",
+         "pol_ante_mean", "pol_ante_max", "pol_opb_frac"],
+        pol_rows)
+
+    # ── Section 13: Branching heuristic — unique pattern nodes in OPB cone ───────
+    uniq_rows = [[f, fd(f).n, fmtf(fd(f).med_uniq_pat, 0)] for f in present]
+    uniq_html = html_table(["Family", "n", "median uniq_pat"], uniq_rows)
+
     # ── Section 11: Label coverage check ─────────────────────────────────────────
     cov_rows = [[f, fd(f).n, fd(f).n_with_labels,
                  fd(f).n_with_labels == 0 ? "no data" :
@@ -689,6 +722,21 @@ function main()
     <em>unlabeled</em> = OPB constraints in the cone with no matching label — should be 0 if
     the label taxonomy is complete. ⚠ warnings require investigation.</p>
     $cov_html
+
+    <h2>12 — POL Step Structure</h2>
+    <p class="note">All values are medians across proof instances in each family.<br>
+    <em>pol_depth_mean</em>: mean depth of POL steps in the cone (relative to proof depth).
+    <em>pol_depth_cv</em>: coefficient of variation of POL step depths — high = POL steps scattered across many levels.
+    <em>pol_frac_bot/top</em>: fraction of POL steps at the bottom (depth ≤ 2) / top (depth ≥ depth_max−1) of the cone.
+    <em>pol_ante_mean/max</em>: antecedent count per POL step (how many prior steps each POL combines).
+    <em>pol_opb_frac</em>: fraction of POL antecedents that are OPB axioms (vs derived PBP steps).</p>
+    $pol_html
+
+    <h2>13 — Branching Heuristic: Unique Pattern Nodes in OPB Cone (M3.5.3)</h2>
+    <p class="note"><em>uniq_pat</em> = number of distinct pattern graph vertices appearing in the OPB axioms
+    kept in the cone. A smaller value means fewer pattern nodes are proof-critical — strong signal for
+    branching order prioritisation. Written per-instance to <code>.var_order</code>.</p>
+    $uniq_html
     </body>
     </html>
     """

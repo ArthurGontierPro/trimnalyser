@@ -30,6 +30,24 @@ Verif and resolv moved into orchestrator threads with independent `st`/`tt`/`vt`
 
 **Goal:** Characterise which graph families and structural properties predict proof difficulty and solver behaviour.
 
+### Family feasibility — SAT vs UNSAT by construction
+
+Source: Solnon 2019 (GBR), Table 2. All counts are non-induced SI instances.
+
+| newSIP family | Paper class | SAT | UNSAT | Notes |
+|---|---|---|---|---|
+| `si` (bvg, m4D, rand) | randBVG + randM + randER | 1,170 | **0** | Pattern extracted from target — always SAT by construction |
+| `scalefree` | randSF | 80 | 20 | ~80% SAT by construction; 20 instances not guaranteed |
+| `phase` | randERP | 164 | 36 | Near phase transition — mixed, hard by design |
+| `LV` | LV | 596 | 3,235 | Mostly UNSAT |
+| `bio` | biochemical | mixed | mixed | Both SAT and UNSAT |
+| `images-CVIU11` / `images-PR15` | images | 52 | 6,250 | Overwhelmingly UNSAT |
+| `meshes-CVIU11` | meshes | 88 | 2,930 | Overwhelmingly UNSAT |
+
+**`si` is the only family that can never produce UNSAT proofs.** It must be excluded from all cone/resolv analysis. The cluster run still collects solver timing and node counts for `si` (SAT difficulty is a separate question), but no proof features will ever be populated.
+
+`scalefree` has 20 UNSAT instances; depending on how many complete within timeout, it may contribute limited proof data.
+
 ### First pass — manual analysis (LV, bio, images-CVIU11, meshes-CVIU11)
 
 Full write-up in `paper/notes.tex` (§3 families, §4 fingerprints, §5 drivers, §6 heuristic implications, §7 open questions).
@@ -60,7 +78,8 @@ Targets medium-hard instances across all families. First run with M3.5 labels ac
 ### Open questions (`notes.tex §7`)
 
 - **Two-axis classifier:** `cone_depth_entropy × pol_frac` as primary family discriminants (more robust than `ia_frac` which may be removed in future proof formats).
-- **Images-CVIU11 coverage:** only ~17% of instances have cone data — determine SAT/timeout/memout split.
+- **Images-CVIU11 coverage:** only ~17% of instances have cone data — determine timeout/memout split (UNSAT instances are the majority, so SAT is not the explanation).
+- **Scalefree proof coverage:** 20 UNSAT instances exist; determine how many complete within timeout and whether they yield enough cone data for fingerprinting.
 - **Intra-family scaling:** proof size as O(|V(P)|), O(|V(T)|), or O(|V(P)|·|V(T)|)?
 - **Intra-LV sub-fingerprinting:** `pat_deg_var` and `pat_is_bipartite` as stratification axes.
 
