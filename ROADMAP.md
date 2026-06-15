@@ -118,20 +118,28 @@ Tools: `scripts/proof_survey.jl` HTML report + `paper/notes.tex` for written ana
 
 ### M3.5.1 — Complete label coverage in `proof.cc` ✅
 
-Unified label taxonomy. OPB (static model constraints):
-- `@al1<p>` — at-least-one domain constraint per pattern vertex p (pre-existing)
-- `@am1<p>` — at-most-one domain constraint per pattern vertex p (pre-existing)
-- `@inj<t>` — injectivity constraint per target vertex t (pre-existing)
-- `@g0adj<p>_<t>_<q>` — base adjacency constraint (changed from `@adj`)
-- `@forb<p>_<t>` — pre-search forbidden assignment (new)
+#### Label taxonomy
 
-PBP (derived level-0 constraints):
-- `@g<k>adj<p>_<t>_<q>` — supplemental graph k adjacency, k≥1 (unified: `@d3adj` → `@g<k>adj`)
-- `@elim<p>_<t>` — degree/NDS elimination constraint (new; was anonymous RUP at level 0)
+| Label | Location | CP construct | Notes |
+|---|---|---|---|
+| `@al1<p>` | OPB | At-least-one domain (pattern vertex p must map somewhere) | static |
+| `@am1<p>` | OPB | At-most-one domain (p maps to at most one target) | static |
+| `@inj<t>` | OPB | Injectivity (at most one pattern vertex maps to target t) | static |
+| `@g0adj<p>_<t>_<q>` | OPB | Base adjacency: if p→t then neighbor p→neighbor t | static; renamed from `@adj` |
+| `@forb<p>_<t>` | OPB | Pre-search forbidden assignment (domain pruned before search) | level-0 |
+| `@g<k>adj<p>_<t>_<q>` | PBP | Supplemental graph k≥1 adjacency constraint | level-0; unified from `@d3adj` |
+| `@elimdeg<p>_<t>` | PBP | Degree-incompatibility elimination (incompatible_by_degrees) | level-0; labeled only on first derivation |
+| `@elimnds<p>_<t>` | PBP | NDS-incompatibility elimination (need_elimination / incompatible_by_nds) | level-0 |
+| `@loop<p>_<t>` | PBP | Loop-incompatibility (p has loop, t does not, or vice versa) | level-0 |
 
-**Key motivation for supplemental graph unification:** `@g0adj` vs `@g1adj` vs `@g2adj` etc. in the cone tells us directly which supplemental graph depths are proof-critical, informing which Glasgow `--supplementals` flags matter per family.
+**Categories by depth in cone:**
+- **OPB cone leaves** — the static model: `al1`, `am1`, `inj`, `g0adj`, `forb`. Always at depth 0 by definition.
+- **Level-0 PBP derived constraints** — Glasgow preprocessing: `g<k>adj` (supplemental graphs), `elimdeg`, `elimnds`, `loop`. Written once before search; appear as level-0 leaves in cone.
+- **Search-level PBP** — backtracking RUPs and domain-propagation POL/IA chains. Unlabeled (intentional): the cone traversal already reaches the labeled level-0 anchors via backward reachability; labeling intermediate search steps would be redundant for CP-level analysis and would inflate proof size. Retained as future work if propagator-level granularity is needed.
 
-**Note on search-step labels:** RUPs generated during search are deliberately NOT labeled. The cone traversal already handles backward reachability to labeled leaves; labeling search steps would be redundant for the CP-level analysis and would inflate proof size. Retained as future work if finer propagator-level analysis is needed.
+**Key motivation for supplemental graph per-level breakdown:** `@g0adj` vs `@g1adj` vs `@g2adj` etc. in the cone directly measures which supplemental graph depths are proof-critical per family. This informs which Glasgow `--supplementals` levels to disable without losing proof quality — a potential speedup knob for each family cluster.
+
+**Guard on `@elimdeg` / `@elimnds`:** Labels are emitted only when the (p,t) pair is NOT already in `_imp->eliminations` (i.e., first derivation only). If the same pair is later derived again via a different path (degree after NDS or vice versa), the second IA step is anonymous — but this is harmless since the cone references only the first elimination by line number.
 
 ### M3.5.2 — Cone label analysis in trimmer ✅
 
@@ -141,13 +149,19 @@ grim CONE LABEL AL1 <n>
 grim CONE LABEL AM1 <n>
 grim CONE LABEL INJ <n>
 grim CONE LABEL G0ADJ <n>
-grim CONE LABEL GADJ <n>     # supplemental adjacency (all k≥1 levels combined)
+grim CONE LABEL G1ADJ <n>
+grim CONE LABEL G2ADJ <n>
+grim CONE LABEL G3ADJ <n>
 grim CONE LABEL FORB <n>
-grim CONE LABEL ELIM <n>
-grim CONE UNLABELED <n>      # should be ~0 after M3.5.1
+grim CONE LABEL ELIMNDS <n>
+grim CONE LABEL ELIMDEG <n>
+grim CONE LABEL LOOP <n>     # only if > 0
+grim CONE UNLABELED <n>      # only if > 0; should be ~0 after M3.5.1
 ```
 
-New CSV columns: `grim_cone_al1`, `grim_cone_am1`, `grim_cone_inj`, `grim_cone_g0adj`, `grim_cone_gadj`, `grim_cone_forb`, `grim_cone_elim`, `grim_cone_unlabeled` (counts), plus derived fractions `grim_cone_frac_inj`, `grim_cone_frac_g0adj`, `grim_cone_frac_gadj`, `grim_cone_frac_forb`, `grim_cone_frac_elim`.
+New CSV columns (counts): `grim_cone_al1`, `grim_cone_am1`, `grim_cone_inj`, `grim_cone_g0adj`, `grim_cone_g1adj`, `grim_cone_g2adj`, `grim_cone_g3adj`, `grim_cone_forb`, `grim_cone_elimnds`, `grim_cone_elimdeg`, `grim_cone_loop`, `grim_cone_unlabeled`.
+
+Derived fractions (denominator = `grim_opb_cone`): `grim_cone_frac_inj`, `grim_cone_frac_g0adj`, `grim_cone_frac_g1adj`, `grim_cone_frac_g2adj`, `grim_cone_frac_g3adj`, `grim_cone_frac_forb`, `grim_cone_frac_elimnds`, `grim_cone_frac_elimdeg`.
 
 ### M3.5.3 — Branching heuristic sidecar ✅
 

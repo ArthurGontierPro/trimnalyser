@@ -828,52 +828,71 @@
 # ══ M3.5: CP constraint provenance ════════════════════════════════════════════════════════
 
     function classify_label(label::String)
-        startswith(label, "al1")    && return :al1
-        startswith(label, "am1")    && return :am1
-        startswith(label, "inj")    && return :inj
-        startswith(label, "forb")   && return :forb
-        startswith(label, "elim")   && return :elim
-        startswith(label, "noedge") && return :noedge
-        startswith(label, "g0adj")  && return :g0adj
-        startswith(label, "g") && occursin("adj", label) && return :gadj
-        startswith(label, "d3adj")  && return :gadj   # legacy label (before M3.5.1 proof.cc change)
+        startswith(label, "al1")      && return :al1
+        startswith(label, "am1")      && return :am1
+        startswith(label, "inj")      && return :inj
+        startswith(label, "forb")     && return :forb
+        startswith(label, "elimnds")  && return :elimnds
+        startswith(label, "elimdeg")  && return :elimdeg
+        startswith(label, "elim")     && return :elimnds   # legacy: @elim before M3.5 rename
+        startswith(label, "loop")     && return :loop
+        startswith(label, "noedge")   && return :noedge
+        startswith(label, "g0adj")    && return :g0adj
+        startswith(label, "g1adj")    && return :g1adj
+        startswith(label, "g2adj")    && return :g2adj
+        startswith(label, "g3adj")    && return :g3adj
+        startswith(label, "d3adj")    && return :g3adj     # legacy (before M3.5.1)
+        startswith(label, "g") && occursin("adj", label) && return :gadj_other
         return :other
     end
 
     function cone_label_stats(cone::Vector{Bool}, ctrmap::Dict{String,Int}, nbopb::Int)
-        n_al1 = n_am1 = n_inj = n_g0adj = n_gadj = n_forb = n_elim = n_noedge = n_other = 0
+        n_al1 = n_am1 = n_inj = n_g0adj = n_g1adj = n_g2adj = n_g3adj = n_gadj_other = 0
+        n_forb = n_elimnds = n_elimdeg = n_loop = n_noedge = n_other = 0
         labeled_opb_ids = Set{Int}()
         for (label, id) in ctrmap
             id > length(cone) && continue
             cone[id] || continue
             cat = classify_label(label)
             id <= nbopb && push!(labeled_opb_ids, id)
-            if     cat == :al1;    n_al1    += 1
-            elseif cat == :am1;    n_am1    += 1
-            elseif cat == :inj;    n_inj    += 1
-            elseif cat == :g0adj;  n_g0adj  += 1
-            elseif cat == :gadj;   n_gadj   += 1
-            elseif cat == :forb;   n_forb   += 1
-            elseif cat == :elim;   n_elim   += 1
-            elseif cat == :noedge; n_noedge += 1
-            else                   n_other  += 1
+            if     cat == :al1;        n_al1        += 1
+            elseif cat == :am1;        n_am1        += 1
+            elseif cat == :inj;        n_inj        += 1
+            elseif cat == :g0adj;      n_g0adj      += 1
+            elseif cat == :g1adj;      n_g1adj      += 1
+            elseif cat == :g2adj;      n_g2adj      += 1
+            elseif cat == :g3adj;      n_g3adj      += 1
+            elseif cat == :gadj_other; n_gadj_other += 1
+            elseif cat == :forb;       n_forb       += 1
+            elseif cat == :elimnds;    n_elimnds    += 1
+            elseif cat == :elimdeg;    n_elimdeg    += 1
+            elseif cat == :loop;       n_loop       += 1
+            elseif cat == :noedge;     n_noedge     += 1
+            else                       n_other      += 1
             end
         end
         n_unlabeled = sum(cone[1:nbopb]) - length(labeled_opb_ids)
-        (al1=n_al1, am1=n_am1, inj=n_inj, g0adj=n_g0adj, gadj=n_gadj,
-         forb=n_forb, elim=n_elim, noedge=n_noedge, other=n_other, unlabeled=n_unlabeled)
+        (al1=n_al1, am1=n_am1, inj=n_inj, g0adj=n_g0adj,
+         g1adj=n_g1adj, g2adj=n_g2adj, g3adj=n_g3adj, gadj_other=n_gadj_other,
+         forb=n_forb, elimnds=n_elimnds, elimdeg=n_elimdeg,
+         loop=n_loop, noedge=n_noedge, other=n_other, unlabeled=n_unlabeled)
     end
 
     function writeout_cone_labels(ins, stats, prefix)
         open(_cfg[].proofs * ins * ".out", "a") do f
-            println(f, prefix, " CONE LABEL AL1 ",   stats.al1)
-            println(f, prefix, " CONE LABEL AM1 ",   stats.am1)
-            println(f, prefix, " CONE LABEL INJ ",   stats.inj)
-            println(f, prefix, " CONE LABEL G0ADJ ", stats.g0adj)
-            println(f, prefix, " CONE LABEL GADJ ",  stats.gadj)
-            println(f, prefix, " CONE LABEL FORB ",  stats.forb)
-            println(f, prefix, " CONE LABEL ELIM ",  stats.elim)
-            stats.unlabeled > 0 && println(f, prefix, " CONE UNLABELED ", stats.unlabeled)
+            println(f, prefix, " CONE LABEL AL1 ",     stats.al1)
+            println(f, prefix, " CONE LABEL AM1 ",     stats.am1)
+            println(f, prefix, " CONE LABEL INJ ",     stats.inj)
+            println(f, prefix, " CONE LABEL G0ADJ ",   stats.g0adj)
+            println(f, prefix, " CONE LABEL G1ADJ ",   stats.g1adj)
+            println(f, prefix, " CONE LABEL G2ADJ ",   stats.g2adj)
+            println(f, prefix, " CONE LABEL G3ADJ ",   stats.g3adj)
+            stats.gadj_other > 0 && println(f, prefix, " CONE LABEL GADJ_OTHER ", stats.gadj_other)
+            println(f, prefix, " CONE LABEL FORB ",    stats.forb)
+            println(f, prefix, " CONE LABEL ELIMNDS ", stats.elimnds)
+            println(f, prefix, " CONE LABEL ELIMDEG ", stats.elimdeg)
+            stats.loop > 0    && println(f, prefix, " CONE LABEL LOOP ",      stats.loop)
+            stats.unlabeled > 0 && println(f, prefix, " CONE UNLABELED ",     stats.unlabeled)
         end
     end
 

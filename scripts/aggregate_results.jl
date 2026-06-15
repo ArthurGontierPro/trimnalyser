@@ -77,11 +77,13 @@ const CSV_COLUMNS = [
     "resolv_pat_shrinkage", "resolv_tar_shrinkage",
     # M3.5: CP constraint provenance (counts)
     "grim_cone_al1", "grim_cone_am1", "grim_cone_inj",
-    "grim_cone_g0adj", "grim_cone_gadj", "grim_cone_forb", "grim_cone_elim",
+    "grim_cone_g0adj", "grim_cone_g1adj", "grim_cone_g2adj", "grim_cone_g3adj",
+    "grim_cone_forb", "grim_cone_elimnds", "grim_cone_elimdeg", "grim_cone_loop",
     "grim_cone_unlabeled",
     # M3.5: CP constraint provenance (fractions of OPB cone)
-    "grim_cone_frac_inj", "grim_cone_frac_g0adj", "grim_cone_frac_gadj",
-    "grim_cone_frac_forb", "grim_cone_frac_elim",
+    "grim_cone_frac_inj", "grim_cone_frac_g0adj",
+    "grim_cone_frac_g1adj", "grim_cone_frac_g2adj", "grim_cone_frac_g3adj",
+    "grim_cone_frac_forb", "grim_cone_frac_elimnds", "grim_cone_frac_elimdeg",
     # M3.5: variable order
     "grim_cone_uniq_pat", "grim_cone_uniq_tar"
 ]
@@ -191,9 +193,13 @@ function parse_out_file(filepath)
         let m = match(r"^grim CONE LABEL AM1 (\d+)", line);   m !== nothing && (data["grim_cone_am1"]   = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL INJ (\d+)", line);   m !== nothing && (data["grim_cone_inj"]   = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL G0ADJ (\d+)", line); m !== nothing && (data["grim_cone_g0adj"] = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL GADJ (\d+)", line);  m !== nothing && (data["grim_cone_gadj"]  = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL FORB (\d+)", line);  m !== nothing && (data["grim_cone_forb"]  = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL ELIM (\d+)", line);  m !== nothing && (data["grim_cone_elim"]  = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL G1ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g1adj"]   = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL G2ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g2adj"]   = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL G3ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g3adj"]   = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL FORB (\d+)", line);    m !== nothing && (data["grim_cone_forb"]    = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL ELIMNDS (\d+)", line); m !== nothing && (data["grim_cone_elimnds"] = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL ELIMDEG (\d+)", line); m !== nothing && (data["grim_cone_elimdeg"] = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL LOOP (\d+)", line);    m !== nothing && (data["grim_cone_loop"]    = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE UNLABELED (\d+)", line);   m !== nothing && (data["grim_cone_unlabeled"] = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE UNIQ PAT (\d+)", line);    m !== nothing && (data["grim_cone_uniq_pat"]  = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE UNIQ TAR (\d+)", line);    m !== nothing && (data["grim_cone_uniq_tar"]  = parse(Int, m.captures[1])); end
@@ -596,9 +602,13 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "grim_cone_am1",       ""))
             push!(row, get(data, "grim_cone_inj",       ""))
             push!(row, get(data, "grim_cone_g0adj",     ""))
-            push!(row, get(data, "grim_cone_gadj",      ""))
+            push!(row, get(data, "grim_cone_g1adj",     ""))
+            push!(row, get(data, "grim_cone_g2adj",     ""))
+            push!(row, get(data, "grim_cone_g3adj",     ""))
             push!(row, get(data, "grim_cone_forb",      ""))
-            push!(row, get(data, "grim_cone_elim",      ""))
+            push!(row, get(data, "grim_cone_elimnds",   ""))
+            push!(row, get(data, "grim_cone_elimdeg",   ""))
+            push!(row, get(data, "grim_cone_loop",      ""))
             push!(row, get(data, "grim_cone_unlabeled", ""))
 
             # M3.5: CP constraint provenance (fractions of OPB cone)
@@ -609,9 +619,12 @@ function aggregate_results(proofdir::String, output_csv::String)
                 end
                 push!(row, labelfrac("grim_cone_inj"))
                 push!(row, labelfrac("grim_cone_g0adj"))
-                push!(row, labelfrac("grim_cone_gadj"))
+                push!(row, labelfrac("grim_cone_g1adj"))
+                push!(row, labelfrac("grim_cone_g2adj"))
+                push!(row, labelfrac("grim_cone_g3adj"))
                 push!(row, labelfrac("grim_cone_forb"))
-                push!(row, labelfrac("grim_cone_elim"))
+                push!(row, labelfrac("grim_cone_elimnds"))
+                push!(row, labelfrac("grim_cone_elimdeg"))
             end
 
             # M3.5: variable order
