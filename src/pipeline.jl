@@ -111,6 +111,12 @@
         printconestat(cone, cone_stats)
         varmap_inv = Vector{String}(undef, length(varmap))
         for (k, v) in varmap; varmap_inv[v] = String(copy(k)); end
+        if mode isa Grim
+            label_stats = cone_label_stats(cone, ctrmap, nbopb)
+            writeout_cone_labels(ins, label_stats, prefix)
+            var_data = cone_var_order(cone, varmap_inv, sys, nbopb)
+            writeout_var_order(ins, var_data, prefix)
+        end
         if isempty(output)
             printstyled("  $ins: proof truncated (no output line) — skipping write\n"; color=:red)
             open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: output line missing") end

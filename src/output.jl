@@ -824,3 +824,94 @@
 
     function postfixtikz()
         println("}\\draw (\\x,\\y) node[noeudver] {};\n\\end{tikzpicture}") end
+
+# ══ M3.5: CP constraint provenance ════════════════════════════════════════════════════════
+
+    function classify_label(label::String)
+        startswith(label, "al1")    && return :al1
+        startswith(label, "am1")    && return :am1
+        startswith(label, "inj")    && return :inj
+        startswith(label, "forb")   && return :forb
+        startswith(label, "elim")   && return :elim
+        startswith(label, "noedge") && return :noedge
+        startswith(label, "g0adj")  && return :g0adj
+        startswith(label, "g") && occursin("adj", label) && return :gadj
+        startswith(label, "d3adj")  && return :gadj   # legacy label (before M3.5.1 proof.cc change)
+        return :other
+    end
+
+    function cone_label_stats(cone::Vector{Bool}, ctrmap::Dict{String,Int}, nbopb::Int)
+        n_al1 = n_am1 = n_inj = n_g0adj = n_gadj = n_forb = n_elim = n_noedge = n_other = 0
+        labeled_opb_ids = Set{Int}()
+        for (label, id) in ctrmap
+            id > length(cone) && continue
+            cone[id] || continue
+            cat = classify_label(label)
+            id <= nbopb && push!(labeled_opb_ids, id)
+            if     cat == :al1;    n_al1    += 1
+            elseif cat == :am1;    n_am1    += 1
+            elseif cat == :inj;    n_inj    += 1
+            elseif cat == :g0adj;  n_g0adj  += 1
+            elseif cat == :gadj;   n_gadj   += 1
+            elseif cat == :forb;   n_forb   += 1
+            elseif cat == :elim;   n_elim   += 1
+            elseif cat == :noedge; n_noedge += 1
+            else                   n_other  += 1
+            end
+        end
+        n_unlabeled = sum(cone[1:nbopb]) - length(labeled_opb_ids)
+        (al1=n_al1, am1=n_am1, inj=n_inj, g0adj=n_g0adj, gadj=n_gadj,
+         forb=n_forb, elim=n_elim, noedge=n_noedge, other=n_other, unlabeled=n_unlabeled)
+    end
+
+    function writeout_cone_labels(ins, stats, prefix)
+        open(_cfg[].proofs * ins * ".out", "a") do f
+            println(f, prefix, " CONE LABEL AL1 ",   stats.al1)
+            println(f, prefix, " CONE LABEL AM1 ",   stats.am1)
+            println(f, prefix, " CONE LABEL INJ ",   stats.inj)
+            println(f, prefix, " CONE LABEL G0ADJ ", stats.g0adj)
+            println(f, prefix, " CONE LABEL GADJ ",  stats.gadj)
+            println(f, prefix, " CONE LABEL FORB ",  stats.forb)
+            println(f, prefix, " CONE LABEL ELIM ",  stats.elim)
+            stats.unlabeled > 0 && println(f, prefix, " CONE UNLABELED ", stats.unlabeled)
+        end
+    end
+
+    # Count pattern vertex and target vertex occurrences in OPB cone equations.
+    # Variable names have format "<pat_int>_<tar_int>" (e.g. "3_7").
+    # Returns (order=[(pat_str, count), ...] sorted desc, n_unique_tar=Int).
+    function cone_var_order(cone::Vector{Bool}, varmap_inv::Vector{String}, sys::PBSystem, nbopb::Int)
+        pat_counts = Dict{String,Int}()
+        tar_seen   = Set{String}()
+        for i in 1:nbopb
+            cone[i] || continue
+            for k in eqrange(sys, i)
+                v = Int(sys.vars[k])
+                v > length(varmap_inv) && continue
+                name = varmap_inv[v]
+                sep  = findfirst('_', name)
+                sep === nothing && continue
+                # variable names in varmap carry the OPB 'x' prefix (e.g. "x2_7")
+                start = name[1] == 'x' ? 2 : 1
+                pat = name[start:sep-1]
+                tar = name[sep+1:end]
+                pat_counts[pat] = get(pat_counts, pat, 0) + 1
+                push!(tar_seen, tar)
+            end
+        end
+        order = sort!(collect(pat_counts), by = x -> x[2], rev = true)
+        (order = order, n_unique_tar = length(tar_seen))
+    end
+
+    function writeout_var_order(ins, var_data, prefix)
+        isempty(var_data.order) && return
+        open(_cfg[].proofs * ins * ".out", "a") do f
+            println(f, prefix, " CONE UNIQ PAT ", length(var_data.order))
+            println(f, prefix, " CONE UNIQ TAR ", var_data.n_unique_tar)
+        end
+        open(_cfg[].proofs * ins * ".var_order", "w") do f
+            for (pat, cnt) in var_data.order
+                println(f, pat, " ", cnt)
+            end
+        end
+    end

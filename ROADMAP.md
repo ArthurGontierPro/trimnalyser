@@ -110,6 +110,59 @@ Tools: `scripts/proof_survey.jl` HTML report + `paper/notes.tex` for written ana
 
 ---
 
+## M3.5 — CP constraint provenance and branching heuristic 🔜
+
+**Goal:** Map each cone leaf back to its CP construct (domain, injectivity, adjacency, degree filter) to identify which parts of Glasgow's model are proof-critical per family. Derive a proof-driven branching-variable order for the solver.
+
+**Depends on:** M3 cone analysis. Runs in parallel with the M3 targeted re-run (cluster run in progress).
+
+### M3.5.1 — Complete label coverage in `proof.cc` ✅
+
+Unified label taxonomy. OPB (static model constraints):
+- `@al1<p>` — at-least-one domain constraint per pattern vertex p (pre-existing)
+- `@am1<p>` — at-most-one domain constraint per pattern vertex p (pre-existing)
+- `@inj<t>` — injectivity constraint per target vertex t (pre-existing)
+- `@g0adj<p>_<t>_<q>` — base adjacency constraint (changed from `@adj`)
+- `@forb<p>_<t>` — pre-search forbidden assignment (new)
+
+PBP (derived level-0 constraints):
+- `@g<k>adj<p>_<t>_<q>` — supplemental graph k adjacency, k≥1 (unified: `@d3adj` → `@g<k>adj`)
+- `@elim<p>_<t>` — degree/NDS elimination constraint (new; was anonymous RUP at level 0)
+
+**Key motivation for supplemental graph unification:** `@g0adj` vs `@g1adj` vs `@g2adj` etc. in the cone tells us directly which supplemental graph depths are proof-critical, informing which Glasgow `--supplementals` flags matter per family.
+
+**Note on search-step labels:** RUPs generated during search are deliberately NOT labeled. The cone traversal already handles backward reachability to labeled leaves; labeling search steps would be redundant for the CP-level analysis and would inflate proof size. Retained as future work if finer propagator-level analysis is needed.
+
+### M3.5.2 — Cone label analysis in trimmer ✅
+
+After cone construction, classify each cone leaf (OPB + level-0 PBP) by its label prefix. New `.out` lines:
+```
+grim CONE LABEL AL1 <n>
+grim CONE LABEL AM1 <n>
+grim CONE LABEL INJ <n>
+grim CONE LABEL G0ADJ <n>
+grim CONE LABEL GADJ <n>     # supplemental adjacency (all k≥1 levels combined)
+grim CONE LABEL FORB <n>
+grim CONE LABEL ELIM <n>
+grim CONE UNLABELED <n>      # should be ~0 after M3.5.1
+```
+
+New CSV columns: `grim_cone_al1`, `grim_cone_am1`, `grim_cone_inj`, `grim_cone_g0adj`, `grim_cone_gadj`, `grim_cone_forb`, `grim_cone_elim`, `grim_cone_unlabeled` (counts), plus derived fractions `grim_cone_frac_inj`, `grim_cone_frac_g0adj`, `grim_cone_frac_gadj`, `grim_cone_frac_forb`, `grim_cone_frac_elim`.
+
+### M3.5.3 — Branching heuristic sidecar ✅
+
+After cone construction, count occurrences of each pattern vertex across all OPB equations in the cone (summing across all `<pat>_<tar>` variable appearances). Writes `<instance>.var_order`:
+```
+<pat_vertex_int> <occurrence_count>
+```
+One line per pattern vertex, sorted by count descending. New `.out` lines: `grim CONE UNIQ PAT <n>` and `grim CONE UNIQ TAR <n>`. New CSV columns: `grim_cone_uniq_pat`, `grim_cone_uniq_tar`.
+
+### M3.5.4 — Glasgow integration (future)
+
+Glasgow reads `.var_order` at startup if present, using it as an initial branching heuristic (overridable by Glasgow's own heuristic at each node). A/B evaluation to measure impact. **Held until M3.5.2/3 data shows that the heuristic has meaningful variation across instances.** Initial hypothesis: preprocessing flags have more impact than branching order (M4 will test this).
+
+---
+
 ## M4 — Multi-axis heuristic learning
 
 **Goal:** Learn which Glasgow configuration performs best for each cluster.
