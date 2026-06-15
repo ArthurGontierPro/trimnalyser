@@ -25,6 +25,23 @@ function pearson_r(xs, ys)
     cor([p[1] for p in pairs], [p[2] for p in pairs]), length(pairs)
 end
 
+# Row-aligned fraction stats for label columns.
+# Computes count_col / denom_col per row, skipping missing/zero denom.
+# Unlike frac_stats (zip-based), this handles sparse label data correctly.
+function lbl_frac_stats(sub, count_col, denom_col)
+    (count_col ∉ names(sub) || denom_col ∉ names(sub)) &&
+        return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    v = Float64[]
+    for i in 1:nrow(sub)
+        c = sub[i, count_col]; d = sub[i, denom_col]
+        (ismissing(c) || ismissing(d) || d == 0) && continue
+        push!(v, Float64(c) / Float64(d))
+    end
+    isempty(v) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    qs = quantile(v, [0.25, 0.5, 0.75])
+    (mean=avg(v), med=qs[2], q1=qs[1], q3=qs[3], n=length(v))
+end
+
 # ── HTML helpers ─────────────────────────────────────────────────────────────
 
 const CSS = """
@@ -228,6 +245,25 @@ function main()
             max_pat_sh  = let ps = filter(x -> x > 0, nonnull(sub, "resolv_pat_shrinkage"))
                               isempty(ps) ? NaN : maximum(ps)
                           end,
+            # M3.5: CP constraint provenance — fraction of OPB cone per label category
+            ls_al1     = lbl_frac_stats(sub, "grim_cone_al1",     "grim_opb_cone"),
+            ls_am1     = lbl_frac_stats(sub, "grim_cone_am1",     "grim_opb_cone"),
+            ls_inj     = lbl_frac_stats(sub, "grim_cone_inj",     "grim_opb_cone"),
+            ls_g0adj   = lbl_frac_stats(sub, "grim_cone_g0adj",   "grim_opb_cone"),
+            ls_g1adj   = lbl_frac_stats(sub, "grim_cone_g1adj",   "grim_opb_cone"),
+            ls_g2adj   = lbl_frac_stats(sub, "grim_cone_g2adj",   "grim_opb_cone"),
+            ls_g3adj   = lbl_frac_stats(sub, "grim_cone_g3adj",   "grim_opb_cone"),
+            ls_forb    = lbl_frac_stats(sub, "grim_cone_forb",    "grim_opb_cone"),
+            ls_elimnds = lbl_frac_stats(sub, "grim_cone_elimnds", "grim_opb_cone"),
+            ls_elimdeg = lbl_frac_stats(sub, "grim_cone_elimdeg", "grim_opb_cone"),
+            ls_loop    = lbl_frac_stats(sub, "grim_cone_loop",    "grim_opb_cone"),
+            n_with_labels   = lbl_frac_stats(sub, "grim_cone_al1", "grim_opb_cone").n,
+            n_unlabeled_pos = "grim_cone_unlabeled" ∈ names(sub) ?
+                count(i -> !ismissing(sub[i,"grim_cone_unlabeled"]) && sub[i,"grim_cone_unlabeled"] > 0, 1:nrow(sub)) : 0,
+            max_unlabeled   = "grim_cone_unlabeled" ∈ names(sub) ?
+                let v = collect(skipmissing(sub[!, "grim_cone_unlabeled"]))
+                    isempty(v) ? 0 : maximum(v)
+                end : 0,
         )
     end
 
@@ -417,6 +453,137 @@ function main()
         """ * html_table(["Graph feature", "Pearson r", "n pairs"], c_rows)
     end
 
+    # ── Section 7: CP constraint provenance table ────────────────────────────────
+    function lbl_cell(ls)
+        isnan(ls.mean) && return "—"
+        "$(fmtpct(ls.mean)) ($(fmtpct(ls.med))) [$(fmtpct(ls.q1))–$(fmtpct(ls.q3))]"
+    end
+    prov_rows = [[f, fd(f).n_with_labels,
+                  lbl_cell(fd(f).ls_al1), lbl_cell(fd(f).ls_am1), lbl_cell(fd(f).ls_inj),
+                  lbl_cell(fd(f).ls_g0adj), lbl_cell(fd(f).ls_g1adj),
+                  lbl_cell(fd(f).ls_g2adj), lbl_cell(fd(f).ls_g3adj),
+                  lbl_cell(fd(f).ls_forb),
+                  lbl_cell(fd(f).ls_elimdeg), lbl_cell(fd(f).ls_elimnds),
+                  lbl_cell(fd(f).ls_loop)] for f in present]
+    prov_html = html_table(
+        ["Family", "n", "al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj",
+         "forb", "elimdeg", "elimnds", "loop"],
+        prov_rows)
+
+    # ── Section 8: CP composition stacked bar ────────────────────────────────────
+    LC = (al1="#1a6fbf", am1="#7ab3e8", inj="#e85b5b",
+          g0adj="#1b7837", g1adj="#5aae61", g2adj="#a6dba0", g3adj="#d9f0d3",
+          forb="#ff7f0e", elimdeg="#9467bd", elimnds="#c5a0d3", loop="#8c564b")
+    mean_arr(field) = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.mean) ? NaN : ls.mean end for f in present])
+    med_arr(field)  = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.med)  ? NaN : ls.med  end for f in present])
+
+    comp_chart_mean = stacked_bar_chart("cpCompMean", present,
+        [("al1 (≥1 domain)",   LC.al1,     mean_arr(:ls_al1)),
+         ("am1 (≤1 domain)",   LC.am1,     mean_arr(:ls_am1)),
+         ("inj (injectivity)", LC.inj,     mean_arr(:ls_inj)),
+         ("g0adj (base adj)",  LC.g0adj,   mean_arr(:ls_g0adj)),
+         ("g1adj (supp. 1)",   LC.g1adj,   mean_arr(:ls_g1adj)),
+         ("g2adj (supp. 2)",   LC.g2adj,   mean_arr(:ls_g2adj)),
+         ("g3adj (supp. 3)",   LC.g3adj,   mean_arr(:ls_g3adj)),
+         ("forb (forbidden)",  LC.forb,    mean_arr(:ls_forb)),
+         ("elimdeg (degree)",  LC.elimdeg, mean_arr(:ls_elimdeg)),
+         ("elimnds (NDS)",     LC.elimnds, mean_arr(:ls_elimnds)),
+         ("loop",              LC.loop,    mean_arr(:ls_loop))];
+        ytitle="fraction of OPB cone")
+    comp_chart_med = stacked_bar_chart("cpCompMed", present,
+        [("al1",     LC.al1,     med_arr(:ls_al1)),
+         ("am1",     LC.am1,     med_arr(:ls_am1)),
+         ("inj",     LC.inj,     med_arr(:ls_inj)),
+         ("g0adj",   LC.g0adj,   med_arr(:ls_g0adj)),
+         ("g1adj",   LC.g1adj,   med_arr(:ls_g1adj)),
+         ("g2adj",   LC.g2adj,   med_arr(:ls_g2adj)),
+         ("g3adj",   LC.g3adj,   med_arr(:ls_g3adj)),
+         ("forb",    LC.forb,    med_arr(:ls_forb)),
+         ("elimdeg", LC.elimdeg, med_arr(:ls_elimdeg)),
+         ("elimnds", LC.elimnds, med_arr(:ls_elimnds)),
+         ("loop",    LC.loop,    med_arr(:ls_loop))];
+        ytitle="fraction of OPB cone")
+
+    # ── Section 9: Supplemental graph depth ──────────────────────────────────────
+    supp_rows = [[f, fd(f).n_with_labels,
+                  lbl_cell(fd(f).ls_g0adj), lbl_cell(fd(f).ls_g1adj),
+                  lbl_cell(fd(f).ls_g2adj), lbl_cell(fd(f).ls_g3adj),
+                  let s = fd(f)
+                      g1 = isnan(s.ls_g1adj.mean) ? 0.0 : s.ls_g1adj.mean
+                      g2 = isnan(s.ls_g2adj.mean) ? 0.0 : s.ls_g2adj.mean
+                      g3 = isnan(s.ls_g3adj.mean) ? 0.0 : s.ls_g3adj.mean
+                      fmtpct(g1 + g2 + g3)
+                  end] for f in present]
+    supp_html = html_table(
+        ["Family", "n", "g0adj mean(med)[Q1–Q3]", "g1adj", "g2adj", "g3adj", "supp total (g1+g2+g3)"],
+        supp_rows)
+    supp_chart = stacked_bar_chart("suppChart", present,
+        [("g0adj (base)",    LC.g0adj, mean_arr(:ls_g0adj)),
+         ("g1adj (depth 1)", LC.g1adj, mean_arr(:ls_g1adj)),
+         ("g2adj (depth 2)", LC.g2adj, mean_arr(:ls_g2adj)),
+         ("g3adj (depth 3)", LC.g3adj, mean_arr(:ls_g3adj))];
+        ytitle="fraction of OPB cone (adjacency only)")
+
+    # ── Section 10: Elim fraction vs proof depth (scatter) ───────────────────────
+    scatter_fam_colors = Dict(
+        "LV"            => "rgba(0,76,201,0.45)",
+        "bio"           => "rgba(237,125,49,0.45)",
+        "images-CVIU11" => "rgba(27,120,55,0.45)",
+        "images-PR15"   => "rgba(90,174,97,0.45)",
+        "meshes-CVIU11" => "rgba(200,160,0,0.65)",
+        "phase"         => "rgba(112,48,160,0.45)",
+        "scalefree"     => "rgba(192,0,0,0.45)",
+        "si"            => "rgba(0,140,200,0.45)")
+    scatter_datasets = String[]
+    for f in present
+        mask  = isequal.(proof_jdf.family, f)
+        sub_f = proof_jdf[mask, :]
+        pts   = String[]
+        for i in 1:nrow(sub_f)
+            opb   = "grim_opb_cone"      ∈ names(sub_f) ? sub_f[i,"grim_opb_cone"]      : missing
+            depth = "grim_cone_depth_max" ∈ names(sub_f) ? sub_f[i,"grim_cone_depth_max"] : missing
+            (ismissing(opb) || ismissing(depth) || opb == 0) && continue
+            elim = 0.0
+            for col in ("grim_cone_elimnds", "grim_cone_elimdeg")
+                col ∈ names(sub_f) || continue
+                v = sub_f[i, col]; ismissing(v) || (elim += Float64(v))
+            end
+            push!(pts, "{x:$(round(elim/Float64(opb);digits=4)),y:$(Float64(depth))}")
+        end
+        isempty(pts) && continue
+        color = get(scatter_fam_colors, f, "rgba(120,120,120,0.4)")
+        push!(scatter_datasets,
+            "{ label: $(repr(f)), backgroundColor: $(repr(color)), pointRadius: 3, data: [$(join(pts, ","))] }")
+    end
+    scatter_js   = join(scatter_datasets, ",\n")
+    scatter_html = isempty(scatter_js) ? "<p class=\"note\">No elim data available yet.</p>" : """
+    <div class="chart-box" style="width:760px;height:400px"><canvas id="elimDepthScatter"></canvas></div>
+    <script>
+    new Chart(document.getElementById("elimDepthScatter"), {
+      type: "scatter",
+      data: { datasets: [$scatter_js] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "right" } },
+        scales: {
+          x: { min: 0, title: { display: true, text: "elim fraction of OPB cone (elimdeg + elimnds)" } },
+          y: { min: 0, title: { display: true, text: "cone depth max" } }
+        }
+      }
+    });
+    </script>
+    """
+
+    # ── Section 11: Label coverage check ─────────────────────────────────────────
+    cov_rows = [[f, fd(f).n, fd(f).n_with_labels,
+                 fd(f).n_with_labels == 0 ? "no data" :
+                     (fd(f).n_unlabeled_pos == 0 ? "✓ 0" : "⚠ $(fd(f).n_unlabeled_pos)"),
+                 fd(f).max_unlabeled == 0 ? "0" : "⚠ $(fd(f).max_unlabeled)"]
+                for f in present]
+    cov_html = html_table(
+        ["Family", "n total", "n with label data", "instances with unlabeled>0", "max unlabeled count"],
+        cov_rows)
+
     # ── Assemble HTML ─────────────────────────────────────────────────────────
     sources = cluster_csv * (gf !== nothing ? " + $graph_csv" : "")
     html = """
@@ -478,6 +645,50 @@ function main()
     $search_html
 
     $corr_html
+
+    <h2>7 — CP Constraint Provenance by Family</h2>
+    <p class="note">Each cell: <strong>mean (median) [Q1–Q3]</strong> of the fraction of OPB cone leaves
+    attributed to each CP label category. Denominator = <code>grim_opb_cone</code> (axioms kept in cone).
+    Families with no label data show "—" (proofs generated before M3.5 labels were added).</p>
+    <p class="note">Categories: <em>al1</em> = at-least-one domain; <em>am1</em> = at-most-one domain;
+    <em>inj</em> = injectivity; <em>g0adj</em> = base adjacency;
+    <em>g1/2/3adj</em> = supplemental graph adjacency (depth 1/2/3);
+    <em>forb</em> = pre-search forbidden assignment;
+    <em>elimdeg</em> = degree-incompatibility elimination;
+    <em>elimnds</em> = NDS-incompatibility elimination;
+    <em>loop</em> = loop incompatibility.</p>
+    $prov_html
+
+    <h2>8 — CP Composition of OPB Cone (Stacked Bar)</h2>
+    <p class="note">Fraction of OPB cone leaves from each CP construct, stacked to 1.
+    Any gap below 1 = unlabeled OPB constraints (should be ~0 after M3.5 label coverage is complete).
+    Mean chart above, median chart below.</p>
+    $comp_chart_mean
+    <p class="note">Median chart (more robust to outliers):</p>
+    $comp_chart_med
+
+    <h2>9 — Supplemental Graph Depth Analysis</h2>
+    <p class="note">Which supplemental graph depths (g0=base, g1/g2/g3=auxiliary) contribute to the UNSAT cone?
+    If <em>gNadj ≈ 0</em> for a family, depth-N supplemental constraints are not proof-critical —
+    a candidate <code>--no-supplementals</code> flag to speed up the solver for that family.
+    Chart shows adjacency fractions only (g0+g1+g2+g3 ≤ 1, rest is inj/elim/etc).</p>
+    $supp_html
+    $supp_chart
+
+    <h2>10 — Elimination Fraction vs Proof Depth (Scatter)</h2>
+    <p class="note">Each point = one instance. X = fraction of OPB cone leaves that are elimination
+    constraints (elimdeg + elimnds). Y = maximum cone depth.
+    Hypothesis: families where preprocessing eliminates many assignments have shallow proofs
+    (UNSAT is certified by direct elimination chains, no deep propagation needed).
+    A negative correlation confirms that degree/NDS preprocessing reduces search depth.</p>
+    $scatter_html
+
+    <h2>11 — Label Coverage Check</h2>
+    <p class="note">Diagnostic section. <em>n with label data</em> = instances whose proofs were generated
+    after the M3.5 label additions (Glasgow commit de50e8c).
+    <em>unlabeled</em> = OPB constraints in the cone with no matching label — should be 0 if
+    the label taxonomy is complete. ⚠ warnings require investigation.</p>
+    $cov_html
     </body>
     </html>
     """
