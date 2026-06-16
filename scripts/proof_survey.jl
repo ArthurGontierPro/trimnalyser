@@ -26,8 +26,9 @@ function pearson_r(xs, ys)
 end
 
 # Row-aligned fraction stats for label columns.
-# Computes count_col / denom_col per row, skipping missing/zero denom.
+# Computes count_col / denom_col per row, skipping rows where count is missing or denom is 0/missing.
 # Unlike frac_stats (zip-based), this handles sparse label data correctly.
+# .n = number of instances included (< nrow when the label is sparse).
 function lbl_frac_stats(sub, count_col, denom_col)
     (count_col ∉ names(sub) || denom_col ∉ names(sub)) &&
         return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
@@ -36,6 +37,41 @@ function lbl_frac_stats(sub, count_col, denom_col)
         c = sub[i, count_col]; d = sub[i, denom_col]
         (ismissing(c) || ismissing(d) || d == 0) && continue
         push!(v, Float64(c) / Float64(d))
+    end
+    isempty(v) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    qs = quantile(v, [0.25, 0.5, 0.75])
+    (mean=avg(v), med=qs[2], q1=qs[1], q3=qs[3], n=length(v))
+end
+
+# Like lbl_frac_stats but treats a missing numerator as 0 (use for "always present" counts
+# that are omitted from .out when zero, e.g. grim_cone_unlabeled, grim_cone_rup).
+function lbl_frac_stats_z(sub, count_col, denom_col)
+    denom_col ∉ names(sub) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    v = Float64[]
+    for i in 1:nrow(sub)
+        d = sub[i, denom_col]; (ismissing(d) || d == 0) && continue
+        c = count_col ∈ names(sub) ? sub[i, count_col] : missing
+        push!(v, Float64(ismissing(c) ? 0 : c) / Float64(d))
+    end
+    isempty(v) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    qs = quantile(v, [0.25, 0.5, 0.75])
+    (mean=avg(v), med=qs[2], q1=qs[1], q3=qs[3], n=length(v))
+end
+
+# Computes (total_col - Σ minus_cols, treating missing minus values as 0) / denom_col per row.
+# Use for "unlabeled = total - Σ(labeled)" residuals.
+function row_diff_frac_stats(sub, total_col, minus_cols, denom_col)
+    (total_col ∉ names(sub) || denom_col ∉ names(sub)) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    v = Float64[]
+    for i in 1:nrow(sub)
+        d = sub[i, denom_col]; (ismissing(d) || d == 0) && continue
+        t = sub[i, total_col]; ismissing(t) && continue
+        s = Float64(t)
+        for col in minus_cols
+            col ∉ names(sub) && continue
+            c = sub[i, col]; !ismissing(c) && (s -= Float64(c))
+        end
+        push!(v, max(0.0, s) / Float64(d))
     end
     isempty(v) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
     qs = quantile(v, [0.25, 0.5, 0.75])
@@ -100,10 +136,11 @@ function grouped_bar_chart(id, labels, datasets; ytitle="", ymax=1.0)
     """
 end
 
-function stacked_bar_chart(id, labels, datasets; ytitle="fraction of cone steps")
+function stacked_bar_chart(id, labels, datasets; ytitle="fraction of cone steps", ymax=1.0)
     # datasets: Vector of (label, color, num_array_json)
     ds = join(["{ label: \"$(d[1])\", backgroundColor: \"$(d[2])\", data: $(d[3]) }"
                for d in datasets], ",\n")
+    ymax_s = isnan(ymax) ? "undefined" : @sprintf("%.4f", ymax)
     """
     <div class="chart-box"><canvas id="$id"></canvas></div>
     <script>
@@ -115,7 +152,7 @@ function stacked_bar_chart(id, labels, datasets; ytitle="fraction of cone steps"
         plugins: { legend: { position: "top" } },
         scales: {
           x: { stacked: true },
-          y: { stacked: true, min: 0, max: 1,
+          y: { stacked: true, min: 0, max: $ymax_s,
                title: { display: true, text: $(repr(ytitle)) } }
         }
       }
@@ -259,19 +296,71 @@ function main()
             med_pol_opb_frac       = med(nonnull(sub, "grim_pol_opb_frac")),
             # M3.5.3: branching heuristic — unique pattern nodes in OPB cone
             med_uniq_pat = med(nonnull(sub, "grim_cone_uniq_pat")),
-            # M3.5: CP constraint provenance — fraction of OPB cone per label category
-            ls_al1     = lbl_frac_stats(sub, "grim_cone_al1",     "grim_opb_cone"),
-            ls_am1     = lbl_frac_stats(sub, "grim_cone_am1",     "grim_opb_cone"),
-            ls_inj     = lbl_frac_stats(sub, "grim_cone_inj",     "grim_opb_cone"),
-            ls_g0adj   = lbl_frac_stats(sub, "grim_cone_g0adj",   "grim_opb_cone"),
-            ls_g1adj   = lbl_frac_stats(sub, "grim_cone_g1adj",   "grim_opb_cone"),
-            ls_g2adj   = lbl_frac_stats(sub, "grim_cone_g2adj",   "grim_opb_cone"),
-            ls_g3adj   = lbl_frac_stats(sub, "grim_cone_g3adj",   "grim_opb_cone"),
-            ls_forb    = lbl_frac_stats(sub, "grim_cone_forb",    "grim_opb_cone"),
-            ls_elimnds = lbl_frac_stats(sub, "grim_cone_elimnds", "grim_opb_cone"),
-            ls_elimdeg = lbl_frac_stats(sub, "grim_cone_elimdeg", "grim_opb_cone"),
-            ls_loop    = lbl_frac_stats(sub, "grim_cone_loop",    "grim_opb_cone"),
-            n_with_labels   = lbl_frac_stats(sub, "grim_cone_al1", "grim_opb_cone").n,
+            # §7: CP provenance — fraction of total cone (OPB+PBP)
+            # Sparse labels (loop/elim/gNadj) computed only on instances that have them;
+            # .n field reflects this subset size.
+            ls_al1     = lbl_frac_stats(sub, "grim_cone_al1",     "grim_total_cone"),
+            ls_am1     = lbl_frac_stats(sub, "grim_cone_am1",     "grim_total_cone"),
+            ls_inj     = lbl_frac_stats(sub, "grim_cone_inj",     "grim_total_cone"),
+            ls_g0adj   = lbl_frac_stats(sub, "grim_cone_g0adj",   "grim_total_cone"),
+            ls_g1adj   = lbl_frac_stats(sub, "grim_cone_g1adj",   "grim_total_cone"),
+            ls_g2adj   = lbl_frac_stats(sub, "grim_cone_g2adj",   "grim_total_cone"),
+            ls_g3adj   = lbl_frac_stats(sub, "grim_cone_g3adj",   "grim_total_cone"),
+            ls_forb    = lbl_frac_stats(sub, "grim_cone_forb",    "grim_total_cone"),
+            ls_elimnds = lbl_frac_stats(sub, "grim_cone_elimnds", "grim_total_cone"),
+            ls_elimdeg = lbl_frac_stats(sub, "grim_cone_elimdeg", "grim_total_cone"),
+            ls_loop    = lbl_frac_stats(sub, "grim_cone_loop",    "grim_total_cone"),
+            # §7/§9 stacked bars: _z variants (missing→0) so all means are over the same population.
+            # Non-sparse OPB labels (al1/am1/inj/g0adj/forb) are always non-missing so ls_* = sz_*.
+            # Sparse PBP labels need _z so instances without them contribute 0, not are skipped.
+            sz_g0adj   = lbl_frac_stats_z(sub, "grim_cone_g0adj",   "grim_total_cone"),
+            sz_loop    = lbl_frac_stats_z(sub, "grim_cone_loop",    "grim_total_cone"),
+            sz_elimnds = lbl_frac_stats_z(sub, "grim_cone_elimnds", "grim_total_cone"),
+            sz_elimdeg = lbl_frac_stats_z(sub, "grim_cone_elimdeg", "grim_total_cone"),
+            sz_g1adj   = lbl_frac_stats_z(sub, "grim_cone_g1adj",   "grim_total_cone"),
+            sz_g2adj   = lbl_frac_stats_z(sub, "grim_cone_g2adj",   "grim_total_cone"),
+            sz_g3adj   = lbl_frac_stats_z(sub, "grim_cone_g3adj",   "grim_total_cone"),
+            ls_unlabeled_total  = lbl_frac_stats_z(sub, "grim_cone_unlabeled", "grim_total_cone"),
+            pb_unlabeled_total  = row_diff_frac_stats(sub, "grim_pbp_cone",
+                ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
+                 "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj"], "grim_total_cone"),
+            # §7b: OPB-only breakdown (opb_cone denom) — OPB labels sum to 100%
+            ob_al1       = lbl_frac_stats(sub, "grim_cone_al1",       "grim_opb_cone"),
+            ob_am1       = lbl_frac_stats(sub, "grim_cone_am1",       "grim_opb_cone"),
+            ob_inj       = lbl_frac_stats(sub, "grim_cone_inj",       "grim_opb_cone"),
+            ob_g0adj     = lbl_frac_stats(sub, "grim_cone_g0adj",     "grim_opb_cone"),
+            ob_forb      = lbl_frac_stats(sub, "grim_cone_forb",      "grim_opb_cone"),
+            ob_unlabeled = lbl_frac_stats_z(sub, "grim_cone_unlabeled", "grim_opb_cone"),
+            # §7c: PBP-only breakdown (pbp_cone denom)
+            # step-type view (sums to 100% over instances with pbp_cone > 0)
+            pb_rup  = lbl_frac_stats_z(sub, "grim_cone_rup", "grim_pbp_cone"),
+            pb_pol  = lbl_frac_stats_z(sub, "grim_cone_pol", "grim_pbp_cone"),
+            pb_ia   = lbl_frac_stats_z(sub, "grim_cone_ia",  "grim_pbp_cone"),
+            pb_red  = lbl_frac_stats_z(sub, "grim_cone_red", "grim_pbp_cone"),
+            # label-origin view (labeled level-0 vs unlabeled = search+intermediate)
+            pb_loop      = lbl_frac_stats(sub, "grim_cone_loop",    "grim_pbp_cone"),
+            pb_elimnds   = lbl_frac_stats(sub, "grim_cone_elimnds", "grim_pbp_cone"),
+            pb_elimdeg   = lbl_frac_stats(sub, "grim_cone_elimdeg", "grim_pbp_cone"),
+            pb_g1adj     = lbl_frac_stats(sub, "grim_cone_g1adj",   "grim_pbp_cone"),
+            pb_g2adj     = lbl_frac_stats(sub, "grim_cone_g2adj",   "grim_pbp_cone"),
+            pb_g3adj     = lbl_frac_stats(sub, "grim_cone_g3adj",   "grim_pbp_cone"),
+            pb_unlabeled = row_diff_frac_stats(sub, "grim_pbp_cone",
+                ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
+                 "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj"], "grim_pbp_cone"),
+            # §7b stacked bar: _z variants (missing → 0) so bars sum to 1 over all instances with opb_cone > 0
+            obz_al1    = lbl_frac_stats_z(sub, "grim_cone_al1",   "grim_opb_cone"),
+            obz_am1    = lbl_frac_stats_z(sub, "grim_cone_am1",   "grim_opb_cone"),
+            obz_inj    = lbl_frac_stats_z(sub, "grim_cone_inj",   "grim_opb_cone"),
+            obz_g0adj  = lbl_frac_stats_z(sub, "grim_cone_g0adj", "grim_opb_cone"),
+            obz_forb   = lbl_frac_stats_z(sub, "grim_cone_forb",  "grim_opb_cone"),
+            # §7c stacked bar: _z variants for PBP label-origin (missing → 0, same pop as pb_unlabeled)
+            pbz_loop    = lbl_frac_stats_z(sub, "grim_cone_loop",    "grim_pbp_cone"),
+            pbz_elimnds = lbl_frac_stats_z(sub, "grim_cone_elimnds", "grim_pbp_cone"),
+            pbz_elimdeg = lbl_frac_stats_z(sub, "grim_cone_elimdeg", "grim_pbp_cone"),
+            pbz_g1adj   = lbl_frac_stats_z(sub, "grim_cone_g1adj",   "grim_pbp_cone"),
+            pbz_g2adj   = lbl_frac_stats_z(sub, "grim_cone_g2adj",   "grim_pbp_cone"),
+            pbz_g3adj   = lbl_frac_stats_z(sub, "grim_cone_g3adj",   "grim_pbp_cone"),
+            n_with_labels   = nrow(sub),
             n_unlabeled_pos = "grim_cone_unlabeled" ∈ names(sub) ?
                 count(i -> !ismissing(sub[i,"grim_cone_unlabeled"]) && sub[i,"grim_cone_unlabeled"] > 0, 1:nrow(sub)) : 0,
             max_unlabeled   = "grim_cone_unlabeled" ∈ names(sub) ?
@@ -475,71 +564,175 @@ function main()
         isnan(ls.mean) && return "—"
         "$(fmtpct(ls.mean)) ($(fmtpct(ls.med))) [$(fmtpct(ls.q1))–$(fmtpct(ls.q3))]"
     end
+    # Like lbl_cell but appends (n=X) when label is sparse (n < ntot).
+    function lbl_cell_n(ls, ntot)
+        isnan(ls.mean) && return "—"
+        n_tag = ls.n < ntot ? " (n=$(ls.n))" : ""
+        "$(fmtpct(ls.mean)) ($(fmtpct(ls.med))) [$(fmtpct(ls.q1))–$(fmtpct(ls.q3))]$n_tag"
+    end
     prov_rows = [[f, fd(f).n_with_labels,
                   lbl_cell(fd(f).ls_al1), lbl_cell(fd(f).ls_am1), lbl_cell(fd(f).ls_inj),
-                  lbl_cell(fd(f).ls_g0adj), lbl_cell(fd(f).ls_g1adj),
-                  lbl_cell(fd(f).ls_g2adj), lbl_cell(fd(f).ls_g3adj),
+                  lbl_cell(fd(f).ls_g0adj),
+                  lbl_cell_n(fd(f).ls_g1adj, fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_g2adj, fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_g3adj, fd(f).n_with_labels),
                   lbl_cell(fd(f).ls_forb),
-                  lbl_cell(fd(f).ls_elimdeg), lbl_cell(fd(f).ls_elimnds),
-                  lbl_cell(fd(f).ls_loop)] for f in present]
+                  lbl_cell_n(fd(f).ls_elimdeg, fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_elimnds, fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_loop,    fd(f).n_with_labels),
+                  lbl_cell(fd(f).ls_unlabeled_total),
+                  lbl_cell(fd(f).pb_unlabeled_total)] for f in present]
     prov_html = html_table(
         ["Family", "n", "al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj",
-         "forb", "elimdeg", "elimnds", "loop"],
+         "forb", "elimdeg", "elimnds", "loop", "unlab OPB", "unlab PBP"],
         prov_rows)
+
+    # ── Section 7b: OPB axiom breakdown ──────────────────────────────────────────
+    prov_b_rows = [[f, fd(f).n_with_labels,
+                    lbl_cell(fd(f).ob_al1), lbl_cell(fd(f).ob_am1), lbl_cell(fd(f).ob_inj),
+                    lbl_cell(fd(f).ob_g0adj), lbl_cell(fd(f).ob_forb),
+                    lbl_cell(fd(f).ob_unlabeled)] for f in present]
+    prov_b_html = html_table(
+        ["Family", "n", "al1", "am1", "inj", "g0adj", "forb", "unlabeled"],
+        prov_b_rows)
+
+    # ── Section 7c: PBP cone breakdown ───────────────────────────────────────────
+    # Table 1: step-type view (sums to 100% for instances with pbp_cone > 0)
+    prov_c_step_rows = [[f, fd(f).pb_rup.n,
+                         lbl_cell(fd(f).pb_rup),  lbl_cell(fd(f).pb_pol),
+                         lbl_cell(fd(f).pb_ia),   lbl_cell(fd(f).pb_red)] for f in present]
+    prov_c_step_html = html_table(
+        ["Family", "n (pbp>0)", "RUP", "POL", "IA", "RED"],
+        prov_c_step_rows)
+    # Table 2: label-origin view (labeled level-0 vs unlabeled, sums to 100%)
+    prov_c_lbl_rows = [[f, fd(f).pb_rup.n,
+                        lbl_cell_n(fd(f).pb_loop,    fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_elimnds, fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_elimdeg, fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_g1adj,   fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_g2adj,   fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_g3adj,   fd(f).pb_rup.n),
+                        lbl_cell(fd(f).pb_unlabeled)] for f in present]
+    prov_c_lbl_html = html_table(
+        ["Family", "n (pbp>0)", "loop (RUP)", "elimnds (RUP)", "elimdeg (IA)",
+         "g1adj (IA)", "g2adj (IA)", "g3adj (IA)", "unlabeled (Hall POL + search + intermed)"],
+        prov_c_lbl_rows)
+    # Table 3: cross-check — unlabeled PBP fraction by search presence
+    SOLVER_COL = "solver_nodes"
+    function pbp_unlab_by_search(sub)
+        has_col = SOLVER_COL ∈ names(sub)
+        minus_cols = ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
+                      "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj"]
+        if has_col
+            nosearch_mask = [ismissing(sub[i, SOLVER_COL]) || sub[i, SOLVER_COL] <= 1 for i in 1:nrow(sub)]
+            search_mask   = [!ismissing(sub[i, SOLVER_COL]) && sub[i, SOLVER_COL] > 1  for i in 1:nrow(sub)]
+            ns = row_diff_frac_stats(sub[nosearch_mask, :], "grim_pbp_cone", minus_cols, "grim_pbp_cone")
+            sr = row_diff_frac_stats(sub[search_mask,   :], "grim_pbp_cone", minus_cols, "grim_pbp_cone")
+            (nosearch=ns, search=sr,
+             n_nosearch=sum(nosearch_mask), n_search=sum(search_mask))
+        else
+            nothing
+        end
+    end
+    cross_rows = []
+    for f in present
+        mask = isequal.(jdf.family, f) .& (jdf.has_proof .== true)
+        sub  = jdf[mask, :]
+        r = pbp_unlab_by_search(sub)
+        if r === nothing
+            push!(cross_rows, [f, "—", "—", "—", "—", "—"])
+        else
+            push!(cross_rows, [f,
+                r.n_nosearch, isnan(r.nosearch.mean) ? "—" : fmtpct(r.nosearch.mean),
+                r.n_search,   isnan(r.search.mean)   ? "—" : fmtpct(r.search.mean),
+                isnan(r.nosearch.mean) || isnan(r.search.mean) ? "—" :
+                    fmtpct(r.search.mean - r.nosearch.mean)])
+        end
+    end
+    prov_c_cross_html = html_table(
+        ["Family", "n no-search", "unlabeled PBP (no search)", "n search", "unlabeled PBP (search)", "Δ (search−no-search)"],
+        cross_rows)
 
     # ── Section 8: CP composition stacked bar ────────────────────────────────────
     LC = (al1="#1a6fbf", am1="#7ab3e8", inj="#e85b5b",
           g0adj="#1b7837", g1adj="#5aae61", g2adj="#a6dba0", g3adj="#d9f0d3",
-          forb="#ff7f0e", elimdeg="#9467bd", elimnds="#c5a0d3", loop="#8c564b")
+          forb="#ff7f0e", elimdeg="#9467bd", elimnds="#c5a0d3", loop="#8c564b",
+          unlabeled_opb="#dddddd", unlabeled_pbp="#aaaaaa")
     mean_arr(field) = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.mean) ? NaN : ls.mean end for f in present])
     med_arr(field)  = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.med)  ? NaN : ls.med  end for f in present])
 
     comp_chart_mean = stacked_bar_chart("cpCompMean", present,
-        [("al1 (≥1 domain)",   LC.al1,     mean_arr(:ls_al1)),
-         ("am1 (≤1 domain)",   LC.am1,     mean_arr(:ls_am1)),
-         ("inj (injectivity)", LC.inj,     mean_arr(:ls_inj)),
-         ("g0adj (base adj)",  LC.g0adj,   mean_arr(:ls_g0adj)),
-         ("g1adj (supp. 1)",   LC.g1adj,   mean_arr(:ls_g1adj)),
-         ("g2adj (supp. 2)",   LC.g2adj,   mean_arr(:ls_g2adj)),
-         ("g3adj (supp. 3)",   LC.g3adj,   mean_arr(:ls_g3adj)),
-         ("forb (forbidden)",  LC.forb,    mean_arr(:ls_forb)),
-         ("elimdeg (degree)",  LC.elimdeg, mean_arr(:ls_elimdeg)),
-         ("elimnds (NDS)",     LC.elimnds, mean_arr(:ls_elimnds)),
-         ("loop",              LC.loop,    mean_arr(:ls_loop))];
-        ytitle="fraction of OPB cone")
+        [("al1 (≥1 domain)",          LC.al1,           mean_arr(:ls_al1)),
+         ("am1 (≤1 domain)",          LC.am1,           mean_arr(:ls_am1)),
+         ("inj (injectivity)",        LC.inj,           mean_arr(:ls_inj)),
+         ("g0adj (base adj)",         LC.g0adj,         mean_arr(:ls_g0adj)),
+         ("forb (forbidden)",         LC.forb,          mean_arr(:ls_forb)),
+         ("unlabeled OPB",            LC.unlabeled_opb, mean_arr(:ls_unlabeled_total)),
+         ("loop (PBP)",               LC.loop,          mean_arr(:sz_loop)),
+         ("elimnds (NDS, PBP)",       LC.elimnds,       mean_arr(:sz_elimnds)),
+         ("elimdeg (degree, PBP)",    LC.elimdeg,       mean_arr(:sz_elimdeg)),
+         ("g1adj (supp. 1, PBP)",     LC.g1adj,         mean_arr(:sz_g1adj)),
+         ("g2adj (supp. 2, PBP)",     LC.g2adj,         mean_arr(:sz_g2adj)),
+         ("g3adj (supp. 3, PBP)",     LC.g3adj,         mean_arr(:sz_g3adj)),
+         ("unlabeled PBP (search+intermed)", LC.unlabeled_pbp, mean_arr(:pb_unlabeled_total))];
+        ytitle="fraction of total cone (OPB+PBP)")
     comp_chart_med = stacked_bar_chart("cpCompMed", present,
-        [("al1",     LC.al1,     med_arr(:ls_al1)),
-         ("am1",     LC.am1,     med_arr(:ls_am1)),
-         ("inj",     LC.inj,     med_arr(:ls_inj)),
-         ("g0adj",   LC.g0adj,   med_arr(:ls_g0adj)),
-         ("g1adj",   LC.g1adj,   med_arr(:ls_g1adj)),
-         ("g2adj",   LC.g2adj,   med_arr(:ls_g2adj)),
-         ("g3adj",   LC.g3adj,   med_arr(:ls_g3adj)),
-         ("forb",    LC.forb,    med_arr(:ls_forb)),
-         ("elimdeg", LC.elimdeg, med_arr(:ls_elimdeg)),
-         ("elimnds", LC.elimnds, med_arr(:ls_elimnds)),
-         ("loop",    LC.loop,    med_arr(:ls_loop))];
-        ytitle="fraction of OPB cone")
+        [("al1",                 LC.al1,           med_arr(:ls_al1)),
+         ("am1",                 LC.am1,           med_arr(:ls_am1)),
+         ("inj",                 LC.inj,           med_arr(:ls_inj)),
+         ("g0adj",               LC.g0adj,         med_arr(:ls_g0adj)),
+         ("forb",                LC.forb,          med_arr(:ls_forb)),
+         ("unlabeled OPB",       LC.unlabeled_opb, med_arr(:ls_unlabeled_total)),
+         ("loop",                LC.loop,          med_arr(:sz_loop)),
+         ("elimnds",             LC.elimnds,       med_arr(:sz_elimnds)),
+         ("elimdeg",             LC.elimdeg,       med_arr(:sz_elimdeg)),
+         ("g1adj",               LC.g1adj,         med_arr(:sz_g1adj)),
+         ("g2adj",               LC.g2adj,         med_arr(:sz_g2adj)),
+         ("g3adj",               LC.g3adj,         med_arr(:sz_g3adj)),
+         ("unlabeled PBP",       LC.unlabeled_pbp, med_arr(:pb_unlabeled_total))];
+        ytitle="fraction of total cone (OPB+PBP)")
+
+    # ── Sections 7b / 7c stacked bars ────────────────────────────────────────────
+    chart7b = stacked_bar_chart("opbCompChart", present,
+        [("al1",       LC.al1,           mean_arr(:obz_al1)),
+         ("am1",       LC.am1,           mean_arr(:obz_am1)),
+         ("inj",       LC.inj,           mean_arr(:obz_inj)),
+         ("g0adj",     LC.g0adj,         mean_arr(:obz_g0adj)),
+         ("forb",      LC.forb,          mean_arr(:obz_forb)),
+         ("unlabeled", LC.unlabeled_opb, mean_arr(:ob_unlabeled))];
+        ytitle="fraction of OPB axioms in cone")
+    chart7c_step = stacked_bar_chart("pbpStepChart", present,
+        [("RUP", C.rup, mean_arr(:pb_rup)),
+         ("POL", C.pol, mean_arr(:pb_pol)),
+         ("IA",  C.ia,  mean_arr(:pb_ia)),
+         ("RED", C.red, mean_arr(:pb_red))];
+        ytitle="fraction of PBP cone steps")
+    chart7c_lbl = stacked_bar_chart("pbpLblChart", present,
+        [("loop (RUP)",    LC.loop,          mean_arr(:pbz_loop)),
+         ("elimnds (RUP)", LC.elimnds,       mean_arr(:pbz_elimnds)),
+         ("elimdeg (IA)",  LC.elimdeg,       mean_arr(:pbz_elimdeg)),
+         ("g1adj (IA)",    LC.g1adj,         mean_arr(:pbz_g1adj)),
+         ("g2adj (IA)",    LC.g2adj,         mean_arr(:pbz_g2adj)),
+         ("g3adj (IA)",    LC.g3adj,         mean_arr(:pbz_g3adj)),
+         ("unlabeled",     LC.unlabeled_pbp, mean_arr(:pb_unlabeled))];
+        ytitle="fraction of PBP cone steps")
 
     # ── Section 9: Supplemental graph depth ──────────────────────────────────────
-    supp_rows = [[f, fd(f).n_with_labels,
-                  lbl_cell(fd(f).ls_g0adj), lbl_cell(fd(f).ls_g1adj),
-                  lbl_cell(fd(f).ls_g2adj), lbl_cell(fd(f).ls_g3adj),
-                  let s = fd(f)
-                      g1 = isnan(s.ls_g1adj.mean) ? 0.0 : s.ls_g1adj.mean
-                      g2 = isnan(s.ls_g2adj.mean) ? 0.0 : s.ls_g2adj.mean
-                      g3 = isnan(s.ls_g3adj.mean) ? 0.0 : s.ls_g3adj.mean
-                      fmtpct(g1 + g2 + g3)
-                  end] for f in present]
-    supp_html = html_table(
-        ["Family", "n", "g0adj mean(med)[Q1–Q3]", "g1adj", "g2adj", "g3adj", "supp total (g1+g2+g3)"],
-        supp_rows)
-    supp_chart = stacked_bar_chart("suppChart", present,
-        [("g0adj (base)",    LC.g0adj, mean_arr(:ls_g0adj)),
-         ("g1adj (depth 1)", LC.g1adj, mean_arr(:ls_g1adj)),
-         ("g2adj (depth 2)", LC.g2adj, mean_arr(:ls_g2adj)),
-         ("g3adj (depth 3)", LC.g3adj, mean_arr(:ls_g3adj))];
-        ytitle="fraction of OPB cone (adjacency only)")
+    # All four on grim_total_cone so depths are directly comparable.
+    # Autoscale when total adjacency is small so bars aren't invisible at scale 0–1.
+    max_gadj = let vals = [sum(isnan(getfield(fd(f), ls).mean) ? 0.0 : getfield(fd(f), ls).mean
+                               for ls in (:sz_g0adj, :sz_g1adj, :sz_g2adj, :sz_g3adj))
+                           for f in present]
+                   isempty(vals) ? 0.0 : maximum(vals)
+               end
+    ymax_gadj = max_gadj >= 0.1 ? 1.0 : NaN
+    supp9_chart = stacked_bar_chart("supp9Chart", present,
+        [("g0adj (base, OPB)",   LC.g0adj, mean_arr(:sz_g0adj)),
+         ("g1adj (depth 1, PBP)", LC.g1adj, mean_arr(:sz_g1adj)),
+         ("g2adj (depth 2, PBP)", LC.g2adj, mean_arr(:sz_g2adj)),
+         ("g3adj (depth 3, PBP)", LC.g3adj, mean_arr(:sz_g3adj))];
+        ytitle="fraction of total cone (adjacency constraints by depth)",
+        ymax=ymax_gadj)
 
     # ── Section 10: Elim fraction vs proof depth (scatter) ───────────────────────
     scatter_fam_colors = Dict(
@@ -557,15 +750,15 @@ function main()
         sub_f = proof_jdf[mask, :]
         pts   = String[]
         for i in 1:nrow(sub_f)
-            opb   = "grim_opb_cone"      ∈ names(sub_f) ? sub_f[i,"grim_opb_cone"]      : missing
-            depth = "grim_cone_depth_max" ∈ names(sub_f) ? sub_f[i,"grim_cone_depth_max"] : missing
-            (ismissing(opb) || ismissing(depth) || opb == 0) && continue
+            pbp   = "grim_pbp_cone"       ∈ names(sub_f) ? sub_f[i,"grim_pbp_cone"]       : missing
+            depth = "grim_cone_depth_max"  ∈ names(sub_f) ? sub_f[i,"grim_cone_depth_max"]  : missing
+            (ismissing(pbp) || ismissing(depth) || pbp == 0) && continue
             elim = 0.0
             for col in ("grim_cone_elimnds", "grim_cone_elimdeg")
                 col ∈ names(sub_f) || continue
                 v = sub_f[i, col]; ismissing(v) || (elim += Float64(v))
             end
-            push!(pts, "{x:$(round(elim/Float64(opb);digits=4)),y:$(Float64(depth))}")
+            push!(pts, "{x:$(round(elim/Float64(pbp);digits=4)),y:$(Float64(depth))}")
         end
         isempty(pts) && continue
         color = get(scatter_fam_colors, f, "rgba(120,120,120,0.4)")
@@ -583,7 +776,7 @@ function main()
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: "right" } },
         scales: {
-          x: { min: 0, title: { display: true, text: "elim fraction of OPB cone (elimdeg + elimnds)" } },
+          x: { min: 0, title: { display: true, text: "(elimdeg + elimnds) / pbp_cone" } },
           y: { min: 0, title: { display: true, text: "cone depth max" } }
         }
       }
@@ -680,40 +873,74 @@ function main()
     $corr_html
 
     <h2>7 — CP Constraint Provenance by Family</h2>
-    <p class="note">Each cell: <strong>mean (median) [Q1–Q3]</strong> of the fraction of OPB cone leaves
-    attributed to each CP label category. Denominator = <code>grim_opb_cone</code> (axioms kept in cone).
-    Families with no label data show "—" (proofs generated before M3.5 labels were added).</p>
+    <p class="note">Each cell: <strong>mean (median) [Q1–Q3]</strong> of the fraction of the <em>total cone</em>
+    (OPB axioms + PBP level-0 + search PBP) attributed to each CP label category.
+    Denominator = <code>grim_total_cone</code>. All columns are exhaustive: OPB labels + unlab OPB + PBP labels + unlab PBP = 100%.
+    OPB labels (al1/am1/inj/g0adj/forb) live in the <code>.opb</code> file.
+    PBP labels (g1/2/3adj, loop, elimdeg, elimnds) are level-0 derived steps in the <code>.pbp</code> file.
+    Sparse labels (loop/elim/gNadj) show <em>(n=X)</em> when computed over fewer than all instances.</p>
     <p class="note">Categories: <em>al1</em> = at-least-one domain; <em>am1</em> = at-most-one domain;
-    <em>inj</em> = injectivity; <em>g0adj</em> = base adjacency;
-    <em>g1/2/3adj</em> = supplemental graph adjacency (depth 1/2/3);
-    <em>forb</em> = pre-search forbidden assignment;
-    <em>elimdeg</em> = degree-incompatibility elimination;
-    <em>elimnds</em> = NDS-incompatibility elimination;
-    <em>loop</em> = loop incompatibility.</p>
+    <em>inj</em> = injectivity; <em>g0adj</em> = base adjacency (OPB);
+    <em>g1/2/3adj</em> = supplemental graph adjacency depth 1/2/3 (PBP level-0);
+    <em>forb</em> = pre-search forbidden assignment (OPB);
+    <em>elimdeg</em> = degree-incompatibility (PBP level-0, IA type);
+    <em>elimnds</em> = NDS-incompatibility (PBP level-0, RUP type);
+    <em>loop</em> = loop incompatibility (PBP, RUP type, only on instances with self-loops);
+    <em>unlab OPB</em> = OPB axioms with no matching label (should be ~0 after M3.5);
+    <em>unlab PBP</em> = PBP steps that are search-level or inherently unlabeled (Hall POL, intermediate POL).</p>
     $prov_html
-
-    <h2>8 — CP Composition of OPB Cone (Stacked Bar)</h2>
-    <p class="note">Fraction of OPB cone leaves from each CP construct, stacked to 1.
-    Any gap below 1 = unlabeled OPB constraints (should be ~0 after M3.5 label coverage is complete).
-    Mean chart above, median chart below.</p>
+    <p class="note">Mean composition — bars sum to 1 (exhaustive decomposition of total cone). Sparse PBP labels use missing→0 so the stacked mean is consistent:</p>
     $comp_chart_mean
     <p class="note">Median chart (more robust to outliers):</p>
     $comp_chart_med
 
+    <h2>7b — OPB Axiom Breakdown</h2>
+    <p class="note">Fraction of <em>OPB axioms in the cone</em> from each OPB label.
+    Denominator = <code>grim_opb_cone</code>. These five categories + unlabeled sum to 100%.
+    <em>unlabeled</em> = OPB axioms with no label (should be 0 after M3.5 — see §11).</p>
+    $prov_b_html
+    <p class="note">Mean composition (bars sum to 1):</p>
+    $chart7b
+
+    <h2>7c — PBP Cone Breakdown</h2>
+    <p class="note">Denominator = <code>grim_pbp_cone</code> (all derived steps in cone).
+    Only instances with at least one PBP step in the cone are included (n shown).
+    <strong>Step-type view</strong> (below) must sum to 100%.
+    <strong>Label-origin view</strong> separates labeled level-0 preprocessing steps from
+    unlabeled steps = search-level RUP/POL/IA <em>plus</em> inherently unlabeled preprocessing
+    (e.g. Hall-violator POL from <code>emit_hall_set_or_violator</code>, intermediate POL inside
+    <code>incompatible_by_degrees</code>). Unlabeled ≈ 100% does not imply search.</p>
+    <p class="note"><strong>Step-type view</strong> — RUP+POL+IA+RED = 100% of PBP cone:</p>
+    $prov_c_step_html
+    <p class="note">Mean step-type composition:</p>
+    $chart7c_step
+    <p class="note"><strong>Label-origin view</strong> — labeled level-0 + unlabeled = 100% of PBP cone.
+    Sparse labels show (n=X). Missing labels treated as 0 for the stacked mean.</p>
+    $prov_c_lbl_html
+    <p class="note">Mean label-origin composition:</p>
+    $chart7c_lbl
+    <p class="note"><strong>Cross-check: unlabeled PBP by search presence</strong> — instances split by
+    <code>solver_nodes &gt; 1</code>. The Δ measures how much additional unlabeled PBP search adds
+    beyond the baseline from unlabeled preprocessing (Hall POL, intermediate POL).</p>
+    $prov_c_cross_html
+
     <h2>9 — Supplemental Graph Depth Analysis</h2>
-    <p class="note">Which supplemental graph depths (g0=base, g1/g2/g3=auxiliary) contribute to the UNSAT cone?
-    If <em>gNadj ≈ 0</em> for a family, depth-N supplemental constraints are not proof-critical —
-    a candidate <code>--no-supplementals</code> flag to speed up the solver for that family.
-    Chart shows adjacency fractions only (g0+g1+g2+g3 ≤ 1, rest is inj/elim/etc).</p>
-    $supp_html
-    $supp_chart
+    <p class="note">All four adjacency depths expressed as fraction of <code>grim_total_cone</code>
+    so they are directly comparable. Stack height = total adjacency burden in the cone;
+    colour breakdown = which depth contributes.
+    g0adj is an OPB axiom (base graph); g1/g2/g3adj are PBP level-0 derived steps (supplemental graphs).
+    If gNadj ≈ 0, supplemental constraints at depth N are not proof-critical
+    (candidate <code>--no-supplementals</code> flag for that family).
+    Y-axis autoscales when total adjacency fraction is below 10%.</p>
+    $supp9_chart
 
     <h2>10 — Elimination Fraction vs Proof Depth (Scatter)</h2>
-    <p class="note">Each point = one instance. X = fraction of OPB cone leaves that are elimination
-    constraints (elimdeg + elimnds). Y = maximum cone depth.
-    Hypothesis: families where preprocessing eliminates many assignments have shallow proofs
-    (UNSAT is certified by direct elimination chains, no deep propagation needed).
-    A negative correlation confirms that degree/NDS preprocessing reduces search depth.</p>
+    <p class="note">Each point = one instance.
+    X = (elimdeg + elimnds) / <code>grim_pbp_cone</code> — elimination steps as fraction of all PBP cone steps.
+    Y = maximum cone depth.
+    Hypothesis: instances where preprocessing eliminates many assignments have shallower proofs
+    (UNSAT certified by direct elimination chains without deep search propagation).
+    A negative correlation supports that degree/NDS preprocessing reduces search depth.</p>
     $scatter_html
 
     <h2>11 — Label Coverage Check</h2>

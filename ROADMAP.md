@@ -44,8 +44,6 @@ Source: Solnon 2019 (GBR), Table 2. All counts are non-induced SI instances.
 | `images-CVIU11` / `images-PR15` | images | 52 | 6,250 | Overwhelmingly UNSAT |
 | `meshes-CVIU11` | meshes | 88 | 2,930 | Overwhelmingly UNSAT |
 
-**`si` is the only family that can never produce UNSAT proofs.** It must be excluded from all cone/resolv analysis. The cluster run still collects solver timing and node counts for `si` (SAT difficulty is a separate question), but no proof features will ever be populated.
-
 `scalefree` has 20 UNSAT instances; depending on how many complete within timeout, it may contribute limited proof data.
 
 ### First pass — manual analysis (LV, bio, images-CVIU11, meshes-CVIU11)
@@ -68,7 +66,7 @@ Mesh shape = "single-wave algebraic certificate" (depth ≈ 1, pure POL, OPB-hea
 ### Targeted cluster run — in progress (2026-06-15)
 
 ```bash
-julia --threads 64,1 trimnalyser.jl solve resolv verif allgraphs minnodes=200 maxnodes=500 st=600 tt=5400 rand
+julia --threads 64,1 trimnalyser.jl solve resolv verif allgraphs minnodes=200 maxnodes=500 st=600 tt=6000 rand
 ```
 
 Targets medium-hard instances across all families. First run with M3.5 labels active (Glasgow recompiled). Timeouts calibrated on competition silver time (st=600 ≈ 500s silver; tt=5400 = 1.2× competition checker time 4500s).
@@ -122,7 +120,6 @@ Pattern vertex occurrence counts in OPB cone → `<instance>.var_order` (sorted 
 
 Five new sections in `proof_survey.jl` (sections 7–11) ready to populate:
 - **§7** CP provenance table: mean/med/[Q1–Q3] per family per label category
-- **§8** CP composition stacked bar: all categories fraction of OPB cone
 - **§9** Supplemental depth: g0/g1/g2/g3 per family — which levels are proof-critical?
 - **§10** Scatter elim\_frac × cone\_depth\_max — tests preprocessing→shallow-proof hypothesis
 - **§11** Unlabeled count diagnostic
