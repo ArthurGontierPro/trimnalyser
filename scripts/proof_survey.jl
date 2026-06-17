@@ -78,6 +78,25 @@ function row_diff_frac_stats(sub, total_col, minus_cols, denom_col)
     (mean=avg(v), med=qs[2], q1=qs[1], q3=qs[3], n=length(v))
 end
 
+# Like lbl_frac_stats_z but sums multiple count columns (missing treated as 0).
+# Use for grouped bars in stacked charts (e.g. search = prop+guess+nogood).
+function sum_lbl_frac_stats_z(sub, count_cols, denom_col)
+    denom_col ∉ names(sub) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    v = Float64[]
+    for i in 1:nrow(sub)
+        d = sub[i, denom_col]; (ismissing(d) || d == 0) && continue
+        s = 0.0
+        for col in count_cols
+            col ∈ names(sub) || continue
+            c = sub[i, col]; !ismissing(c) && (s += Float64(c))
+        end
+        push!(v, s / Float64(d))
+    end
+    isempty(v) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN, n=0)
+    qs = quantile(v, [0.25, 0.5, 0.75])
+    (mean=avg(v), med=qs[2], q1=qs[1], q3=qs[3], n=length(v))
+end
+
 # ── HTML helpers ─────────────────────────────────────────────────────────────
 
 const CSS = """
@@ -317,29 +336,69 @@ function main()
             ls_g2adj   = lbl_frac_stats(sub, "grim_cone_g2adj",   "grim_total_cone"),
             ls_g3adj   = lbl_frac_stats(sub, "grim_cone_g3adj",   "grim_total_cone"),
             ls_forb    = lbl_frac_stats(sub, "grim_cone_forb",    "grim_total_cone"),
-            ls_elimnds = lbl_frac_stats(sub, "grim_cone_elimnds", "grim_total_cone"),
-            ls_elimdeg = lbl_frac_stats(sub, "grim_cone_elimdeg", "grim_total_cone"),
-            ls_loop    = lbl_frac_stats(sub, "grim_cone_loop",    "grim_total_cone"),
+            ls_elimnds    = lbl_frac_stats(sub, "grim_cone_elimnds",    "grim_total_cone"),
+            ls_elimdeg    = lbl_frac_stats(sub, "grim_cone_elimdeg",    "grim_total_cone"),
+            ls_elimdegpol = lbl_frac_stats(sub, "grim_cone_elimdegpol", "grim_total_cone"),
+            ls_hall       = lbl_frac_stats(sub, "grim_cone_hall",       "grim_total_cone"),
+            ls_loop       = lbl_frac_stats(sub, "grim_cone_loop",       "grim_total_cone"),
             # §7/§9 stacked bars: _z variants (missing→0) so all means are over the same population.
             # Non-sparse OPB labels (al1/am1/inj/g0adj/forb) are always non-missing so ls_* = sz_*.
             # Sparse PBP labels need _z so instances without them contribute 0, not are skipped.
-            sz_g0adj   = lbl_frac_stats_z(sub, "grim_cone_g0adj",   "grim_total_cone"),
-            sz_loop    = lbl_frac_stats_z(sub, "grim_cone_loop",    "grim_total_cone"),
-            sz_elimnds = lbl_frac_stats_z(sub, "grim_cone_elimnds", "grim_total_cone"),
-            sz_elimdeg = lbl_frac_stats_z(sub, "grim_cone_elimdeg", "grim_total_cone"),
-            sz_g1adj   = lbl_frac_stats_z(sub, "grim_cone_g1adj",   "grim_total_cone"),
-            sz_g2adj   = lbl_frac_stats_z(sub, "grim_cone_g2adj",   "grim_total_cone"),
-            sz_g3adj   = lbl_frac_stats_z(sub, "grim_cone_g3adj",   "grim_total_cone"),
+            sz_g0adj      = lbl_frac_stats_z(sub, "grim_cone_g0adj",      "grim_total_cone"),
+            sz_loop       = lbl_frac_stats_z(sub, "grim_cone_loop",       "grim_total_cone"),
+            sz_elimnds    = lbl_frac_stats_z(sub, "grim_cone_elimnds",    "grim_total_cone"),
+            sz_elimdeg    = lbl_frac_stats_z(sub, "grim_cone_elimdeg",    "grim_total_cone"),
+            sz_elimdegpol = lbl_frac_stats_z(sub, "grim_cone_elimdegpol", "grim_total_cone"),
+            sz_elimndspol = lbl_frac_stats_z(sub, "grim_cone_elimndspol", "grim_total_cone"),
+            sz_elimndsconc= lbl_frac_stats_z(sub, "grim_cone_elimndsconc","grim_total_cone"),
+            sz_g1adj      = lbl_frac_stats_z(sub, "grim_cone_g1adj",      "grim_total_cone"),
+            sz_g2adj      = lbl_frac_stats_z(sub, "grim_cone_g2adj",      "grim_total_cone"),
+            sz_g3adj      = lbl_frac_stats_z(sub, "grim_cone_g3adj",      "grim_total_cone"),
+            sz_hall       = lbl_frac_stats_z(sub, "grim_cone_hall",       "grim_total_cone"),
+            sz_ptbig      = lbl_frac_stats_z(sub, "grim_cone_ptbig",      "grim_total_cone"),
+            sz_prop       = lbl_frac_stats_z(sub, "grim_cone_prop",       "grim_total_cone"),
+            sz_guess      = lbl_frac_stats_z(sub, "grim_cone_guess",      "grim_total_cone"),
+            sz_nogood     = lbl_frac_stats_z(sub, "grim_cone_nogood",     "grim_total_cone"),
+            sz_pathg      = lbl_frac_stats_z(sub, "grim_cone_pathg",      "grim_total_cone"),
+            sz_d2g        = lbl_frac_stats_z(sub, "grim_cone_d2g",        "grim_total_cone"),
+            sz_d3g        = lbl_frac_stats_z(sub, "grim_cone_d3g",        "grim_total_cone"),
+            sz_binback    = lbl_frac_stats_z(sub, "grim_cone_binback",    "grim_total_cone"),
+            sz_colpol     = lbl_frac_stats_z(sub, "grim_cone_colpol",     "grim_total_cone"),
+            sz_hombd      = lbl_frac_stats_z(sub, "grim_cone_hombd",      "grim_total_cone"),
+            sz_hompol     = lbl_frac_stats_z(sub, "grim_cone_hompol",     "grim_total_cone"),
+            sz_hominj     = lbl_frac_stats_z(sub, "grim_cone_hominj",     "grim_total_cone"),
+            sz_homdom     = lbl_frac_stats_z(sub, "grim_cone_homdom",     "grim_total_cone"),
+            sz_homfin     = lbl_frac_stats_z(sub, "grim_cone_homfin",     "grim_total_cone"),
+            sz_homcross   = lbl_frac_stats_z(sub, "grim_cone_homcross",   "grim_total_cone"),
+            sz_mcspart    = lbl_frac_stats_z(sub, "grim_cone_mcspart",    "grim_total_cone"),
+            sz_mcsfin     = lbl_frac_stats_z(sub, "grim_cone_mcsfin",     "grim_total_cone"),
+            sz_notconn    = lbl_frac_stats_z(sub, "grim_cone_notconn",    "grim_total_cone"),
+            sz_cliqedge   = lbl_frac_stats_z(sub, "grim_cone_cliqedge",   "grim_total_cone"),
+            # Combined groups for stacked bar (search = prop+guess+nogood, path = pathg+d2g+d3g)
+            sz_search = sum_lbl_frac_stats_z(sub,
+                ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_total_cone"),
+            sz_path   = sum_lbl_frac_stats_z(sub,
+                ["grim_cone_pathg","grim_cone_d2g","grim_cone_d3g"], "grim_total_cone"),
             ls_unlabeled_total  = lbl_frac_stats_z(sub, "grim_cone_unlabeled", "grim_total_cone"),
             pb_unlabeled_total  = row_diff_frac_stats(sub, "grim_pbp_cone",
                 ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
-                 "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj"], "grim_total_cone"),
+                 "grim_cone_elimdegpol","grim_cone_elimndspol","grim_cone_elimndsconc",
+                 "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj",
+                 "grim_cone_hall","grim_cone_ptbig",
+                 "grim_cone_prop","grim_cone_guess","grim_cone_nogood",
+                 "grim_cone_pathg","grim_cone_d2g","grim_cone_d3g",
+                 "grim_cone_binback","grim_cone_colpol",
+                 "grim_cone_hombd","grim_cone_hompol","grim_cone_hominj",
+                 "grim_cone_homdom","grim_cone_homfin","grim_cone_homcross",
+                 "grim_cone_mcspart","grim_cone_mcsfin",
+                 "grim_cone_notconn","grim_cone_cliqedge"], "grim_total_cone"),
             # §7b: OPB-only breakdown (opb_cone denom) — OPB labels sum to 100%
             ob_al1       = lbl_frac_stats(sub, "grim_cone_al1",       "grim_opb_cone"),
             ob_am1       = lbl_frac_stats(sub, "grim_cone_am1",       "grim_opb_cone"),
             ob_inj       = lbl_frac_stats(sub, "grim_cone_inj",       "grim_opb_cone"),
             ob_g0adj     = lbl_frac_stats(sub, "grim_cone_g0adj",     "grim_opb_cone"),
             ob_forb      = lbl_frac_stats(sub, "grim_cone_forb",      "grim_opb_cone"),
+            ob_noedge    = lbl_frac_stats(sub, "grim_cone_noedge",    "grim_opb_cone"),
             ob_unlabeled = lbl_frac_stats_z(sub, "grim_cone_unlabeled", "grim_opb_cone"),
             # §7c: PBP-only breakdown (pbp_cone denom)
             # step-type view (sums to 100% over instances with pbp_cone > 0)
@@ -347,16 +406,31 @@ function main()
             pb_pol  = lbl_frac_stats_z(sub, "grim_cone_pol", "grim_pbp_cone"),
             pb_ia   = lbl_frac_stats_z(sub, "grim_cone_ia",  "grim_pbp_cone"),
             pb_red  = lbl_frac_stats_z(sub, "grim_cone_red", "grim_pbp_cone"),
-            # label-origin view (labeled level-0 vs unlabeled = search+intermediate)
-            pb_loop      = lbl_frac_stats(sub, "grim_cone_loop",    "grim_pbp_cone"),
-            pb_elimnds   = lbl_frac_stats(sub, "grim_cone_elimnds", "grim_pbp_cone"),
-            pb_elimdeg   = lbl_frac_stats(sub, "grim_cone_elimdeg", "grim_pbp_cone"),
-            pb_g1adj     = lbl_frac_stats(sub, "grim_cone_g1adj",   "grim_pbp_cone"),
-            pb_g2adj     = lbl_frac_stats(sub, "grim_cone_g2adj",   "grim_pbp_cone"),
-            pb_g3adj     = lbl_frac_stats(sub, "grim_cone_g3adj",   "grim_pbp_cone"),
-            pb_unlabeled = row_diff_frac_stats(sub, "grim_pbp_cone",
+            # label-origin view (now exhaustive: all labeled + unlabeled residual)
+            pb_loop       = lbl_frac_stats(sub, "grim_cone_loop",       "grim_pbp_cone"),
+            pb_elimnds    = lbl_frac_stats(sub, "grim_cone_elimnds",    "grim_pbp_cone"),
+            pb_elimdeg    = lbl_frac_stats(sub, "grim_cone_elimdeg",    "grim_pbp_cone"),
+            pb_elimdegpol = lbl_frac_stats(sub, "grim_cone_elimdegpol", "grim_pbp_cone"),
+            pb_hall       = lbl_frac_stats(sub, "grim_cone_hall",       "grim_pbp_cone"),
+            pb_g1adj      = lbl_frac_stats(sub, "grim_cone_g1adj",      "grim_pbp_cone"),
+            pb_g2adj      = lbl_frac_stats(sub, "grim_cone_g2adj",      "grim_pbp_cone"),
+            pb_g3adj      = lbl_frac_stats(sub, "grim_cone_g3adj",      "grim_pbp_cone"),
+            pb_search     = sum_lbl_frac_stats_z(sub,
+                ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_pbp_cone"),
+            pb_path       = sum_lbl_frac_stats_z(sub,
+                ["grim_cone_pathg","grim_cone_d2g","grim_cone_d3g"], "grim_pbp_cone"),
+            pb_unlabeled  = row_diff_frac_stats(sub, "grim_pbp_cone",
                 ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
-                 "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj"], "grim_pbp_cone"),
+                 "grim_cone_elimdegpol","grim_cone_elimndspol","grim_cone_elimndsconc",
+                 "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj",
+                 "grim_cone_hall","grim_cone_ptbig",
+                 "grim_cone_prop","grim_cone_guess","grim_cone_nogood",
+                 "grim_cone_pathg","grim_cone_d2g","grim_cone_d3g",
+                 "grim_cone_binback","grim_cone_colpol",
+                 "grim_cone_hombd","grim_cone_hompol","grim_cone_hominj",
+                 "grim_cone_homdom","grim_cone_homfin","grim_cone_homcross",
+                 "grim_cone_mcspart","grim_cone_mcsfin",
+                 "grim_cone_notconn","grim_cone_cliqedge"], "grim_pbp_cone"),
             # §7b stacked bar: _z variants (missing → 0) so bars sum to 1 over all instances with opb_cone > 0
             obz_al1    = lbl_frac_stats_z(sub, "grim_cone_al1",   "grim_opb_cone"),
             obz_am1    = lbl_frac_stats_z(sub, "grim_cone_am1",   "grim_opb_cone"),
@@ -364,12 +438,18 @@ function main()
             obz_g0adj  = lbl_frac_stats_z(sub, "grim_cone_g0adj", "grim_opb_cone"),
             obz_forb   = lbl_frac_stats_z(sub, "grim_cone_forb",  "grim_opb_cone"),
             # §7c stacked bar: _z variants for PBP label-origin (missing → 0, same pop as pb_unlabeled)
-            pbz_loop    = lbl_frac_stats_z(sub, "grim_cone_loop",    "grim_pbp_cone"),
-            pbz_elimnds = lbl_frac_stats_z(sub, "grim_cone_elimnds", "grim_pbp_cone"),
-            pbz_elimdeg = lbl_frac_stats_z(sub, "grim_cone_elimdeg", "grim_pbp_cone"),
-            pbz_g1adj   = lbl_frac_stats_z(sub, "grim_cone_g1adj",   "grim_pbp_cone"),
-            pbz_g2adj   = lbl_frac_stats_z(sub, "grim_cone_g2adj",   "grim_pbp_cone"),
-            pbz_g3adj   = lbl_frac_stats_z(sub, "grim_cone_g3adj",   "grim_pbp_cone"),
+            pbz_loop      = lbl_frac_stats_z(sub, "grim_cone_loop",       "grim_pbp_cone"),
+            pbz_elimnds   = lbl_frac_stats_z(sub, "grim_cone_elimnds",    "grim_pbp_cone"),
+            pbz_elimdeg   = lbl_frac_stats_z(sub, "grim_cone_elimdeg",    "grim_pbp_cone"),
+            pbz_elimdegpol= lbl_frac_stats_z(sub, "grim_cone_elimdegpol", "grim_pbp_cone"),
+            pbz_hall      = lbl_frac_stats_z(sub, "grim_cone_hall",       "grim_pbp_cone"),
+            pbz_g1adj     = lbl_frac_stats_z(sub, "grim_cone_g1adj",      "grim_pbp_cone"),
+            pbz_g2adj     = lbl_frac_stats_z(sub, "grim_cone_g2adj",      "grim_pbp_cone"),
+            pbz_g3adj     = lbl_frac_stats_z(sub, "grim_cone_g3adj",      "grim_pbp_cone"),
+            pbz_search    = sum_lbl_frac_stats_z(sub,
+                ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_pbp_cone"),
+            pbz_path      = sum_lbl_frac_stats_z(sub,
+                ["grim_cone_pathg","grim_cone_d2g","grim_cone_d3g"], "grim_pbp_cone"),
             n_with_labels   = nrow(sub),
             n_unlabeled_pos = "grim_cone_unlabeled" ∈ names(sub) ?
                 count(i -> !ismissing(sub[i,"grim_cone_unlabeled"]) && sub[i,"grim_cone_unlabeled"] > 0, 1:nrow(sub)) : 0,
@@ -583,27 +663,31 @@ function main()
     prov_rows = [[f, fd(f).n_with_labels,
                   lbl_cell(fd(f).ls_al1), lbl_cell(fd(f).ls_am1), lbl_cell(fd(f).ls_inj),
                   lbl_cell(fd(f).ls_g0adj),
-                  lbl_cell_n(fd(f).ls_g1adj, fd(f).n_with_labels),
-                  lbl_cell_n(fd(f).ls_g2adj, fd(f).n_with_labels),
-                  lbl_cell_n(fd(f).ls_g3adj, fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_g1adj,       fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_g2adj,       fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_g3adj,       fd(f).n_with_labels),
                   lbl_cell(fd(f).ls_forb),
-                  lbl_cell_n(fd(f).ls_elimdeg, fd(f).n_with_labels),
-                  lbl_cell_n(fd(f).ls_elimnds, fd(f).n_with_labels),
-                  lbl_cell_n(fd(f).ls_loop,    fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_elimdegpol,  fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_elimdeg,     fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_elimnds,     fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_loop,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_hall,        fd(f).n_with_labels),
                   lbl_cell(fd(f).ls_unlabeled_total),
                   lbl_cell(fd(f).pb_unlabeled_total)] for f in present]
     prov_html = html_table(
         ["Family", "n", "al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj",
-         "forb", "elimdeg", "elimnds", "loop", "unlab OPB", "unlab PBP"],
+         "forb", "elimdegpol (POL)", "elimdeg (IA)", "elimnds", "loop",
+         "hall (POL)", "unlab OPB", "unlab PBP"],
         prov_rows)
 
     # ── Section 7b: OPB axiom breakdown ──────────────────────────────────────────
     prov_b_rows = [[f, fd(f).n_with_labels,
                     lbl_cell(fd(f).ob_al1), lbl_cell(fd(f).ob_am1), lbl_cell(fd(f).ob_inj),
                     lbl_cell(fd(f).ob_g0adj), lbl_cell(fd(f).ob_forb),
+                    lbl_cell(fd(f).ob_noedge),
                     lbl_cell(fd(f).ob_unlabeled)] for f in present]
     prov_b_html = html_table(
-        ["Family", "n", "al1", "am1", "inj", "g0adj", "forb", "unlabeled"],
+        ["Family", "n", "al1", "am1", "inj", "g0adj", "forb", "noedge", "unlabeled"],
         prov_b_rows)
 
     # ── Section 7c: PBP cone breakdown ───────────────────────────────────────────
@@ -616,23 +700,38 @@ function main()
         prov_c_step_rows)
     # Table 2: label-origin view (labeled level-0 vs unlabeled, sums to 100%)
     prov_c_lbl_rows = [[f, fd(f).pb_rup.n,
-                        lbl_cell_n(fd(f).pb_loop,    fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_elimnds, fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_elimdeg, fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_g1adj,   fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_g2adj,   fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_g3adj,   fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_loop,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_elimnds,    fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_elimdegpol, fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_elimdeg,    fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_g1adj,      fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_g2adj,      fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_g3adj,      fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_hall,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_search,     fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_path,       fd(f).pb_rup.n),
                         lbl_cell(fd(f).pb_unlabeled)] for f in present]
     prov_c_lbl_html = html_table(
-        ["Family", "n (pbp>0)", "loop (RUP)", "elimnds (RUP)", "elimdeg (IA)",
-         "g1adj (IA)", "g2adj (IA)", "g3adj (IA)", "unlabeled (Hall POL + search + intermed)"],
+        ["Family", "n (pbp>0)", "loop (RUP)", "elimnds (RUP)",
+         "elimdegpol (POL)", "elimdeg (IA)",
+         "g1adj (IA)", "g2adj (IA)", "g3adj (IA)",
+         "hall (POL)", "search (RUP)", "path-intermed (POL/IA)", "unlabeled residual"],
         prov_c_lbl_rows)
     # Table 3: cross-check — unlabeled PBP fraction by search presence
     SOLVER_COL = "solver_nodes"
     function pbp_unlab_by_search(sub)
         has_col = SOLVER_COL ∈ names(sub)
         minus_cols = ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
-                      "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj"]
+                      "grim_cone_elimdegpol","grim_cone_elimndspol","grim_cone_elimndsconc",
+                      "grim_cone_g1adj","grim_cone_g2adj","grim_cone_g3adj",
+                      "grim_cone_hall","grim_cone_ptbig",
+                      "grim_cone_prop","grim_cone_guess","grim_cone_nogood",
+                      "grim_cone_pathg","grim_cone_d2g","grim_cone_d3g",
+                      "grim_cone_binback","grim_cone_colpol",
+                      "grim_cone_hombd","grim_cone_hompol","grim_cone_hominj",
+                      "grim_cone_homdom","grim_cone_homfin","grim_cone_homcross",
+                      "grim_cone_mcspart","grim_cone_mcsfin",
+                      "grim_cone_notconn","grim_cone_cliqedge"]
         if has_col
             nosearch_mask = [ismissing(sub[i, SOLVER_COL]) || sub[i, SOLVER_COL] <= 1 for i in 1:nrow(sub)]
             search_mask   = [!ismissing(sub[i, SOLVER_COL]) && sub[i, SOLVER_COL] > 1  for i in 1:nrow(sub)]
@@ -666,40 +765,49 @@ function main()
     # ── Section 8: CP composition stacked bar ────────────────────────────────────
     LC = (al1="#1a6fbf", am1="#7ab3e8", inj="#e85b5b",
           g0adj="#1b7837", g1adj="#5aae61", g2adj="#a6dba0", g3adj="#d9f0d3",
-          forb="#ff7f0e", elimdeg="#9467bd", elimnds="#c5a0d3", loop="#8c564b",
+          forb="#ff7f0e", elimdegpol="#6a3d9a", elimdeg="#9467bd", elimnds="#c5a0d3",
+          loop="#8c564b", hall="#e6ab02", search="#e31a1c", path="#fb9a99",
           unlabeled_opb="#dddddd", unlabeled_pbp="#aaaaaa")
     mean_arr(field) = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.mean) ? NaN : ls.mean end for f in present])
     med_arr(field)  = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.med)  ? NaN : ls.med  end for f in present])
 
     comp_chart_mean = stacked_bar_chart("cpCompMean", present,
-        [("al1 (≥1 domain)",          LC.al1,           mean_arr(:ls_al1)),
-         ("am1 (≤1 domain)",          LC.am1,           mean_arr(:ls_am1)),
-         ("inj (injectivity)",        LC.inj,           mean_arr(:ls_inj)),
-         ("g0adj (base adj)",         LC.g0adj,         mean_arr(:ls_g0adj)),
-         ("forb (forbidden)",         LC.forb,          mean_arr(:ls_forb)),
-         ("unlabeled OPB",            LC.unlabeled_opb, mean_arr(:ls_unlabeled_total)),
-         ("loop (PBP)",               LC.loop,          mean_arr(:sz_loop)),
-         ("elimnds (NDS, PBP)",       LC.elimnds,       mean_arr(:sz_elimnds)),
-         ("elimdeg (degree, PBP)",    LC.elimdeg,       mean_arr(:sz_elimdeg)),
-         ("g1adj (supp. 1, PBP)",     LC.g1adj,         mean_arr(:sz_g1adj)),
-         ("g2adj (supp. 2, PBP)",     LC.g2adj,         mean_arr(:sz_g2adj)),
-         ("g3adj (supp. 3, PBP)",     LC.g3adj,         mean_arr(:sz_g3adj)),
-         ("unlabeled PBP (search+intermed)", LC.unlabeled_pbp, mean_arr(:pb_unlabeled_total))];
+        [("al1 (≥1 domain)",           LC.al1,           mean_arr(:ls_al1)),
+         ("am1 (≤1 domain)",           LC.am1,           mean_arr(:ls_am1)),
+         ("inj (injectivity)",         LC.inj,           mean_arr(:ls_inj)),
+         ("g0adj (base adj)",          LC.g0adj,         mean_arr(:ls_g0adj)),
+         ("forb (forbidden)",          LC.forb,          mean_arr(:ls_forb)),
+         ("unlabeled OPB",             LC.unlabeled_opb, mean_arr(:ls_unlabeled_total)),
+         ("loop (PBP)",                LC.loop,          mean_arr(:sz_loop)),
+         ("elimnds (NDS, PBP)",        LC.elimnds,       mean_arr(:sz_elimnds)),
+         ("elimdegpol (deg pol, PBP)", LC.elimdegpol,    mean_arr(:sz_elimdegpol)),
+         ("elimdeg (deg ia, PBP)",     LC.elimdeg,       mean_arr(:sz_elimdeg)),
+         ("g1adj (supp. 1, PBP)",      LC.g1adj,         mean_arr(:sz_g1adj)),
+         ("g2adj (supp. 2, PBP)",      LC.g2adj,         mean_arr(:sz_g2adj)),
+         ("g3adj (supp. 3, PBP)",      LC.g3adj,         mean_arr(:sz_g3adj)),
+         ("hall (Hall sets, PBP)",     LC.hall,          mean_arr(:sz_hall)),
+         ("search (prop+guess+nogood)",LC.search,        mean_arr(:sz_search)),
+         ("path-intermed (pathg+d2/3g)",LC.path,         mean_arr(:sz_path)),
+         ("unlabeled PBP residual",    LC.unlabeled_pbp, mean_arr(:pb_unlabeled_total))];
         ytitle="fraction of total cone (OPB+PBP)")
     comp_chart_med = stacked_bar_chart("cpCompMed", present,
-        [("al1",                 LC.al1,           med_arr(:ls_al1)),
-         ("am1",                 LC.am1,           med_arr(:ls_am1)),
-         ("inj",                 LC.inj,           med_arr(:ls_inj)),
-         ("g0adj",               LC.g0adj,         med_arr(:ls_g0adj)),
-         ("forb",                LC.forb,          med_arr(:ls_forb)),
-         ("unlabeled OPB",       LC.unlabeled_opb, med_arr(:ls_unlabeled_total)),
-         ("loop",                LC.loop,          med_arr(:sz_loop)),
-         ("elimnds",             LC.elimnds,       med_arr(:sz_elimnds)),
-         ("elimdeg",             LC.elimdeg,       med_arr(:sz_elimdeg)),
-         ("g1adj",               LC.g1adj,         med_arr(:sz_g1adj)),
-         ("g2adj",               LC.g2adj,         med_arr(:sz_g2adj)),
-         ("g3adj",               LC.g3adj,         med_arr(:sz_g3adj)),
-         ("unlabeled PBP",       LC.unlabeled_pbp, med_arr(:pb_unlabeled_total))];
+        [("al1",                  LC.al1,           med_arr(:ls_al1)),
+         ("am1",                  LC.am1,           med_arr(:ls_am1)),
+         ("inj",                  LC.inj,           med_arr(:ls_inj)),
+         ("g0adj",                LC.g0adj,         med_arr(:ls_g0adj)),
+         ("forb",                 LC.forb,          med_arr(:ls_forb)),
+         ("unlabeled OPB",        LC.unlabeled_opb, med_arr(:ls_unlabeled_total)),
+         ("loop",                 LC.loop,          med_arr(:sz_loop)),
+         ("elimnds",              LC.elimnds,       med_arr(:sz_elimnds)),
+         ("elimdegpol",           LC.elimdegpol,    med_arr(:sz_elimdegpol)),
+         ("elimdeg",              LC.elimdeg,       med_arr(:sz_elimdeg)),
+         ("g1adj",                LC.g1adj,         med_arr(:sz_g1adj)),
+         ("g2adj",                LC.g2adj,         med_arr(:sz_g2adj)),
+         ("g3adj",                LC.g3adj,         med_arr(:sz_g3adj)),
+         ("hall",                 LC.hall,          med_arr(:sz_hall)),
+         ("search",               LC.search,        med_arr(:sz_search)),
+         ("path-intermed",        LC.path,          med_arr(:sz_path)),
+         ("unlabeled PBP residual",LC.unlabeled_pbp,med_arr(:pb_unlabeled_total))];
         ytitle="fraction of total cone (OPB+PBP)")
 
     # ── Sections 7b / 7c stacked bars ────────────────────────────────────────────

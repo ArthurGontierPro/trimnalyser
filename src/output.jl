@@ -828,72 +828,162 @@
 # ══ M3.5: CP constraint provenance ════════════════════════════════════════════════════════
 
     function classify_label(label::String)
-        startswith(label, "al1")      && return :al1
-        startswith(label, "am1")      && return :am1
-        startswith(label, "inj")      && return :inj
-        startswith(label, "forb")     && return :forb
-        startswith(label, "elimnds")  && return :elimnds
-        startswith(label, "elimdeg")  && return :elimdeg
-        startswith(label, "elim")     && return :elimnds   # legacy: @elim before M3.5 rename
-        startswith(label, "loop")     && return :loop
-        startswith(label, "noedge")   && return :noedge
-        startswith(label, "adj")      && return :g0adj       # current
-        startswith(label, "g0adj")   && return :g0adj       # legacy (before M3.5.2)
-        startswith(label, "g1adj")   && return :g1adj
-        startswith(label, "g2adj")   && return :g2adj
-        startswith(label, "g3adj")   && return :g3adj
-        startswith(label, "d3adj")   && return :g3adj       # legacy (before M3.5.1)
+        startswith(label, "al1")        && return :al1
+        startswith(label, "am1")        && return :am1
+        startswith(label, "inj")        && return :inj
+        startswith(label, "forb")       && return :forb
+        startswith(label, "noedge")     && return :noedge
+        startswith(label, "elimdegpol") && return :elimdegpol  # before elimdeg
+        startswith(label, "elimdeg")    && return :elimdeg
+        startswith(label, "elimndspol") && return :elimndspol  # before elimnds
+        startswith(label, "elimndsconc")&& return :elimndsconc # before elimnds
+        startswith(label, "elimnds")    && return :elimnds
+        startswith(label, "elim")       && return :elimnds     # legacy: @elim before M3.5 rename
+        startswith(label, "loop")       && return :loop
+        startswith(label, "adj")        && return :g0adj       # current (M3.5.2+)
+        startswith(label, "g0adj")      && return :g0adj       # legacy (before M3.5.2)
+        startswith(label, "g1adj")      && return :g1adj
+        startswith(label, "g2adj")      && return :g2adj
+        startswith(label, "g3adj")      && return :g3adj
+        startswith(label, "d3adj")      && return :g3adj       # legacy (before M3.5.1)
         startswith(label, "g") && occursin("adj", label) && return :gadj_other
+        startswith(label, "ptbig")      && return :ptbig
+        startswith(label, "hall")       && return :hall
+        startswith(label, "prop")       && return :prop
+        startswith(label, "guess")      && return :guess
+        startswith(label, "nogood")     && return :nogood
+        startswith(label, "pathg")      && return :pathg
+        startswith(label, "d2g")        && return :d2g
+        startswith(label, "d3g")        && return :d3g
+        startswith(label, "binback")    && return :binback
+        startswith(label, "colpol")     && return :colpol
+        startswith(label, "homcross")   && return :homcross
+        startswith(label, "hombd")      && return :hombd
+        startswith(label, "hompol")     && return :hompol
+        startswith(label, "hominj")     && return :hominj
+        startswith(label, "homdom")     && return :homdom
+        startswith(label, "homfin")     && return :homfin
+        startswith(label, "mcspart")    && return :mcspart
+        startswith(label, "mcsfin")     && return :mcsfin
+        startswith(label, "notconn")    && return :notconn
+        startswith(label, "cliqedge")   && return :cliqedge
         return :other
     end
 
     function cone_label_stats(cone::Vector{Bool}, ctrmap::Dict{String,Int}, nbopb::Int)
         n_al1 = n_am1 = n_inj = n_g0adj = n_g1adj = n_g2adj = n_g3adj = n_gadj_other = 0
-        n_forb = n_elimnds = n_elimdeg = n_loop = n_noedge = n_other = 0
+        n_forb = n_noedge = n_elimdegpol = n_elimdeg = n_elimndspol = n_elimndsconc = n_elimnds = n_loop = 0
+        n_ptbig = n_hall = n_prop = n_guess = n_nogood = 0
+        n_pathg = n_d2g = n_d3g = 0
+        n_binback = n_colpol = 0
+        n_homcross = n_hombd = n_hompol = n_hominj = n_homdom = n_homfin = 0
+        n_mcspart = n_mcsfin = n_notconn = n_cliqedge = 0
+        n_other = 0
         labeled_opb_ids = Set{Int}()
         for (label, id) in ctrmap
             id > length(cone) && continue
             cone[id] || continue
             cat = classify_label(label)
             id <= nbopb && push!(labeled_opb_ids, id)
-            if     cat == :al1;        n_al1        += 1
-            elseif cat == :am1;        n_am1        += 1
-            elseif cat == :inj;        n_inj        += 1
-            elseif cat == :g0adj;      n_g0adj      += 1
-            elseif cat == :g1adj;      n_g1adj      += 1
-            elseif cat == :g2adj;      n_g2adj      += 1
-            elseif cat == :g3adj;      n_g3adj      += 1
-            elseif cat == :gadj_other; n_gadj_other += 1
-            elseif cat == :forb;       n_forb       += 1
-            elseif cat == :elimnds;    n_elimnds    += 1
-            elseif cat == :elimdeg;    n_elimdeg    += 1
-            elseif cat == :loop;       n_loop       += 1
-            elseif cat == :noedge;     n_noedge     += 1
-            else                       n_other      += 1
+            if     cat == :al1;         n_al1         += 1
+            elseif cat == :am1;         n_am1         += 1
+            elseif cat == :inj;         n_inj         += 1
+            elseif cat == :g0adj;       n_g0adj       += 1
+            elseif cat == :g1adj;       n_g1adj       += 1
+            elseif cat == :g2adj;       n_g2adj       += 1
+            elseif cat == :g3adj;       n_g3adj       += 1
+            elseif cat == :gadj_other;  n_gadj_other  += 1
+            elseif cat == :forb;        n_forb        += 1
+            elseif cat == :noedge;      n_noedge      += 1
+            elseif cat == :elimdegpol;  n_elimdegpol  += 1
+            elseif cat == :elimdeg;     n_elimdeg     += 1
+            elseif cat == :elimndspol;  n_elimndspol  += 1
+            elseif cat == :elimndsconc; n_elimndsconc += 1
+            elseif cat == :elimnds;     n_elimnds     += 1
+            elseif cat == :loop;        n_loop        += 1
+            elseif cat == :ptbig;       n_ptbig       += 1
+            elseif cat == :hall;        n_hall        += 1
+            elseif cat == :prop;        n_prop        += 1
+            elseif cat == :guess;       n_guess       += 1
+            elseif cat == :nogood;      n_nogood      += 1
+            elseif cat == :pathg;       n_pathg       += 1
+            elseif cat == :d2g;         n_d2g         += 1
+            elseif cat == :d3g;         n_d3g         += 1
+            elseif cat == :binback;     n_binback     += 1
+            elseif cat == :colpol;      n_colpol      += 1
+            elseif cat == :homcross;    n_homcross    += 1
+            elseif cat == :hombd;       n_hombd       += 1
+            elseif cat == :hompol;      n_hompol      += 1
+            elseif cat == :hominj;      n_hominj      += 1
+            elseif cat == :homdom;      n_homdom      += 1
+            elseif cat == :homfin;      n_homfin      += 1
+            elseif cat == :mcspart;     n_mcspart     += 1
+            elseif cat == :mcsfin;      n_mcsfin      += 1
+            elseif cat == :notconn;     n_notconn     += 1
+            elseif cat == :cliqedge;    n_cliqedge    += 1
+            else                        n_other       += 1
             end
         end
         n_unlabeled = sum(cone[1:nbopb]) - length(labeled_opb_ids)
         (al1=n_al1, am1=n_am1, inj=n_inj, g0adj=n_g0adj,
          g1adj=n_g1adj, g2adj=n_g2adj, g3adj=n_g3adj, gadj_other=n_gadj_other,
-         forb=n_forb, elimnds=n_elimnds, elimdeg=n_elimdeg,
-         loop=n_loop, noedge=n_noedge, other=n_other, unlabeled=n_unlabeled)
+         forb=n_forb, noedge=n_noedge,
+         elimdegpol=n_elimdegpol, elimdeg=n_elimdeg,
+         elimndspol=n_elimndspol, elimndsconc=n_elimndsconc, elimnds=n_elimnds,
+         loop=n_loop,
+         ptbig=n_ptbig, hall=n_hall, prop=n_prop, guess=n_guess, nogood=n_nogood,
+         pathg=n_pathg, d2g=n_d2g, d3g=n_d3g,
+         binback=n_binback, colpol=n_colpol,
+         homcross=n_homcross, hombd=n_hombd, hompol=n_hompol,
+         hominj=n_hominj, homdom=n_homdom, homfin=n_homfin,
+         mcspart=n_mcspart, mcsfin=n_mcsfin,
+         notconn=n_notconn, cliqedge=n_cliqedge,
+         other=n_other, unlabeled=n_unlabeled)
     end
 
     function writeout_cone_labels(ins, stats, prefix)
         open(_cfg[].proofs * ins * ".out", "a") do f
-            println(f, prefix, " CONE LABEL AL1 ",     stats.al1)
-            println(f, prefix, " CONE LABEL AM1 ",     stats.am1)
-            println(f, prefix, " CONE LABEL INJ ",     stats.inj)
-            println(f, prefix, " CONE LABEL G0ADJ ",   stats.g0adj)
-            println(f, prefix, " CONE LABEL G1ADJ ",   stats.g1adj)
-            println(f, prefix, " CONE LABEL G2ADJ ",   stats.g2adj)
-            println(f, prefix, " CONE LABEL G3ADJ ",   stats.g3adj)
-            stats.gadj_other > 0 && println(f, prefix, " CONE LABEL GADJ_OTHER ", stats.gadj_other)
-            println(f, prefix, " CONE LABEL FORB ",    stats.forb)
-            println(f, prefix, " CONE LABEL ELIMNDS ", stats.elimnds)
-            println(f, prefix, " CONE LABEL ELIMDEG ", stats.elimdeg)
-            stats.loop > 0    && println(f, prefix, " CONE LABEL LOOP ",      stats.loop)
-            stats.unlabeled > 0 && println(f, prefix, " CONE UNLABELED ",     stats.unlabeled)
+            # OPB axiom labels (always written, even if 0)
+            println(f, prefix, " CONE LABEL AL1 ",      stats.al1)
+            println(f, prefix, " CONE LABEL AM1 ",      stats.am1)
+            println(f, prefix, " CONE LABEL INJ ",      stats.inj)
+            println(f, prefix, " CONE LABEL G0ADJ ",    stats.g0adj)
+            println(f, prefix, " CONE LABEL FORB ",     stats.forb)
+            println(f, prefix, " CONE LABEL NOEDGE ",   stats.noedge)
+            # PBP degree/NDS elimination (always written, paired with OPB elimdeg)
+            println(f, prefix, " CONE LABEL ELIMDEGPOL ",  stats.elimdegpol)
+            println(f, prefix, " CONE LABEL ELIMDEG ",     stats.elimdeg)
+            println(f, prefix, " CONE LABEL ELIMNDS ",     stats.elimnds)
+            # PBP supplemental adjacency (always written)
+            println(f, prefix, " CONE LABEL G1ADJ ",    stats.g1adj)
+            println(f, prefix, " CONE LABEL G2ADJ ",    stats.g2adj)
+            println(f, prefix, " CONE LABEL G3ADJ ",    stats.g3adj)
+            # Rare PBP labels (conditional)
+            stats.gadj_other  > 0 && println(f, prefix, " CONE LABEL GADJ_OTHER ",  stats.gadj_other)
+            stats.elimndspol  > 0 && println(f, prefix, " CONE LABEL ELIMNDSPOL ",  stats.elimndspol)
+            stats.elimndsconc > 0 && println(f, prefix, " CONE LABEL ELIMNDSCONC ", stats.elimndsconc)
+            stats.loop        > 0 && println(f, prefix, " CONE LABEL LOOP ",        stats.loop)
+            stats.ptbig       > 0 && println(f, prefix, " CONE LABEL PTBIG ",       stats.ptbig)
+            stats.hall        > 0 && println(f, prefix, " CONE LABEL HALL ",        stats.hall)
+            stats.prop        > 0 && println(f, prefix, " CONE LABEL PROP ",        stats.prop)
+            stats.guess       > 0 && println(f, prefix, " CONE LABEL GUESS ",       stats.guess)
+            stats.nogood      > 0 && println(f, prefix, " CONE LABEL NOGOOD ",      stats.nogood)
+            stats.pathg       > 0 && println(f, prefix, " CONE LABEL PATHG ",       stats.pathg)
+            stats.d2g         > 0 && println(f, prefix, " CONE LABEL D2G ",         stats.d2g)
+            stats.d3g         > 0 && println(f, prefix, " CONE LABEL D3G ",         stats.d3g)
+            stats.binback     > 0 && println(f, prefix, " CONE LABEL BINBACK ",     stats.binback)
+            stats.colpol      > 0 && println(f, prefix, " CONE LABEL COLPOL ",      stats.colpol)
+            stats.hombd       > 0 && println(f, prefix, " CONE LABEL HOMBD ",       stats.hombd)
+            stats.hompol      > 0 && println(f, prefix, " CONE LABEL HOMPOL ",      stats.hompol)
+            stats.hominj      > 0 && println(f, prefix, " CONE LABEL HOMINJ ",      stats.hominj)
+            stats.homdom      > 0 && println(f, prefix, " CONE LABEL HOMDOM ",      stats.homdom)
+            stats.homfin      > 0 && println(f, prefix, " CONE LABEL HOMFIN ",      stats.homfin)
+            stats.homcross    > 0 && println(f, prefix, " CONE LABEL HOMCROSS ",    stats.homcross)
+            stats.mcspart     > 0 && println(f, prefix, " CONE LABEL MCSPART ",     stats.mcspart)
+            stats.mcsfin      > 0 && println(f, prefix, " CONE LABEL MCSFIN ",      stats.mcsfin)
+            stats.notconn     > 0 && println(f, prefix, " CONE LABEL NOTCONN ",     stats.notconn)
+            stats.cliqedge    > 0 && println(f, prefix, " CONE LABEL CLIQEDGE ",    stats.cliqedge)
+            stats.unlabeled   > 0 && println(f, prefix, " CONE UNLABELED ",         stats.unlabeled)
         end
     end
 

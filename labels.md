@@ -332,14 +332,19 @@ Utilisé pour le bound couleur dans les variantes MCS/Hom.
 ## 16. Borne couleur MCS (`colour_bound`)
 
 ```
-@colcc<line>  pol  @noedge<a>_<b> ... <N> * + <N+1> d ... ;   # un par composante connexe
-@colfin<line> pol  @colcc1 @colcc2 + ... <obj_line> + ;        # total
+@colpol<line>  pol  @noedge<a>_<b> ... <N> * + <N+1> d ... <obj_line> + ... ;
 ```
+
+Un unique pas pol qui traite toutes les composantes connexes inline (via le lambda `do_one_cc`)
+et combine le résultat avec `_imp->objective_line` en une seule expression. Il n'y a pas de pas
+intermédiaires par composante — tout est construit en une passe dans le même flux `proof_stream`.
+
+Note : les labels `@colcc` et `@colfin` décrits initialement dans ce document n'existent pas ;
+la structure à deux niveaux supposée était incorrecte.
 
 | Label | Format | Représente | Statut |
 |---|---|---|---|
-| `@colcc<line>` | `@colcc3001` | pol : borne couleur pour une composante connexe | ⚠️ NOUVEAU |
-| `@colfin<line>` | `@colfin3010` | pol : borne couleur totale combinée | ⚠️ NOUVEAU |
+| `@colpol<line>` | `@colpol3001` | pol : borne couleur MCS complète (toutes CC + objectif) en un seul pas | ✅ implémenté |
 
 ---
 

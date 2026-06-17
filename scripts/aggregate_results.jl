@@ -78,12 +78,27 @@ const CSV_COLUMNS = [
     # M3.5: CP constraint provenance (counts)
     "grim_cone_al1", "grim_cone_am1", "grim_cone_inj",
     "grim_cone_g0adj", "grim_cone_g1adj", "grim_cone_g2adj", "grim_cone_g3adj",
-    "grim_cone_forb", "grim_cone_elimnds", "grim_cone_elimdeg", "grim_cone_loop",
+    "grim_cone_forb", "grim_cone_noedge",
+    "grim_cone_elimdegpol", "grim_cone_elimdeg",
+    "grim_cone_elimndspol", "grim_cone_elimndsconc", "grim_cone_elimnds",
+    "grim_cone_loop",
+    "grim_cone_ptbig", "grim_cone_hall",
+    "grim_cone_prop", "grim_cone_guess", "grim_cone_nogood",
+    "grim_cone_pathg", "grim_cone_d2g", "grim_cone_d3g",
+    "grim_cone_binback", "grim_cone_colpol",
+    "grim_cone_hombd", "grim_cone_hompol", "grim_cone_hominj",
+    "grim_cone_homdom", "grim_cone_homfin", "grim_cone_homcross",
+    "grim_cone_mcspart", "grim_cone_mcsfin",
+    "grim_cone_notconn", "grim_cone_cliqedge",
     "grim_cone_unlabeled",
     # M3.5: CP constraint provenance (fractions of OPB cone)
     "grim_cone_frac_inj", "grim_cone_frac_g0adj",
     "grim_cone_frac_g1adj", "grim_cone_frac_g2adj", "grim_cone_frac_g3adj",
-    "grim_cone_frac_forb", "grim_cone_frac_elimnds", "grim_cone_frac_elimdeg",
+    "grim_cone_frac_forb", "grim_cone_frac_noedge",
+    "grim_cone_frac_elimdegpol", "grim_cone_frac_elimnds", "grim_cone_frac_elimdeg",
+    "grim_cone_frac_hall",
+    "grim_cone_frac_prop", "grim_cone_frac_guess", "grim_cone_frac_nogood",
+    "grim_cone_frac_pathg", "grim_cone_frac_d2g", "grim_cone_frac_d3g",
     # M3.5: variable order
     "grim_cone_uniq_pat", "grim_cone_uniq_tar"
 ]
@@ -196,13 +211,37 @@ function parse_out_file(filepath)
         let m = match(r"^grim CONE LABEL G1ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g1adj"]   = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL G2ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g2adj"]   = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL G3ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g3adj"]   = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL FORB (\d+)", line);    m !== nothing && (data["grim_cone_forb"]    = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL ELIMNDS (\d+)", line); m !== nothing && (data["grim_cone_elimnds"] = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL ELIMDEG (\d+)", line); m !== nothing && (data["grim_cone_elimdeg"] = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL LOOP (\d+)", line);    m !== nothing && (data["grim_cone_loop"]    = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE UNLABELED (\d+)", line);   m !== nothing && (data["grim_cone_unlabeled"] = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE UNIQ PAT (\d+)", line);    m !== nothing && (data["grim_cone_uniq_pat"]  = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE UNIQ TAR (\d+)", line);    m !== nothing && (data["grim_cone_uniq_tar"]  = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL FORB (\d+)", line);        m !== nothing && (data["grim_cone_forb"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL NOEDGE (\d+)", line);      m !== nothing && (data["grim_cone_noedge"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL ELIMDEGPOL (\d+)", line);  m !== nothing && (data["grim_cone_elimdegpol"]  = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL ELIMDEG (\d+)", line);     m !== nothing && (data["grim_cone_elimdeg"]     = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL ELIMNDSPOL (\d+)", line);  m !== nothing && (data["grim_cone_elimndspol"]  = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL ELIMNDSCONC (\d+)", line); m !== nothing && (data["grim_cone_elimndsconc"] = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL ELIMNDS (\d+)", line);     m !== nothing && (data["grim_cone_elimnds"]     = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL LOOP (\d+)", line);        m !== nothing && (data["grim_cone_loop"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL PTBIG (\d+)", line);       m !== nothing && (data["grim_cone_ptbig"]       = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL HALL (\d+)", line);        m !== nothing && (data["grim_cone_hall"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL PROP (\d+)", line);        m !== nothing && (data["grim_cone_prop"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL GUESS (\d+)", line);       m !== nothing && (data["grim_cone_guess"]       = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL NOGOOD (\d+)", line);      m !== nothing && (data["grim_cone_nogood"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL PATHG (\d+)", line);       m !== nothing && (data["grim_cone_pathg"]       = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D2G (\d+)", line);         m !== nothing && (data["grim_cone_d2g"]         = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D3G (\d+)", line);         m !== nothing && (data["grim_cone_d3g"]         = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL BINBACK (\d+)", line);     m !== nothing && (data["grim_cone_binback"]     = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL COLPOL (\d+)", line);      m !== nothing && (data["grim_cone_colpol"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL HOMBD (\d+)", line);       m !== nothing && (data["grim_cone_hombd"]       = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL HOMPOL (\d+)", line);      m !== nothing && (data["grim_cone_hompol"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL HOMINJ (\d+)", line);      m !== nothing && (data["grim_cone_hominj"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL HOMDOM (\d+)", line);      m !== nothing && (data["grim_cone_homdom"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL HOMFIN (\d+)", line);      m !== nothing && (data["grim_cone_homfin"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL HOMCROSS (\d+)", line);    m !== nothing && (data["grim_cone_homcross"]    = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL MCSPART (\d+)", line);     m !== nothing && (data["grim_cone_mcspart"]     = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL MCSFIN (\d+)", line);      m !== nothing && (data["grim_cone_mcsfin"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL NOTCONN (\d+)", line);     m !== nothing && (data["grim_cone_notconn"]     = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL CLIQEDGE (\d+)", line);    m !== nothing && (data["grim_cone_cliqedge"]    = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE UNLABELED (\d+)", line);         m !== nothing && (data["grim_cone_unlabeled"]   = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE UNIQ PAT (\d+)", line);          m !== nothing && (data["grim_cone_uniq_pat"]    = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE UNIQ TAR (\d+)", line);          m !== nothing && (data["grim_cone_uniq_tar"]    = parse(Int, m.captures[1])); end
 
         # Solver stats
         occursin("pattern_vertices", line)   && (data["pattern_vertices"] = tryparse(Int, match(r"=\s*(\d+)", line).captures[1]))
@@ -600,18 +639,42 @@ function aggregate_results(proofdir::String, output_csv::String)
             end
 
             # M3.5: CP constraint provenance (counts)
-            push!(row, get(data, "grim_cone_al1",       ""))
-            push!(row, get(data, "grim_cone_am1",       ""))
-            push!(row, get(data, "grim_cone_inj",       ""))
-            push!(row, get(data, "grim_cone_g0adj",     ""))
-            push!(row, get(data, "grim_cone_g1adj",     ""))
-            push!(row, get(data, "grim_cone_g2adj",     ""))
-            push!(row, get(data, "grim_cone_g3adj",     ""))
-            push!(row, get(data, "grim_cone_forb",      ""))
-            push!(row, get(data, "grim_cone_elimnds",   ""))
-            push!(row, get(data, "grim_cone_elimdeg",   ""))
-            push!(row, get(data, "grim_cone_loop",      ""))
-            push!(row, get(data, "grim_cone_unlabeled", ""))
+            push!(row, get(data, "grim_cone_al1",          ""))
+            push!(row, get(data, "grim_cone_am1",          ""))
+            push!(row, get(data, "grim_cone_inj",          ""))
+            push!(row, get(data, "grim_cone_g0adj",        ""))
+            push!(row, get(data, "grim_cone_g1adj",        ""))
+            push!(row, get(data, "grim_cone_g2adj",        ""))
+            push!(row, get(data, "grim_cone_g3adj",        ""))
+            push!(row, get(data, "grim_cone_forb",         ""))
+            push!(row, get(data, "grim_cone_noedge",       ""))
+            push!(row, get(data, "grim_cone_elimdegpol",   ""))
+            push!(row, get(data, "grim_cone_elimdeg",      ""))
+            push!(row, get(data, "grim_cone_elimndspol",   ""))
+            push!(row, get(data, "grim_cone_elimndsconc",  ""))
+            push!(row, get(data, "grim_cone_elimnds",      ""))
+            push!(row, get(data, "grim_cone_loop",         ""))
+            push!(row, get(data, "grim_cone_ptbig",        ""))
+            push!(row, get(data, "grim_cone_hall",         ""))
+            push!(row, get(data, "grim_cone_prop",         ""))
+            push!(row, get(data, "grim_cone_guess",        ""))
+            push!(row, get(data, "grim_cone_nogood",       ""))
+            push!(row, get(data, "grim_cone_pathg",        ""))
+            push!(row, get(data, "grim_cone_d2g",          ""))
+            push!(row, get(data, "grim_cone_d3g",          ""))
+            push!(row, get(data, "grim_cone_binback",      ""))
+            push!(row, get(data, "grim_cone_colpol",       ""))
+            push!(row, get(data, "grim_cone_hombd",        ""))
+            push!(row, get(data, "grim_cone_hompol",       ""))
+            push!(row, get(data, "grim_cone_hominj",       ""))
+            push!(row, get(data, "grim_cone_homdom",       ""))
+            push!(row, get(data, "grim_cone_homfin",       ""))
+            push!(row, get(data, "grim_cone_homcross",     ""))
+            push!(row, get(data, "grim_cone_mcspart",      ""))
+            push!(row, get(data, "grim_cone_mcsfin",       ""))
+            push!(row, get(data, "grim_cone_notconn",      ""))
+            push!(row, get(data, "grim_cone_cliqedge",     ""))
+            push!(row, get(data, "grim_cone_unlabeled",    ""))
 
             # M3.5: CP constraint provenance (fractions of OPB cone)
             let opb_cone = get(data, "grim_opb_cone", nothing)
@@ -625,8 +688,17 @@ function aggregate_results(proofdir::String, output_csv::String)
                 push!(row, labelfrac("grim_cone_g2adj"))
                 push!(row, labelfrac("grim_cone_g3adj"))
                 push!(row, labelfrac("grim_cone_forb"))
+                push!(row, labelfrac("grim_cone_noedge"))
+                push!(row, labelfrac("grim_cone_elimdegpol"))
                 push!(row, labelfrac("grim_cone_elimnds"))
                 push!(row, labelfrac("grim_cone_elimdeg"))
+                push!(row, labelfrac("grim_cone_hall"))
+                push!(row, labelfrac("grim_cone_prop"))
+                push!(row, labelfrac("grim_cone_guess"))
+                push!(row, labelfrac("grim_cone_nogood"))
+                push!(row, labelfrac("grim_cone_pathg"))
+                push!(row, labelfrac("grim_cone_d2g"))
+                push!(row, labelfrac("grim_cone_d3g"))
             end
 
             # M3.5: variable order
