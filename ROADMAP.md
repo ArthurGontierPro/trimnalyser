@@ -118,15 +118,33 @@ Pattern vertex occurrence counts in OPB cone → `<instance>.var_order` (sorted 
 
 ### M3.5 analysis — pending cluster data
 
-Five new sections in `proof_survey.jl` (sections 7–11) ready to populate:
-- **§7** CP provenance table: mean/med/[Q1–Q3] per family per label category
-- **§9** Supplemental depth: g0/g1/g2/g3 per family — which levels are proof-critical?
-- **§10** Scatter elim\_frac × cone\_depth\_max — tests preprocessing→shallow-proof hypothesis
-- **§11** Unlabeled count diagnostic
+New sections in `proof_survey.jl` (sections 7 7b 7c).
 
-**Key question to answer:** For each family, which supplemental graph depths (g1/g2/g3) contribute meaningfully to the UNSAT cone? A near-zero gNadj fraction for a family means depth-N supplementals can be disabled without affecting proof validity — a direct `--supplementals` tuning knob for M4.
+**Finding (2026-06-16):** g1adj present in 23% of instances; distribution is bimodal — 77% zero, 23% with counts sometimes exceeding g0adj (max ratio 1.06). When g1adj is used, it is often critical. Aggregate median = 0 hides this; per-family stratification is required.
 
-### M3.5.4 — Glasgow branching integration (future)
+**Key question:** For each family, which supplemental graph depths (g1/g2/g3) contribute meaningfully to the UNSAT cone? A near-zero gNadj fraction for a family means depth-N supplementals can be disabled without affecting proof validity — a direct `--supplementals` tuning knob for M4.
+
+### M3.5.4 — Structural classifier for supplemental graph usage 🔜
+
+**Goal:** Identify which graph structural properties predict whether g1adj/g2adj/g3adj appear in the UNSAT cone. Feed result into M4 as a fast pre-solve probe.
+
+**Inputs:** `graph_features.csv` (33 structural features) joined with `cluster_results.csv` (g1adj/g2adj/g3adj counts).
+
+**Steps:**
+
+1. **Per-family stratification** — for each family (LV, bio, images, meshes, phase, scalefree), compute: fraction of instances with g1adj > 0, median g1adj count, median g1adj/g0adj ratio. Determines which families systematically use supplemental graphs.
+
+2. **Feature correlation** — for the joined dataset, compute point-biserial correlation of each `graph_features` column against `g1adj_used` (binary). Primary candidates: `pat_triangles`, `pat_clustering`, `density_ratio`, `node_ratio`, `pat_deg_var`, `diameter_ratio`.
+
+3. **Simple classifier** — decision tree (depth ≤ 3) or explicit threshold rules on the top 2–3 features. Interpretability required; no black-box models. Target: per-family precision ≥ 0.80.
+
+4. **proof_survey section** — new section: per-family g1adj usage rate stacked bar + top structural predictors table + classifier confusion matrix.
+
+5. **M4 implication** — families/configurations where classifier predicts g1adj ≈ 0 → propose `--supplementals=0` as default for those; document expected speedup from skipping supplemental graph construction.
+
+**Deliverable:** classifier rules in `paper/notes.tex §8` + new proof_survey section.
+
+### M3.5.5 — Glasgow branching integration (future)
 
 Read `.var_order` at startup as initial branching heuristic. Held until M3.5 cluster data confirms meaningful heuristic variation across instances. Hypothesis: preprocessing flags (M4) have larger impact than branching order.
 

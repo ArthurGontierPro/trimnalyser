@@ -75,8 +75,10 @@ function main()
     cols, n = read_csv(csv_file)
 
     has_proof = boolcol(cols, "has_proof")
-    is_sat    = boolcol(cols, "is_sat")
-    is_unsat  = boolcol(cols, "is_unsat")
+    # Glasgow writes status = true (SAT) / false (UNSAT); derive from status column
+    status_col = get(cols, "status", String[])
+    is_sat    = !isempty(status_col) ? [v == "true"  for v in status_col] : boolcol(cols, "is_sat")
+    is_unsat  = !isempty(status_col) ? [v == "false" for v in status_col] : boolcol(cols, "is_unsat")
     has_error = boolcol(cols, "has_error")
     truncated = boolcol(cols, "proof_truncated")
     resolv_it = numcol(cols, "resolv_iterations")
@@ -101,7 +103,9 @@ function main()
         end
         if !isempty(resolv_it)
             rc = sum(resolv_it .> 0)
-            println(io, @sprintf("%-22s %10d  (%s)", "Resolv ran:", rc, pct(rc, n)))
+            ri = sum(.!isempty.(get(cols, "resolv_stop_reason", String[])))  # invoked (incl. 0-iter)
+            println(io, @sprintf("%-22s %10d  (%s)", "Resolv invoked:", ri, pct(ri, n)))
+            println(io, @sprintf("%-22s %10d  (%s of invoked)", "Resolv ≥1 iter:", rc, pct(rc, ri)))
         end
 
         np = length(proof_idx)
@@ -203,9 +207,9 @@ function main()
         # ── Resolv ────────────────────────────────────────────────────────────
         reasons = filter(!isempty, get(cols, "resolv_stop_reason", String[]))
         if !isempty(reasons)
-            sec(io, "RESOLV LOOP")
+            sec(io, "RESOLV LOOP  (n=$(length(reasons)) invoked)")
             for (reason, count) in sort(collect(countmap(reasons)); by=x -> -x[2])
-                println(io, @sprintf("  %-30s %6d  (%s)", reason, count, pct(count, n)))
+                println(io, @sprintf("  %-30s %6d  (%s of invoked)", reason, count, pct(count, length(reasons))))
             end
             for (label, col) in [("Pattern","resolv_pat_shrinkage"), ("Target","resolv_tar_shrinkage")]
                 ps = filter(x -> x > 0, numcol(cols, col))

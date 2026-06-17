@@ -335,8 +335,8 @@ end
 
 # Detect skip reason from .err file and missing proof data
 function detect_skip_reason(err_filepath, has_proof, status_val)
-    # Check if SAT
-    if status_val == "SAT"
+    # Check if SAT (Glasgow writes "status = true" for satisfiable)
+    if status_val == "true"
         return "SAT"
     end
 
@@ -349,7 +349,8 @@ function detect_skip_reason(err_filepath, has_proof, status_val)
     end
 
     # If UNSAT but no proof, likely timed out during solve/trim
-    if status_val == "UNSAT" && !has_proof
+    # Glasgow writes "status = false" for unsatisfiable
+    if status_val == "false" && !has_proof
         return "no_proof_generated"
     end
 
@@ -488,11 +489,11 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, tar_total !== nothing ? tar_total : "")
 
             # Instance classification
-            # is_sat: solver found SAT
-            # is_unsat: solver found UNSAT
+            # is_sat: solver found SAT (Glasgow writes status = true)
+            # is_unsat: solver found UNSAT (Glasgow writes status = false)
             # has_proof: proof file exists (has trimming stats)
-            is_sat = (status_val == "SAT")
-            is_unsat = (status_val == "UNSAT")
+            is_sat = (status_val == "true")
+            is_unsat = (status_val == "false")
             has_proof = haskey(data, "grim_total_time")  # if trimmer ran, we have proof
             push!(row, is_sat ? "true" : "false")
             push!(row, is_unsat ? "true" : "false")

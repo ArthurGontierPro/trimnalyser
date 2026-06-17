@@ -225,6 +225,20 @@ julia scripts/graph_features.jl /path/to/proofs/ graph_features.csv
 julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html
 ```
 
+M3.5 supplemental graph classifier — per-family g1adj/g2adj/g3adj usage rates and
+structural feature correlations. Requires both CSVs. The third argument is the output
+base name (`.html` and `.txt` are appended):
+
+```bash
+julia --project=scripts scripts/classify_supplementals.jl cluster_results.csv graph_features.csv classify_supplementals
+```
+
+Outputs `classify_supplementals.html` (full interactive report) and
+`classify_supplementals.txt` (plain-text summary). Sections:
+- §1 — per-family g1adj/g2adj/g3adj usage rates, split ALL / no-search / with-search
+- §2 — discriminant features cross-stratum table
+- §3–§5 — AUC + correlation tables per target (g1adj/g2adj/g3adj) × subset
+
 ---
 
 ## Faster startup with a sysimage (optional)
@@ -270,11 +284,12 @@ src/
   output.jl          writeout_*, verify, printconestat, statistics
   orchestrator.jl    main(), OOM monitor, instance enumeration
 scripts/
-  aggregate_results.jl   post-run CSV aggregation
-  graph_features.jl      static graph structural features (separate CSV)
-  quick_stats.jl         quick terminal statistics
-  proof_survey.jl        M3 family-stratified HTML analysis report
-  Project.toml           script dependencies (CSV.jl, DataFrames.jl)
+  aggregate_results.jl        post-run CSV aggregation
+  graph_features.jl           static graph structural features (separate CSV)
+  quick_stats.jl              quick terminal statistics
+  proof_survey.jl             M3 family-stratified HTML analysis report
+  classify_supplementals.jl   M3.5 supplemental graph usage classifier + HTML report
+  Project.toml                script dependencies (CSV.jl, DataFrames.jl)
 build_sysimage.jl    staleness-aware sysimage builder
 test/
   runtests.jl        integration tests

@@ -182,9 +182,19 @@ function main()
 
     println("Loading $cluster_csv...")
     df = CSV.read(cluster_csv, DataFrame; missingstring=["", "NA"])
-    for col in (:is_sat, :is_unsat, :has_proof, :proof_truncated, :has_error)
+    for col in (:has_proof, :proof_truncated, :has_error)
         col ∈ propertynames(df) || continue
         df[!, col] = map(x -> !ismissing(x) && (x == "true" || x == true), df[!, col])
+    end
+    # Glasgow writes status = true (SAT) / false (UNSAT); derive is_sat/is_unsat from status
+    if :status ∈ propertynames(df)
+        df[!, :is_sat]   = map(x -> !ismissing(x) && x == "true",  df[!, :status])
+        df[!, :is_unsat] = map(x -> !ismissing(x) && x == "false", df[!, :status])
+    else
+        for col in (:is_sat, :is_unsat)
+            col ∈ propertynames(df) || continue
+            df[!, col] = map(x -> !ismissing(x) && (x == "true" || x == true), df[!, col])
+        end
     end
 
     gf = nothing
