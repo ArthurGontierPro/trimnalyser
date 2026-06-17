@@ -837,11 +837,12 @@
         startswith(label, "elim")     && return :elimnds   # legacy: @elim before M3.5 rename
         startswith(label, "loop")     && return :loop
         startswith(label, "noedge")   && return :noedge
-        startswith(label, "g0adj")    && return :g0adj
-        startswith(label, "g1adj")    && return :g1adj
-        startswith(label, "g2adj")    && return :g2adj
-        startswith(label, "g3adj")    && return :g3adj
-        startswith(label, "d3adj")    && return :g3adj     # legacy (before M3.5.1)
+        startswith(label, "adj")      && return :g0adj       # current
+        startswith(label, "g0adj")   && return :g0adj       # legacy (before M3.5.2)
+        startswith(label, "g1adj")   && return :g1adj
+        startswith(label, "g2adj")   && return :g2adj
+        startswith(label, "g3adj")   && return :g3adj
+        startswith(label, "d3adj")   && return :g3adj       # legacy (before M3.5.1)
         startswith(label, "g") && occursin("adj", label) && return :gadj_other
         return :other
     end
