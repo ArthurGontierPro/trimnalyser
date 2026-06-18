@@ -239,40 +239,74 @@ end
 
 # ── CSV output ───────────────────────────────────────────────────────────────────
 
-const GRAPH_COLS = [
-    "instance",
-    "pat_nodes", "pat_edges", "pat_density",
-    "pat_deg_min", "pat_deg_max", "pat_deg_mean", "pat_deg_var",
-    "pat_is_regular", "pat_is_bipartite",
-    "pat_triangles", "pat_clustering",
-    "pat_diameter", "pat_radius", "pat_girth",
-    "tar_nodes", "tar_edges", "tar_density",
-    "tar_deg_min", "tar_deg_max", "tar_deg_mean", "tar_deg_var",
-    "tar_is_regular", "tar_is_bipartite",
-    "tar_triangles", "tar_clustering",
-    "tar_diameter", "tar_radius", "tar_girth",
-    # Relational (pattern ÷ target)
-    "node_ratio", "density_ratio", "max_degree_ratio", "diameter_ratio",
-    "degree_compat_frac",
+const GRAPH_FEATURE_NAMES = [
+    "nodes", "edges", "density",
+    "deg_min", "deg_max", "deg_mean", "deg_var",
+    "is_regular", "is_bipartite",
+    "triangles", "clustering",
+    "diameter", "radius", "girth",
 ]
+
+const GRAPH_COLS = vcat(
+    ["instance"],
+    ["pat_$c" for c in GRAPH_FEATURE_NAMES],
+    ["tar_$c" for c in GRAPH_FEATURE_NAMES],
+    ["node_ratio", "density_ratio", "max_degree_ratio", "diameter_ratio",
+     "degree_compat_frac"],
+    ["core_pat_$c" for c in GRAPH_FEATURE_NAMES],
+    ["core_tar_$c" for c in GRAPH_FEATURE_NAMES],
+    ["core_node_ratio", "core_density_ratio", "core_max_degree_ratio",
+     "core_diameter_ratio", "core_degree_compat_frac"],
+    ["core_pat_node_shrink", "core_tar_node_shrink",
+     "core_pat_density_shift", "core_tar_density_shift"],
+)
 
 fmt(x::Nothing) = ""
 fmt(x::Bool)    = x ? "true" : "false"
 fmt(x::Float64) = string(x)
 fmt(x)          = string(x)
 
-function features_row(ins, pat_f, tar_f)
-    row = Any["\"$ins\""]
-    for f in (pat_f, tar_f)
-        push!(row, fmt(f.n), fmt(f.m), fmt(f.density),
-              fmt(f.deg_min), fmt(f.deg_max), fmt(f.deg_mean), fmt(f.deg_var),
-              fmt(f.is_regular), fmt(f.is_bipartite),
-              fmt(f.triangles), fmt(f.clustering),
-              fmt(f.diameter), fmt(f.radius), fmt(f.girth))
-    end
-    rf = relational_features(pat_f, tar_f)
+function push_graph_features!(row, f)
+    push!(row, fmt(f.n), fmt(f.m), fmt(f.density),
+          fmt(f.deg_min), fmt(f.deg_max), fmt(f.deg_mean), fmt(f.deg_var),
+          fmt(f.is_regular), fmt(f.is_bipartite),
+          fmt(f.triangles), fmt(f.clustering),
+          fmt(f.diameter), fmt(f.radius), fmt(f.girth))
+end
+
+function push_relational!(row, rf)
     push!(row, fmt(rf.node_ratio), fmt(rf.density_ratio), fmt(rf.max_degree_ratio),
           fmt(rf.diameter_ratio), fmt(rf.degree_compat_frac))
+end
+
+function push_empty!(row, n)
+    for _ in 1:n; push!(row, ""); end
+end
+
+function safe_ratio(a, b)
+    (a === nothing || b === nothing || b == 0) ? nothing : round(a / b; digits=4)
+end
+
+function features_row(ins, pat_f, tar_f, core_pat_f, core_tar_f)
+    row = Any["\"$ins\""]
+    push_graph_features!(row, pat_f)
+    push_graph_features!(row, tar_f)
+    rf = relational_features(pat_f, tar_f)
+    push_relational!(row, rf)
+    n_feat = length(GRAPH_FEATURE_NAMES)
+    if core_pat_f !== nothing && core_tar_f !== nothing
+        push_graph_features!(row, core_pat_f)
+        push_graph_features!(row, core_tar_f)
+        crf = relational_features(core_pat_f, core_tar_f)
+        push_relational!(row, crf)
+        push!(row,
+              fmt(safe_ratio(core_pat_f.n, pat_f.n)),
+              fmt(safe_ratio(core_tar_f.n, tar_f.n)),
+              fmt(core_pat_f.density - pat_f.density |> x -> round(x; digits=6)),
+              fmt(core_tar_f.density - tar_f.density |> x -> round(x; digits=6)))
+    else
+        push_empty!(row, 2 * n_feat + 5 + 4)
+    end
     row
 end
 
@@ -304,7 +338,9 @@ function main()
     instances = [splitext(f)[1] for f in all_out]
     println("Found $(length(instances)) instances")
 
-    n_ok = n_skip = n_err = 0
+    vis_dir = joinpath(proofs_dir, "vis")
+
+    n_ok = n_skip = n_err = n_core = 0
     open(output_csv, "w") do io
         println(io, join(GRAPH_COLS, ","))
         for (i, ins) in enumerate(instances)
@@ -317,7 +353,15 @@ function main()
             try
                 pat_f = graph_features(read_lad(pat_path))
                 tar_f = graph_features(read_lad(tar_path))
-                println(io, join(features_row(ins, pat_f, tar_f), ","))
+                core_pat_f = core_tar_f = nothing
+                cp = joinpath(vis_dir, ins * ".core.pat.lad")
+                ct = joinpath(vis_dir, ins * ".core.tar.lad")
+                if isfile(cp) && isfile(ct)
+                    core_pat_f = graph_features(read_lad(cp))
+                    core_tar_f = graph_features(read_lad(ct))
+                    n_core += 1
+                end
+                println(io, join(features_row(ins, pat_f, tar_f, core_pat_f, core_tar_f), ","))
                 n_ok += 1
             catch e
                 printstyled("  error on $ins: $e\n"; color=:red)
@@ -325,7 +369,7 @@ function main()
             end
         end
     end
-    println("Done — $n_ok rows, $n_skip skipped (no LAD), $n_err errors → $output_csv")
+    println("Done — $n_ok rows ($n_core with core features), $n_skip skipped (no LAD), $n_err errors → $output_csv")
 end
 
 main()
