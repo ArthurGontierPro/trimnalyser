@@ -4,7 +4,7 @@ TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via 
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-15:** M1, M2, M2.5, M3.5.1–M3.5.3 complete. M3 is current. Cluster run in progress (medium-hard instances, 200–500 nodes, st=600 tt=5400).
+**Status as of 2026-06-18:** M1, M2, M2.5, M3.5.1–M3.5.3 complete + M3.5.2 exhaustive label coverage. M3 is current. Cluster run launched 2026-06-18; results expected ~2026-06-20.
 
 ---
 
@@ -63,15 +63,11 @@ Full write-up in `paper/notes.tex` (§3 families, §4 fingerprints, §5 drivers,
 
 Mesh shape = "single-wave algebraic certificate" (depth ≈ 1, pure POL, OPB-heavy). Image shape = "propagation cascade" (deep IA chains, PBP-heavy). Key structural drivers: width–depth tradeoff (pol_ante_mean × cone_depth_max inversely correlated), clustering → proof flatness, node ratio → resolv effectiveness.
 
-### Targeted cluster run — in progress (2026-06-15)
+### Cluster run — launched 2026-06-18
 
-```bash
-julia --threads 64,1 trimnalyser.jl solve resolv verif allgraphs minnodes=200 maxnodes=500 st=600 tt=6000 rand
-```
+First run with exhaustive M3.5.2 labels. Results expected ~2026-06-20.
 
-Targets medium-hard instances across all families. First run with M3.5 labels active (Glasgow recompiled). Timeouts calibrated on competition silver time (st=600 ≈ 500s silver; tt=5400 = 1.2× competition checker time 4500s).
-
-**Expected outputs:** CP provenance fingerprints per family (proof_survey sections 7–11), supplemental graph depth profiles, elim-fraction vs depth correlation data, coverage of phase/scalefree/si families at higher node counts.
+**Expected outputs:** CP provenance fingerprints per family (proof_survey sections 7–11), search/path/elim label fractions, supplemental graph depth profiles, coverage of phase/scalefree/si families.
 
 ### Open questions (`notes.tex §7`)
 
@@ -95,22 +91,35 @@ Cluster by `(graph_features, proof_features)` using k-means / hierarchical; prim
 
 Glasgow (branch `labels-for-analysis`, commits b5439ad + de50e8c) writes labels on all level-0 constraints:
 
+All Glasgow M3.5.2 PB constraints are labeled — model constraints in the OPB file, proof steps in the PBP file.
+
 | Label | Location | CP construct |
 |---|---|---|
 | `@al1<p>`, `@am1<p>` | OPB | At-least/at-most-one domain |
 | `@inj<t>` | OPB | Injectivity |
-| `@g0adj<p>_<t>_<q>` | OPB | Base adjacency |
-| `@forb<p>_<t>` | OPB | Pre-search forbidden assignment |
-| `@g<k>adj<p>_<t>_<q>` | PBP level-0 | Supplemental graph k≥1 adjacency |
-| `@elimdeg<p>_<t>` | PBP level-0 | Degree-incompatibility elimination |
-| `@elimnds<p>_<t>` | PBP level-0 | NDS-incompatibility elimination |
-| `@loop<p>_<t>` | PBP level-0 | Loop incompatibility |
+| `@adj<p>_<t>_<q>` (`@g0adj` legacy alias) | OPB | Base adjacency |
+| `@forb<p>_<t>`, `@noedge<...>` | OPB | Pre-search forbidden / no-edge |
+| `@g<k>adj<p>_<t>_<q>` (k≥1) | PBP | Supplemental graph adjacency |
+| `@elimdegpol<v>`, `@elimdeg<v>` | PBP | Degree elimination (pol + ia steps) |
+| `@elimndspol<v>`, `@elimndsconc<v>`, `@elimnds<v>` | PBP | NDS elimination |
+| `@loop<p>_<t>` | PBP | Loop incompatibility |
+| `@hall<...>` | PBP | Hall-set violation |
+| `@prop<...>`, `@guess<...>`, `@nogood<...>` | PBP | Search: propagation / branching / clause learning |
+| `@pathg<...>`, `@d2g<...>`, `@d3g<...>` | PBP | Path-graph derivation intermediaries |
+| `@ptbig<...>` | PBP | Pattern-too-big pruning |
+| `@binback<...>` | PBP | Binary backjump |
+| `@colpol<...>` | PBP | Colour-bound pol step |
+| `@hom*<...>` (bd/pol/inj/dom/fin/cross) | PBP | Homomorphism-based bound |
+| `@mcs*<...>` (part/fin) | PBP | MCS bound |
+| `@notconn<...>`, `@cliqedge<...>` | PBP | Connectivity / clique-edge pruning |
 
-Search-level PBP steps are intentionally unlabeled (cone traversal reaches labeled leaves via backward reachability). Guard on `@elimdeg`/`@elimnds`: label emitted only on first derivation to prevent duplicate labels when multiple supplemental graph levels derive the same pair.
+Guard on `@elimdeg`/`@elimnds`: label emitted only on first derivation to avoid duplicates when multiple supplemental levels derive the same pair. The unlabeled UNSAT conclusion (`rup >= 1 ;`) is the only PBP step without a label — structural, always present.
 
 ### M3.5.2 — Cone label analysis in trimmer ✅
 
-`classify_label` + `cone_label_stats` + `writeout_cone_labels` in `src/output.jl`. New CSV columns: `grim_cone_{al1,am1,inj,g0adj,g1adj,g2adj,g3adj,forb,elimnds,elimdeg,loop,unlabeled}` (counts) + `grim_cone_frac_{inj,g0adj,g1adj,g2adj,g3adj,forb,elimnds,elimdeg}` (fractions of OPB cone).
+`classify_label` (37 categories) + `cone_label_stats` + `writeout_cone_labels` in `src/output.jl`. Exhaustive: every Glasgow label maps to a named counter. ~40 count columns + 9 fraction columns in CSV. OPB `n_unlabeled = 0` confirmed; PBP residual = 1 (unlabeled UNSAT conclusion — structural).
+
+Key correctness requirement: `classify_label` must check longer prefixes first (`elimdegpol` before `elimdeg`, `elimndspol`/`elimndsconc` before `elimnds`, `homcross` before `hom*`). `gadj_other` catches g4adj+ (present when `exact_path_4` supplemental is used).
 
 ### M3.5.3 — Branching heuristic sidecar ✅
 

@@ -32,6 +32,24 @@ julia --project=. build_sysimage.jl                                             
 Key flags: `solve` (run SIP solver), `resolv` (iterative re-solve on UNSAT cores), `verif` (run VeriPB), `overwrite`, `profile`, `allgraphs`, `bfs`/`clit` (alternative trim modes).
 Timeout args: `st=N` (solver), `tt=N` (trim), `vt=N` (verif), `maxnodes=N`, `minnodes=N`.
 
+### Cluster commands
+
+```bash
+# on cluster: aggregate + generate reports
+bash scripts/harvest.sh
+# on local: pull everything
+bash scripts/harvest_pull.sh
+
+# single instance test on cluster
+./trimnalyser LVg10g12 overwrite solve resolv nosys
+
+# verify labels are in .out
+grep 'CONE LABEL' /scratch/arthur/proofs/LVg10g12.out
+
+# rebuild sysimage on cluster
+julia --project=. build_sysimage.jl
+```
+
 ## Architecture
 
 **Orchestrator mode** (no instance in ARGS, or `allgraphs`): spawns one subprocess per instance via `julia bin/trimnalyser.jl <instance>`. OOM monitor on `:interactive` thread polls `/proc` every 10s, kills trimmer subprocesses and Glasgow solver processes exceeding `maxmem=` GB. Solve/verif/resolv run in orchestrator threads with independent timeouts.
