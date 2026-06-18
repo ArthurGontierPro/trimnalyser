@@ -31,6 +31,22 @@ const FEATURES_RAW = [
     :tar_is_regular, :tar_is_bipartite,
     :node_ratio,  :density_ratio, :max_degree_ratio,
     :diameter_ratio, :degree_compat_frac,
+    # Core graph features (from UNSAT core extraction)
+    :core_pat_nodes,  :core_pat_edges,    :core_pat_density,
+    :core_pat_deg_min,:core_pat_deg_max,  :core_pat_deg_mean, :core_pat_deg_var,
+    :core_pat_triangles, :core_pat_clustering,
+    :core_pat_diameter,  :core_pat_radius, :core_pat_girth,
+    :core_pat_is_regular, :core_pat_is_bipartite,
+    :core_tar_nodes,  :core_tar_edges,    :core_tar_density,
+    :core_tar_deg_min,:core_tar_deg_max,  :core_tar_deg_mean, :core_tar_deg_var,
+    :core_tar_triangles, :core_tar_clustering,
+    :core_tar_diameter,  :core_tar_radius, :core_tar_girth,
+    :core_tar_is_regular, :core_tar_is_bipartite,
+    :core_node_ratio, :core_density_ratio, :core_max_degree_ratio,
+    :core_diameter_ratio, :core_degree_compat_frac,
+    # Original → core comparison
+    :core_pat_node_shrink, :core_tar_node_shrink,
+    :core_pat_density_shift, :core_tar_density_shift,
 ]
 
 const LOG1P_FEATURES = [
@@ -38,12 +54,17 @@ const LOG1P_FEATURES = [
     :pat_edges,     :tar_edges,
     :pat_nodes,     :tar_nodes,
     :pat_deg_var,   :tar_deg_var,
+    :core_pat_triangles, :core_tar_triangles,
+    :core_pat_edges,     :core_tar_edges,
+    :core_pat_nodes,     :core_tar_nodes,
+    :core_pat_deg_var,   :core_tar_deg_var,
 ]
 
-# Features that carry identical information (same binary split).
 const REDUNDANT_WITH = Dict(
-    :pat_clustering => :pat_triangles,
-    :tar_clustering => :tar_triangles,
+    :pat_clustering      => :pat_triangles,
+    :tar_clustering      => :tar_triangles,
+    :core_pat_clustering => :core_pat_triangles,
+    :core_tar_clustering => :core_tar_triangles,
 )
 
 # ── Output tee — writes to terminal + accumulated log buffer ──────────────────

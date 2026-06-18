@@ -647,6 +647,35 @@ function main()
         <p class="note">Pearson r between <code>resolv_pat_shrinkage</code> and graph structural features.
         Computed over proof instances only. Positive r = more shrinkage when feature is larger.</p>
         """ * html_table(["Graph feature", "Pearson r", "n pairs"], c_rows)
+
+        # Core graph feature correlations (only for instances with core data)
+        core_features = [
+            ("core_pat_nodes",         "Core pattern nodes"),
+            ("core_pat_density",       "Core pattern density"),
+            ("core_pat_deg_var",       "Core pattern degree variance"),
+            ("core_pat_diameter",      "Core pattern diameter"),
+            ("core_node_ratio",        "Core node ratio (pat/tar)"),
+            ("core_density_ratio",     "Core density ratio (pat/tar)"),
+            ("core_pat_node_shrink",   "Core pat node shrink (core/orig)"),
+            ("core_tar_node_shrink",   "Core tar node shrink (core/orig)"),
+            ("core_pat_density_shift", "Core pat density shift"),
+            ("core_tar_density_shift", "Core tar density shift"),
+        ]
+        cc_rows = []
+        for (col, label) in core_features
+            col ∉ names(proof_jdf) && continue
+            feat = [ismissing(x) ? NaN : Float64(x) for x in proof_jdf[!, col]]
+            r, np = pearson_r(feat, shrink_vals)
+            np >= 5 && push!(cc_rows, [label, isnan(r) ? "—" : @sprintf("%.3f", r), np])
+        end
+        if !isempty(cc_rows)
+            corr_html *= """
+            <h2>Correlations with Pattern Node Shrinkage — Core Graph Features</h2>
+            <p class="note">Same as above, but using features of the UNSAT core subgraphs.
+            Only computed for instances with core LAD files (n varies). The <em>shrink</em> and
+            <em>shift</em> features measure how much the core differs from the original graph.</p>
+            """ * html_table(["Core graph feature", "Pearson r", "n pairs"], cc_rows)
+        end
     end
 
     # ── Section 7: CP constraint provenance table ────────────────────────────────
