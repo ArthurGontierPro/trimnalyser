@@ -77,7 +77,7 @@ const CSV_COLUMNS = [
     "resolv_pat_shrinkage", "resolv_tar_shrinkage",
     # M3.5: CP constraint provenance (counts)
     "grim_cone_al1", "grim_cone_am1", "grim_cone_inj",
-    "grim_cone_g0adj", "grim_cone_g1adj", "grim_cone_g2adj", "grim_cone_g3adj",
+    "grim_cone_g0adj", "grim_cone_g1adj", "grim_cone_g2adj", "grim_cone_g3adj", "grim_cone_gadj_other",
     "grim_cone_forb", "grim_cone_noedge",
     "grim_cone_elimdegpol", "grim_cone_elimdeg",
     "grim_cone_elimndspol", "grim_cone_elimndsconc", "grim_cone_elimnds",
@@ -210,7 +210,8 @@ function parse_out_file(filepath)
         let m = match(r"^grim CONE LABEL G0ADJ (\d+)", line); m !== nothing && (data["grim_cone_g0adj"] = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL G1ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g1adj"]   = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL G2ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g2adj"]   = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL G3ADJ (\d+)", line);   m !== nothing && (data["grim_cone_g3adj"]   = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL G3ADJ (\d+)", line);      m !== nothing && (data["grim_cone_g3adj"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL GADJ_OTHER (\d+)", line); m !== nothing && (data["grim_cone_gadj_other"] = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL FORB (\d+)", line);        m !== nothing && (data["grim_cone_forb"]        = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL NOEDGE (\d+)", line);      m !== nothing && (data["grim_cone_noedge"]      = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL ELIMDEGPOL (\d+)", line);  m !== nothing && (data["grim_cone_elimdegpol"]  = parse(Int, m.captures[1])); end
@@ -646,6 +647,7 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "grim_cone_g1adj",        ""))
             push!(row, get(data, "grim_cone_g2adj",        ""))
             push!(row, get(data, "grim_cone_g3adj",        ""))
+            push!(row, get(data, "grim_cone_gadj_other",   ""))
             push!(row, get(data, "grim_cone_forb",         ""))
             push!(row, get(data, "grim_cone_noedge",       ""))
             push!(row, get(data, "grim_cone_elimdegpol",   ""))
