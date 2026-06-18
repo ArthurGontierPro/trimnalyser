@@ -20,11 +20,12 @@
 ```bash
 ./trimnalyser LVg10g12 overwrite resolv                                          # single instance
 ./trimnalyser --threads 92,1 solve resolv verif allgraphs minnodes=50 maxnodes=200 st=18 tt=600 rand  # cluster run
-julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv  # aggregate → CSV
-julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv      # static graph features
-julia --project=scripts scripts/quick_stats.jl cluster_results.csv              # terminal stats
+julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv   # aggregate → CSV
+julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv       # static graph features
+julia scripts/quick_stats.jl cluster_results.csv                                 # terminal stats (stdlib only)
 julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html  # HTML report
-julia --project=scripts -e 'using Pkg; Pkg.instantiate()'                       # install script deps
+julia --project=scripts scripts/classify_supplementals.jl cluster_results.csv graph_features.csv classify_supplementals  # supplemental classifier
+julia --project=scripts -e 'using Pkg; Pkg.instantiate()'                        # install script deps
 julia --project=. build_sysimage.jl                                              # build sysimage (~5s → ~0.1s)
 ```
 

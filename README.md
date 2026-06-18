@@ -149,11 +149,14 @@ Useful batch flags:
 | `sort` | Sort by proof file size (ascending) |
 | `overwrite` | Re-trim instances that already have `.smol` files |
 | `verif` | Run VeriPB to verify each trimmed output |
+| `keepraw` | Keep original proof files after trimming (default: delete after verified) |
+| `minnodes=N` | Skip instances where either graph has fewer than N nodes |
 | `maxnodes=N` | Skip instances where either graph has more than N nodes |
 | `maxmem=N` | OOM-kill subprocesses exceeding N GB (default: 8 on laptop, 50 on cluster) |
 | `minmem=N` | Pause spawning new jobs when free RAM drops below N GB |
 | `st=N` | Solver timeout in seconds (default: 5) |
 | `tt=N` | Trim subprocess timeout in seconds (default: 45) |
+| `vt=N` | VeriPB timeout in seconds (default: same as `tt`) |
 
 ### 5 — Full cluster run (enumerate all benchmark pairs)
 
@@ -179,17 +182,20 @@ Generates all `(pattern, target)` pairs from the benchmark graph directories, so
 | `allgraphs` | Enumerate all benchmark `(pattern, target)` pairs instead of reading a proofs dir |
 | `rand` | Shuffle instance order |
 | `sort` | Sort instances by file size (ascending) |
-| `bfs` | BFS propagation mode for cone extraction |
 | `clit` | Cone-first conflict analysis mode |
+| `no` | Skip the normal (Grim) trim pass (use with `clit` to run only the clit variant) |
+| `keepraw` | Keep original `.opb`/`.pbp` proof files after trimming (default: delete after verified) |
 | `atable` | Print TikZ scatter plot from existing `.out` files and exit |
 | `clean` | Delete all `.out`/`.err`/`.lad`/`.dot` files in the proofs dir |
 | `pack` | `tar.gz` all `.dot` files in `vis/` → `vis.tar.gz` (for cluster transfer) |
 | `render` | Extract `vis.tar.gz` and render all `.dot` → `.svg` with `neato` |
 | `no-supplementals` | Run solver without supplemental graphs |
 | `profile` | Enable `StatProfilerHTML` profiling (requires StatProfilerHTML installed) |
+| `minnodes=N` | Filter graph pairs: skip if either graph has < N nodes |
 | `maxnodes=N` | Filter graph pairs: skip if either graph has > N nodes |
 | `st=N` | Solver timeout in seconds (default: 5) |
 | `tt=N` | Trim subprocess timeout in seconds (default: 45) |
+| `vt=N` | VeriPB timeout in seconds (default: same as `tt`) |
 | `maxmem=N` | OOM-kill limit per subprocess in GB (default: 8 laptop / 50 cluster) |
 | `minmem=N` | Minimum free RAM in GB before spawning new jobs (default: 4 laptop / 100 cluster) |
 
@@ -200,8 +206,10 @@ Generates all `(pattern, target)` pairs from the benchmark graph directories, so
 After a batch run, aggregate all `.out` files into a CSV:
 
 ```bash
-julia scripts/aggregate_results.jl /path/to/proofs/ cluster_results.csv
+julia scripts/aggregate_results.jl <proofs_directory> [output.csv]
 ```
+
+Default output: `results.csv`.
 
 ## Analysing results
 
@@ -211,30 +219,41 @@ Install script dependencies once per machine (generates `scripts/Manifest.toml`)
 julia --project=scripts -e 'using Pkg; Pkg.instantiate()'
 ```
 
-Quick terminal statistics (step types, depth distribution, resolv shrinkage):
+Quick terminal statistics (step types, depth distribution, resolv shrinkage).
+Stdlib-only — no `--project` needed:
 
 ```bash
-julia scripts/quick_stats.jl cluster_results.csv
+julia scripts/quick_stats.jl cluster_results.csv [output.txt]
 ```
 
-M3 proof survey — family-stratified HTML report. Pass both CSVs to include
-graph-feature correlations:
+Default output: `stats_summary.txt`.
+
+Static graph structural features (per-graph and relational). Joins to `cluster_results.csv` by instance name:
 
 ```bash
-julia scripts/graph_features.jl /path/to/proofs/ graph_features.csv
-julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html
+julia scripts/graph_features.jl <proofs_dir> [graphs_dir] [output.csv]
 ```
 
-M3.5 supplemental graph classifier — per-family g1adj/g2adj/g3adj usage rates and
+`graphs_dir` defaults to `$TRIMNALYSER_GRAPHS`. Default output: `graph_features.csv`.
+
+Proof survey — family-stratified HTML report with exhaustive label tracking, step-type breakdowns, and graph-feature correlations. Pass both CSVs to include correlations:
+
+```bash
+julia --project=scripts scripts/proof_survey.jl cluster_results.csv [graph_features.csv] [output.html]
+```
+
+Arguments after the first CSV are positional and auto-detected by extension (`.csv` → graph features, `.html` → output path). Default output: `proof_survey.html`.
+
+Supplemental graph classifier — per-family g1adj/g2adj/g3adj usage rates and
 structural feature correlations. Requires both CSVs. The third argument is the output
 base name (`.html` and `.txt` are appended):
 
 ```bash
-julia --project=scripts scripts/classify_supplementals.jl cluster_results.csv graph_features.csv classify_supplementals
+julia --project=scripts scripts/classify_supplementals.jl cluster_results.csv graph_features.csv [output_base]
 ```
 
-Outputs `classify_supplementals.html` (full interactive report) and
-`classify_supplementals.txt` (plain-text summary). Sections:
+Default base: `classify_supplementals`. Outputs `<base>.html` (full interactive report) and
+`<base>.txt` (plain-text summary). Sections:
 - §1 — per-family g1adj/g2adj/g3adj usage rates, split ALL / no-search / with-search
 - §2 — discriminant features cross-stratum table
 - §3–§5 — AUC + correlation tables per target (g1adj/g2adj/g3adj) × subset
