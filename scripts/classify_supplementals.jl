@@ -231,9 +231,9 @@ end
 function per_family_stats(df, label="ALL";
         target="g1adj", used_col=:g1adj_used, count_col=:g1adj_count)
     tprintln("\n── Per-family $(target) usage ($(label)) ──────────────────────────────────")
-    tprintf("%-18s  %6s  %6s  %5s  %8s  %8s\n",
-        "family", "total", "$(target)>0", "rate", "med_$(target)", "med_g0")
-    tprintln(repeat("─", 70))
+    tprintf("%-18s  %6s  %6s  %5s  %8s\n",
+        "family", "total", "$(target)>0", "rate", "med_$(target)")
+    tprintln(repeat("─", 60))
 
     results = NamedTuple[]
     missing_fams = String[]
@@ -247,13 +247,12 @@ function per_family_stats(df, label="ALL";
         n_pos = sum(sub[!, used_col])
         rate  = n_pos / n
         gv    = Float64.(sub[!, count_col])
-        g0v   = Float64.(sub.g0adj_count)
 
-        tprintf("%-18s  %6d  %6d  %4.0f%%  %8.0f  %8.0f\n",
-            fam, n, n_pos, 100rate, median(gv), median(g0v))
+        tprintf("%-18s  %6d  %6d  %4.0f%%  %8.0f\n",
+            fam, n, n_pos, 100rate, median(gv))
 
         push!(results, (family=fam, n=n, n_pos=n_pos, rate=rate,
-            med_target=median(gv), med_g0=median(g0v)))
+            med_target=median(gv)))
     end
     if !isempty(missing_fams)
         tprintln("  (no proof data: $(join(missing_fams, ", ")) — expected in larger cluster runs)")
@@ -611,8 +610,7 @@ tr.key > td.lbl{border-left:3px solid #e07000}
 </style></head><body>
 """
 
-function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
-                    fam_stats_supp1, fam_stats_supp2, fam_stats_supp3,
+function write_html(path, df, fam_stats_supp1, fam_stats_supp2, fam_stats_supp3,
                     strata_labels, strata_results, all_corr_rows)
     all_res = strata_results[1]   # first stratum must be ALL
 
@@ -671,7 +669,7 @@ function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
         function write_fam_table(io, label, stats, target)
             write(io, "<div>\n<p style='font-weight:bold;margin-bottom:4px'>$label</p>\n")
             write(io, "<table><tr>")
-            for h in ["family", "n", "$(target) > 0", "rate", "med $(target)", "med g0adj"]
+            for h in ["family", "n", "$(target) > 0", "rate", "med $(target)"]
                 write(io, "<th$(h == "family" ? " class='lbl'" : "")>$h</th>")
             end
             write(io, "</tr>\n")
@@ -680,14 +678,12 @@ function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
                 write(io, "<tr><td class='lbl'>$(row.family)</td>")
                 write(io, "<td>$(row.n)</td><td>$(row.n_pos)</td>")
                 write(io, "<td style='$(rate_bg(row.rate))'>$rp%</td>")
-                write(io, "<td>$(round(Int, row.med_target))</td>")
-                write(io, "<td>$(round(Int, row.med_g0))</td></tr>\n")
+                write(io, "<td>$(round(Int, row.med_target))</td></tr>\n")
             end
             write(io, "</table>\n</div>\n")
         end
 
-        for (tname, trio) in [("g1adj", fam_stats_g1), ("g2adj", fam_stats_g2), ("g3adj", fam_stats_g3),
-                              ("supp1", fam_stats_supp1), ("supp2", fam_stats_supp2), ("supp3", fam_stats_supp3)]
+        for (tname, trio) in [("supp1", fam_stats_supp1), ("supp2", fam_stats_supp2), ("supp3", fam_stats_supp3)]
             write(io, "<h3>$tname</h3>\n")
             write(io, "<div style='display:flex;gap:2em;flex-wrap:wrap;align-items:flex-start'>\n")
             for (label, stats) in trio
@@ -827,13 +823,9 @@ function main()
          ("no-search",   per_family_stats(df[no_srch_mask, :],  "no-search";   target, used_col, count_col)),
          ("with-search", per_family_stats(df[wi_srch_mask, :],  "with-search"; target, used_col, count_col))]
     end
-    fam_stats_g1    = trio("g1adj", :g1adj_used, :g1adj_count)
-    fam_stats_g2    = trio("g2adj", :g2adj_used, :g2adj_count)
-    fam_stats_g3    = trio("g3adj", :g3adj_used, :g3adj_count)
     fam_stats_supp1 = trio("supp1", :supp1_used, :supp1_count)
     fam_stats_supp2 = trio("supp2", :supp2_used, :supp2_count)
     fam_stats_supp3 = trio("supp3", :supp3_used, :supp3_count)
-    fam_stats = fam_stats_g1[1][2]  # kept for backwards-compat with strata below
 
     # Define strata — primary split is search/no-search (main confound), then family
     no_srch = no_srch_mask
@@ -914,8 +906,7 @@ function main()
     write(txt_path, String(take!(copy(_LOG))))
     println("Text report  → $txt_path")
 
-    write_html(html_path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
-               fam_stats_supp1, fam_stats_supp2, fam_stats_supp3,
+    write_html(html_path, df, fam_stats_supp1, fam_stats_supp2, fam_stats_supp3,
                strata_labels, strata_results, all_corr_rows)
 end
 
