@@ -738,8 +738,7 @@ function write_html(path, df, fam_stats_supp1, fam_stats_supp2, fam_stats_supp3,
         subset_notes = ["ALL stratum", "no-search — confound removed",
                         "with-search only", "bio family", "LV family",
                         "images-CVIU11 family", "meshes-CVIU11 family"]
-        for (sec_num, tname) in [("3","g1adj"), ("4","g2adj"), ("5","g3adj"),
-                                 ("6","supp1"), ("7","supp2"), ("8","supp3")]
+        for (sec_num, tname) in [("3","supp1"), ("4","supp2"), ("5","supp3")]
             rows_by_subset = all_corr_rows[tname]
             for (si, slabel) in enumerate(subsets)
                 haskey(rows_by_subset, slabel) || continue
@@ -866,8 +865,7 @@ function main()
         ("images-CVIU11",  df[isequal.(df.family, "images-CVIU11"), :]),
         ("meshes-CVIU11",  df[isequal.(df.family, "meshes-CVIU11"), :]),
     ]
-    targets = [(:g1adj_used, "g1adj"), (:g2adj_used, "g2adj"), (:g3adj_used, "g3adj"),
-                (:supp1_used, "supp1"), (:supp2_used, "supp2"), (:supp3_used, "supp3")]
+    targets = [(:supp1_used, "supp1"), (:supp2_used, "supp2"), (:supp3_used, "supp3")]
     all_corr_rows = Dict(
         tname => Dict(slabel => feature_correlations(sdf, slabel, tcol)
                       for (slabel, sdf) in subsets)
