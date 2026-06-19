@@ -341,6 +341,9 @@ function main()
             ls_elimdegpol = lbl_frac_stats(sub, "grim_cone_elimdegpol", "grim_total_cone"),
             ls_hall       = lbl_frac_stats(sub, "grim_cone_hall",       "grim_total_cone"),
             ls_loop       = lbl_frac_stats(sub, "grim_cone_loop",       "grim_total_cone"),
+            ls_pathg      = lbl_frac_stats(sub, "grim_cone_pathg",      "grim_total_cone"),
+            ls_d2g        = lbl_frac_stats(sub, "grim_cone_d2g",        "grim_total_cone"),
+            ls_d3g        = lbl_frac_stats(sub, "grim_cone_d3g",        "grim_total_cone"),
             # §7/§9 stacked bars: _z variants (missing→0) so all means are over the same population.
             # Non-sparse OPB labels (al1/am1/inj/g0adj/forb) are always non-missing so ls_* = sz_*.
             # Sparse PBP labels need _z so instances without them contribute 0, not are skipped.
@@ -374,11 +377,9 @@ function main()
             sz_mcsfin     = lbl_frac_stats_z(sub, "grim_cone_mcsfin",     "grim_total_cone"),
             sz_notconn    = lbl_frac_stats_z(sub, "grim_cone_notconn",    "grim_total_cone"),
             sz_cliqedge   = lbl_frac_stats_z(sub, "grim_cone_cliqedge",   "grim_total_cone"),
-            # Combined groups for stacked bar (search = prop+guess+nogood, path = pathg+d2g+d3g)
+            # Combined group for stacked bar (search = prop+guess+nogood)
             sz_search = sum_lbl_frac_stats_z(sub,
                 ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_total_cone"),
-            sz_path   = sum_lbl_frac_stats_z(sub,
-                ["grim_cone_pathg","grim_cone_d2g","grim_cone_d3g"], "grim_total_cone"),
             ls_unlabeled_total  = lbl_frac_stats_z(sub, "grim_cone_unlabeled", "grim_total_cone"),
             pb_unlabeled_total  = row_diff_frac_stats(sub, "grim_pbp_cone",
                 ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
@@ -417,8 +418,9 @@ function main()
             pb_g3adj      = lbl_frac_stats(sub, "grim_cone_g3adj",      "grim_pbp_cone"),
             pb_search     = sum_lbl_frac_stats_z(sub,
                 ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_pbp_cone"),
-            pb_path       = sum_lbl_frac_stats_z(sub,
-                ["grim_cone_pathg","grim_cone_d2g","grim_cone_d3g"], "grim_pbp_cone"),
+            pb_pathg      = lbl_frac_stats_z(sub, "grim_cone_pathg",  "grim_pbp_cone"),
+            pb_d2g        = lbl_frac_stats_z(sub, "grim_cone_d2g",    "grim_pbp_cone"),
+            pb_d3g        = lbl_frac_stats_z(sub, "grim_cone_d3g",    "grim_pbp_cone"),
             pb_unlabeled  = row_diff_frac_stats(sub, "grim_pbp_cone",
                 ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
                  "grim_cone_elimdegpol","grim_cone_elimndspol","grim_cone_elimndsconc",
@@ -448,8 +450,9 @@ function main()
             pbz_g3adj     = lbl_frac_stats_z(sub, "grim_cone_g3adj",      "grim_pbp_cone"),
             pbz_search    = sum_lbl_frac_stats_z(sub,
                 ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_pbp_cone"),
-            pbz_path      = sum_lbl_frac_stats_z(sub,
-                ["grim_cone_pathg","grim_cone_d2g","grim_cone_d3g"], "grim_pbp_cone"),
+            pbz_pathg     = lbl_frac_stats_z(sub, "grim_cone_pathg",  "grim_pbp_cone"),
+            pbz_d2g       = lbl_frac_stats_z(sub, "grim_cone_d2g",    "grim_pbp_cone"),
+            pbz_d3g       = lbl_frac_stats_z(sub, "grim_cone_d3g",    "grim_pbp_cone"),
             n_with_labels   = nrow(sub),
             n_unlabeled_pos = "grim_cone_unlabeled" ∈ names(sub) ?
                 count(i -> !ismissing(sub[i,"grim_cone_unlabeled"]) && sub[i,"grim_cone_unlabeled"] > 0, 1:nrow(sub)) : 0,
@@ -701,12 +704,15 @@ function main()
                   lbl_cell_n(fd(f).ls_elimnds,     fd(f).n_with_labels),
                   lbl_cell_n(fd(f).ls_loop,        fd(f).n_with_labels),
                   lbl_cell_n(fd(f).ls_hall,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_pathg,       fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d2g,         fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d3g,         fd(f).n_with_labels),
                   lbl_cell(fd(f).ls_unlabeled_total),
                   lbl_cell(fd(f).pb_unlabeled_total)] for f in present]
     prov_html = html_table(
         ["Family", "n", "al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj",
          "forb", "elimdegpol (POL)", "elimdeg (IA)", "elimnds", "loop",
-         "hall (POL)", "unlab OPB", "unlab PBP"],
+         "hall (POL)", "pathg", "d2g", "d3g", "unlab OPB", "unlab PBP"],
         prov_rows)
 
     # ── Section 7b: OPB axiom breakdown ──────────────────────────────────────────
@@ -738,13 +744,15 @@ function main()
                         lbl_cell_n(fd(f).pb_g3adj,      fd(f).pb_rup.n),
                         lbl_cell_n(fd(f).pb_hall,       fd(f).pb_rup.n),
                         lbl_cell_n(fd(f).pb_search,     fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_path,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_pathg,      fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d2g,        fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d3g,        fd(f).pb_rup.n),
                         lbl_cell(fd(f).pb_unlabeled)] for f in present]
     prov_c_lbl_html = html_table(
         ["Family", "n (pbp>0)", "loop (RUP)", "elimnds (RUP)",
          "elimdegpol (POL)", "elimdeg (IA)",
          "g1adj (IA)", "g2adj (IA)", "g3adj (IA)",
-         "hall (POL)", "search (RUP)", "path-intermed (POL/IA)", "unlabeled residual"],
+         "hall (POL)", "search (RUP)", "pathg", "d2g", "d3g", "unlabeled residual"],
         prov_c_lbl_rows)
     # Table 3: cross-check — unlabeled PBP fraction by search presence
     SOLVER_COL = "solver_nodes"
@@ -795,7 +803,8 @@ function main()
     LC = (al1="#1a6fbf", am1="#7ab3e8", inj="#e85b5b",
           g0adj="#1b7837", g1adj="#5aae61", g2adj="#a6dba0", g3adj="#d9f0d3",
           forb="#ff7f0e", elimdegpol="#6a3d9a", elimdeg="#9467bd", elimnds="#c5a0d3",
-          loop="#8c564b", hall="#e6ab02", search="#e31a1c", path="#fb9a99",
+          loop="#8c564b", hall="#e6ab02", search="#e31a1c",
+          pathg="#fb9a99", d2g="#f768a1", d3g="#ae017e",
           unlabeled_opb="#dddddd", unlabeled_pbp="#aaaaaa")
     mean_arr(field) = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.mean) ? NaN : ls.mean end for f in present])
     med_arr(field)  = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.med)  ? NaN : ls.med  end for f in present])
@@ -816,7 +825,9 @@ function main()
          ("g3adj (supp. 3, PBP)",      LC.g3adj,         mean_arr(:sz_g3adj)),
          ("hall (Hall sets, PBP)",     LC.hall,          mean_arr(:sz_hall)),
          ("search (prop+guess+nogood)",LC.search,        mean_arr(:sz_search)),
-         ("path-intermed (pathg+d2/3g)",LC.path,         mean_arr(:sz_path)),
+         ("pathg",                     LC.pathg,         mean_arr(:sz_pathg)),
+         ("d2g",                       LC.d2g,           mean_arr(:sz_d2g)),
+         ("d3g",                       LC.d3g,           mean_arr(:sz_d3g)),
          ("unlabeled PBP residual",    LC.unlabeled_pbp, mean_arr(:pb_unlabeled_total))];
         ytitle="fraction of total cone (OPB+PBP)")
     comp_chart_med = stacked_bar_chart("cpCompMed", present,
@@ -835,7 +846,9 @@ function main()
          ("g3adj",                LC.g3adj,         med_arr(:sz_g3adj)),
          ("hall",                 LC.hall,          med_arr(:sz_hall)),
          ("search",               LC.search,        med_arr(:sz_search)),
-         ("path-intermed",        LC.path,          med_arr(:sz_path)),
+         ("pathg",                LC.pathg,         med_arr(:sz_pathg)),
+         ("d2g",                  LC.d2g,           med_arr(:sz_d2g)),
+         ("d3g",                  LC.d3g,           med_arr(:sz_d3g)),
          ("unlabeled PBP residual",LC.unlabeled_pbp,med_arr(:pb_unlabeled_total))];
         ytitle="fraction of total cone (OPB+PBP)")
 
@@ -861,6 +874,9 @@ function main()
          ("g1adj (IA)",    LC.g1adj,         mean_arr(:pbz_g1adj)),
          ("g2adj (IA)",    LC.g2adj,         mean_arr(:pbz_g2adj)),
          ("g3adj (IA)",    LC.g3adj,         mean_arr(:pbz_g3adj)),
+         ("pathg",         LC.pathg,         mean_arr(:pbz_pathg)),
+         ("d2g",           LC.d2g,           mean_arr(:pbz_d2g)),
+         ("d3g",           LC.d3g,           mean_arr(:pbz_d3g)),
          ("unlabeled",     LC.unlabeled_pbp, mean_arr(:pb_unlabeled))];
         ytitle="fraction of PBP cone steps")
 
@@ -1024,8 +1040,8 @@ function main()
     (OPB axioms + PBP level-0 + search PBP) attributed to each CP label category.
     Denominator = <code>grim_total_cone</code>. All columns are exhaustive: OPB labels + unlab OPB + PBP labels + unlab PBP = 100%.
     OPB labels (al1/am1/inj/g0adj/forb) live in the <code>.opb</code> file.
-    PBP labels (g1/2/3adj, loop, elimdeg, elimnds) are level-0 derived steps in the <code>.pbp</code> file.
-    Sparse labels (loop/elim/gNadj) show <em>(n=X)</em> when computed over fewer than all instances.</p>
+    PBP labels (g1/2/3adj, loop, elimdeg, elimnds, pathg, d2g, d3g) are level-0 derived steps in the <code>.pbp</code> file.
+    Sparse labels show <em>(n=X)</em> when computed over fewer than all instances.</p>
     <p class="note">Categories: <em>al1</em> = at-least-one domain; <em>am1</em> = at-most-one domain;
     <em>inj</em> = injectivity; <em>g0adj</em> = base adjacency (OPB);
     <em>g1/2/3adj</em> = supplemental graph adjacency depth 1/2/3 (PBP level-0);
@@ -1033,8 +1049,10 @@ function main()
     <em>elimdeg</em> = degree-incompatibility (PBP level-0, IA type);
     <em>elimnds</em> = NDS-incompatibility (PBP level-0, RUP type);
     <em>loop</em> = loop incompatibility (PBP, RUP type, only on instances with self-loops);
+    <em>pathg</em> = path-graph derivation step; <em>d2g</em>/<em>d3g</em> = distance-2/3 graph derivation steps
+    (independent from gNadj after trimming — may appear without their original target constraint);
     <em>unlab OPB</em> = OPB axioms with no matching label (should be ~0 after M3.5);
-    <em>unlab PBP</em> = PBP steps that are search-level or inherently unlabeled (Hall POL, intermediate POL).</p>
+    <em>unlab PBP</em> = PBP steps with no matching label.</p>
     $prov_html
     <p class="note">Mean composition — bars sum to 1 (exhaustive decomposition of total cone). Sparse PBP labels use missing→0 so the stacked mean is consistent:</p>
     $comp_chart_mean
@@ -1054,9 +1072,7 @@ function main()
     Only instances with at least one PBP step in the cone are included (n shown).
     <strong>Step-type view</strong> (below) must sum to 100%.
     <strong>Label-origin view</strong> separates labeled level-0 preprocessing steps from
-    unlabeled steps = search-level RUP/POL/IA <em>plus</em> inherently unlabeled preprocessing
-    (e.g. Hall-violator POL from <code>emit_hall_set_or_violator</code>, intermediate POL inside
-    <code>incompatible_by_degrees</code>). Unlabeled ≈ 100% does not imply search.</p>
+    unlabeled steps = PBP steps with no matching label.</p>
     <p class="note"><strong>Step-type view</strong> — RUP+POL+IA+RED = 100% of PBP cone:</p>
     $prov_c_step_html
     <p class="note">Mean step-type composition:</p>
@@ -1068,7 +1084,7 @@ function main()
     $chart7c_lbl
     <p class="note"><strong>Cross-check: unlabeled PBP by search presence</strong> — instances split by
     <code>solver_nodes &gt; 1</code>. The Δ measures how much additional unlabeled PBP search adds
-    beyond the baseline from unlabeled preprocessing (Hall POL, intermediate POL).</p>
+    beyond the baseline from unlabeled preprocessing.</p>
     $prov_c_cross_html
 
     <h2>9 — Supplemental Graph Depth Analysis</h2>

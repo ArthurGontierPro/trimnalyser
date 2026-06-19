@@ -69,6 +69,10 @@ First run with exhaustive M3.5.2 labels. Results expected ~2026-06-20.
 
 **Expected outputs:** CP provenance fingerprints per family (proof_survey sections 7–11), search/path/elim label fractions, supplemental graph depth profiles, coverage of phase/scalefree/si families.
 
+### Next — graph_features for resolv iterations
+
+`graph_features.jl` currently only processes base instances. Resolv iterations (`.coreN`) have reduced LAD files in `vis/` with different graph structure — these need graph features too so `classify_supplementals` sees the full dataset (currently 1708/3590 instances after innerjoin).
+
 ### Open questions (`notes.tex §7`)
 
 - **Two-axis classifier:** `cone_depth_entropy × pol_frac` as primary family discriminants (more robust than `ia_frac` which may be removed in future proof formats).

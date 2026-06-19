@@ -1,8 +1,9 @@
 #!/usr/bin/env julia
 # Supplemental-graph usage classifier — training pipeline (steps 1–3).
 # Joins graph_features.csv with cluster_results.csv, computes per-family
-# g1adj usage stats, and ranks structural features by correlation with
-# g1adj_used (binary). Output: terminal report + HTML + text file.
+# usage stats for cone labels (g1adj, g2adj, g3adj, pathg, d2g, d3g), and
+# ranks structural features by correlation with each target (binary).
+# Output: terminal report + HTML + text file.
 #
 # Usage:
 #   julia --project=scripts scripts/classify_supplementals.jl \
@@ -197,6 +198,12 @@ function load_and_join(cluster_csv, graph_csv)
     df.g1adj_ratio  = df.g1adj_count ./ max.(df.g0adj_count, 1)
     df.g2adj_used   = coalesce.(df.grim_cone_g2adj, 0) .> 0
     df.g3adj_used   = coalesce.(df.grim_cone_g3adj, 0) .> 0
+    df.pathg_used   = coalesce.(df.grim_cone_pathg, 0) .> 0
+    df.pathg_count  = coalesce.(df.grim_cone_pathg, 0)
+    df.d2g_used     = coalesce.(df.grim_cone_d2g, 0) .> 0
+    df.d2g_count    = coalesce.(df.grim_cone_d2g, 0)
+    df.d3g_used     = coalesce.(df.grim_cone_d3g, 0) .> 0
+    df.d3g_count    = coalesce.(df.grim_cone_d3g, 0)
 
     has_proof = df.has_proof .=== true
     has_g1    = .!ismissing.(df.grim_cone_g1adj)
@@ -456,10 +463,10 @@ function feature_correlations(df, label="ALL", target=:g1adj_used)
     rows
 end
 
-function per_family_correlations(df, top_features)
+function per_family_correlations(df, top_features; target=:g1adj_used, target_name="g1adj")
     tprintln()
-    tprintln("── Per-family correlations (top features) ──────────────────────────")
-    tprintf("%-26s", "family (n, g1rate)")
+    tprintln("── Per-family correlations — $target_name (top features) ─────────────")
+    tprintf("%-26s", "family (n, rate)")
     for feat in top_features
         tprintf("  %+10s", string(feat)[1:min(10, end)])
     end
@@ -469,15 +476,14 @@ function per_family_correlations(df, top_features)
     for fam in FAMILIES
         sub = df[isequal.(df.family, fam), :]
         nrow(sub) < 5 && continue
-        y = Float64.(sub.g1adj_used)
-        g1rate = mean(y)
-        # constant g1adj rate → correlation undefined for all features
+        y = Float64.(sub[!, target])
+        tgt_rate = mean(y)
         const_rate = (std(y) == 0)
-        label = @sprintf("%s (n=%d, %d%%)", fam, nrow(sub), round(Int, 100g1rate))
+        label = @sprintf("%s (n=%d, %d%%)", fam, nrow(sub), round(Int, 100tgt_rate))
         tprintf("%-26s", label[1:min(26, end)])
         for fname in top_features
             if const_rate
-                tprintf("  %10s", g1rate == 1.0 ? "100%=const" : "0%=const")
+                tprintf("  %10s", tgt_rate == 1.0 ? "100%=const" : "0%=const")
                 continue
             end
             raw = Symbol(replace(fname, "log1p_" => ""))
@@ -491,7 +497,7 @@ function per_family_correlations(df, top_features)
         end
         tprintln()
     end
-    tprintln("  (100%=const / 0%=const → within-family g1adj rate is constant; no discriminant)")
+    tprintln("  (100%=const / 0%=const → within-family rate is constant; no discriminant)")
 end
 
 # ── HTML report ───────────────────────────────────────────────────────────────
@@ -552,7 +558,7 @@ end
 
 const HTML_CSS = """<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>Supplemental Graph Classifier — g1adj Analysis</title>
+<title>Supplemental Graph Classifier — Cone Label Analysis</title>
 <style>
 *{box-sizing:border-box}
 body{font-family:system-ui,sans-serif;max-width:1100px;margin:1.5em auto;
@@ -591,7 +597,9 @@ tr.key > td.lbl{border-left:3px solid #e07000}
 </style></head><body>
 """
 
-function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3, strata_labels, strata_results, all_corr_rows)
+function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
+                    fam_stats_pathg, fam_stats_d2g, fam_stats_d3g,
+                    strata_labels, strata_results, all_corr_rows)
     all_res = strata_results[1]   # first stratum must be ALL
 
     # Discriminant features: range > 15pp in ALL
@@ -612,7 +620,7 @@ function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3, strata_l
         write(io, HTML_CSS)
 
         # ── Title ──
-        write(io, "<h1>Supplemental Graph Classifier — g1adj Analysis</h1>\n")
+        write(io, "<h1>Supplemental Graph Classifier — Cone Label Analysis</h1>\n")
         write(io, "<p class='meta'>$n instances &nbsp;|&nbsp; ")
         write(io, "overall g1adj rate: <strong>$rate%</strong> &nbsp;|&nbsp; ")
         write(io, "no-search: <strong>$n_ns</strong> ($(round(Int, 100n_ns/n))%) &nbsp;|&nbsp; ")
@@ -664,7 +672,8 @@ function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3, strata_l
             write(io, "</table>\n</div>\n")
         end
 
-        for (tname, trio) in [("g1adj", fam_stats_g1), ("g2adj", fam_stats_g2), ("g3adj", fam_stats_g3)]
+        for (tname, trio) in [("g1adj", fam_stats_g1), ("g2adj", fam_stats_g2), ("g3adj", fam_stats_g3),
+                              ("pathg", fam_stats_pathg), ("d2g", fam_stats_d2g), ("d3g", fam_stats_d3g)]
             write(io, "<h3>$tname</h3>\n")
             write(io, "<div style='display:flex;gap:2em;flex-wrap:wrap;align-items:flex-start'>\n")
             for (label, stats) in trio
@@ -719,7 +728,8 @@ function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3, strata_l
         subset_notes = ["ALL stratum", "no-search — confound removed",
                         "with-search only", "bio family", "LV family",
                         "images-CVIU11 family", "meshes-CVIU11 family"]
-        for (sec_num, tname) in [("3","g1adj"), ("4","g2adj"), ("5","g3adj")]
+        for (sec_num, tname) in [("3","g1adj"), ("4","g2adj"), ("5","g3adj"),
+                                 ("6","pathg"), ("7","d2g"), ("8","d3g")]
             rows_by_subset = all_corr_rows[tname]
             for (si, slabel) in enumerate(subsets)
                 haskey(rows_by_subset, slabel) || continue
@@ -748,7 +758,7 @@ function write_corr_table(io, rows, all_res, _n_unused, section, subtitle)
 <p class="note">p-values omitted: at n=$n_sub every feature reaches p&lt;0.001 by arithmetic.</p>
 """)
     write(io, "<table><tr>")
-    for h in ["feature", "type", "AUC", "|r|", "mean (g1=0)", "mean (g1=1)", "n", "miss%"]
+    for h in ["feature", "type", "AUC", "|r|", "mean (=0)", "mean (=1)", "n", "miss%"]
         write(io, "<th$(h == "feature" ? " class='lbl'" : "")>$h</th>")
     end
     write(io, "</tr>\n")
@@ -803,9 +813,12 @@ function main()
          ("no-search",   per_family_stats(df[no_srch_mask, :],  "no-search";   target, used_col, count_col)),
          ("with-search", per_family_stats(df[wi_srch_mask, :],  "with-search"; target, used_col, count_col))]
     end
-    fam_stats_g1 = trio("g1adj", :g1adj_used, :g1adj_count)
-    fam_stats_g2 = trio("g2adj", :g2adj_used, :g2adj_count)
-    fam_stats_g3 = trio("g3adj", :g3adj_used, :g3adj_count)
+    fam_stats_g1    = trio("g1adj", :g1adj_used, :g1adj_count)
+    fam_stats_g2    = trio("g2adj", :g2adj_used, :g2adj_count)
+    fam_stats_g3    = trio("g3adj", :g3adj_used, :g3adj_count)
+    fam_stats_pathg = trio("pathg", :pathg_used, :pathg_count)
+    fam_stats_d2g   = trio("d2g",   :d2g_used,   :d2g_count)
+    fam_stats_d3g   = trio("d3g",   :d3g_used,   :d3g_count)
     fam_stats = fam_stats_g1[1][2]  # kept for backwards-compat with strata below
 
     # Define strata — primary split is search/no-search (main confound), then family
@@ -847,18 +860,23 @@ function main()
         ("images-CVIU11",  df[isequal.(df.family, "images-CVIU11"), :]),
         ("meshes-CVIU11",  df[isequal.(df.family, "meshes-CVIU11"), :]),
     ]
-    targets = [(:g1adj_used, "g1adj"), (:g2adj_used, "g2adj"), (:g3adj_used, "g3adj")]
+    targets = [(:g1adj_used, "g1adj"), (:g2adj_used, "g2adj"), (:g3adj_used, "g3adj"),
+                (:pathg_used, "pathg"), (:d2g_used, "d2g"), (:d3g_used, "d3g")]
     all_corr_rows = Dict(
         tname => Dict(slabel => feature_correlations(sdf, slabel, tcol)
                       for (slabel, sdf) in subsets)
         for (tcol, tname) in targets
     )
-    top5 = [r.feature for r in all_corr_rows["g1adj"]["ALL"][1:min(5, end)]]
-    per_family_correlations(df, top5)
+    for (tcol, tname) in targets
+        rows = all_corr_rows[tname]["ALL"]
+        top5 = [r.feature for r in rows[1:min(5, end)]]
+        per_family_correlations(df, top5; target=tcol, target_name=tname)
+    end
 
     tprintln()
-    tprintln("── g2adj / g3adj usage (global) ────────────────────────────────────")
-    for col in (:grim_cone_g2adj, :grim_cone_g3adj)
+    tprintln("── g2adj / g3adj / pathg / d2g / d3g usage (global) ──────────────")
+    for col in (:grim_cone_g2adj, :grim_cone_g3adj,
+                :grim_cone_pathg, :grim_cone_d2g, :grim_cone_d3g)
         col ∉ propertynames(df) && continue
         vals  = coalesce.(df[!, col], 0)
         n_pos = sum(vals .> 0)
@@ -872,7 +890,9 @@ function main()
     write(txt_path, String(take!(copy(_LOG))))
     println("Text report  → $txt_path")
 
-    write_html(html_path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3, strata_labels, strata_results, all_corr_rows)
+    write_html(html_path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
+               fam_stats_pathg, fam_stats_d2g, fam_stats_d3g,
+               strata_labels, strata_results, all_corr_rows)
 end
 
 main()
