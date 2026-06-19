@@ -220,9 +220,9 @@ function load_and_join(cluster_csv, graph_csv)
     df.supp3_count = df.g3adj_count .+ df.pathg3_count .+ df.d2g3_count .+ df.d3g3_count
 
     has_proof = df.has_proof .=== true
-    has_g1    = .!ismissing.(df.grim_cone_g1adj)
-    df_clean  = df[has_proof .& has_g1, :]
-    println("  $(nrow(df_clean)) usable rows (has_proof & g1adj data)")
+    has_cone  = .!ismissing.(df.grim_total_cone)
+    df_clean  = df[has_proof .& has_cone, :]
+    println("  $(nrow(df_clean)) usable rows (has_proof & cone data)")
     df_clean
 end
 
