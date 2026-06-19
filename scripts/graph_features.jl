@@ -1,7 +1,8 @@
 #!/usr/bin/env julia
 # Compute static graph features for all instances in a proofs directory.
-# Reads LAD files from the benchmark graph directory; outputs a CSV joinable
-# to cluster_results.csv by instance name.
+# Reads LAD files from the benchmark graph directory (base instances) or from
+# vis/ (core instances — .coreN uses the previous iteration's core LAD files).
+# Outputs a CSV joinable to cluster_results.csv by instance name.
 #
 # Usage:
 #   julia scripts/graph_features.jl <proofs_dir> [graphs_dir] [output_csv]
@@ -329,11 +330,10 @@ function main()
     println("Graphs dir : $graphs_dir")
     println("Output     : $output_csv")
 
-    # Collect base instances (exclude .coreN files and verification files)
+    # Collect all instances (base + .coreN), excluding verification files
     all_out = filter(f -> endswith(f, ".out") &&
                           !endswith(f, ".smolverif.out") &&
-                          !endswith(f, ".verif.out") &&
-                          !occursin(".core", f),
+                          !endswith(f, ".verif.out"),
                      readdir(proofs_dir))
     instances = [splitext(f)[1] for f in all_out]
     println("Found $(length(instances)) instances")
@@ -345,7 +345,20 @@ function main()
         println(io, join(GRAPH_COLS, ","))
         for (i, ins) in enumerate(instances)
             i % 500 == 0 && println("Processing $i/$(length(instances))...")
-            pat_path, tar_path = instance_lad_paths(ins, graphs_dir)
+
+            # Resolve pattern/target LAD paths.
+            # For .coreN instances, the graphs come from vis/ (previous iteration's core).
+            pat_path = tar_path = nothing
+            m = match(r"^(.+)\.core(\d+)$", ins)
+            if m !== nothing
+                base, n = m.captures[1], parse(Int, m.captures[2])
+                prev_ins = n == 1 ? base : base * ".core$(n-1)"
+                pat_path = joinpath(vis_dir, prev_ins * ".core.pat.lad")
+                tar_path = joinpath(vis_dir, prev_ins * ".core.tar.lad")
+            else
+                pat_path, tar_path = instance_lad_paths(ins, graphs_dir)
+            end
+
             if pat_path === nothing || !isfile(pat_path) || !isfile(tar_path)
                 n_skip += 1
                 continue
