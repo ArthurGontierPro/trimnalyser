@@ -844,6 +844,11 @@
         startswith(label, "inj")        && return :inj
         startswith(label, "forb")       && return :forb
         startswith(label, "noedge")     && return :noedge
+        startswith(label, "unsatconc")  && return :unsatconc
+        startswith(label, "reelimdegpol") && return :reelimdegpol  # before elimdegpol
+        startswith(label, "reelimdeg")    && return :reelimdeg     # before elimdeg
+        startswith(label, "reelimndspol") && return :reelimndspol  # before elimndspol
+        startswith(label, "reelimndsconc")&& return :reelimndsconc # before elimndsconc
         startswith(label, "elimdegpol") && return :elimdegpol  # before elimdeg
         startswith(label, "elimdeg")    && return :elimdeg
         startswith(label, "elimndspol") && return :elimndspol  # before elimnds
@@ -893,6 +898,8 @@
     function cone_label_stats(cone::Vector{Bool}, ctrmap::Dict{String,Int}, nbopb::Int)
         n_al1 = n_am1 = n_inj = n_g0adj = n_g1adj = n_g2adj = n_g3adj = n_gadj_other = 0
         n_forb = n_noedge = n_elimdegpol = n_elimdeg = n_elimndspol = n_elimndsconc = n_elimnds = n_loop = 0
+        n_unsatconc = 0
+        n_reelimdegpol = n_reelimdeg = n_reelimndspol = n_reelimndsconc = 0
         n_ptbig = n_hall = n_prop = n_guess = n_nogood = 0
         n_pathg1 = n_pathg2 = n_pathg3 = n_pathg_other = 0
         n_d2g1 = n_d2g2 = n_d2g3 = n_d2g_other = 0
@@ -917,6 +924,11 @@
             elseif cat == :gadj_other;  n_gadj_other  += 1
             elseif cat == :forb;        n_forb        += 1
             elseif cat == :noedge;      n_noedge      += 1
+            elseif cat == :unsatconc;   n_unsatconc   += 1
+            elseif cat == :reelimdegpol;  n_reelimdegpol  += 1
+            elseif cat == :reelimdeg;     n_reelimdeg     += 1
+            elseif cat == :reelimndspol;  n_reelimndspol  += 1
+            elseif cat == :reelimndsconc; n_reelimndsconc += 1
             elseif cat == :elimdegpol;  n_elimdegpol  += 1
             elseif cat == :elimdeg;     n_elimdeg     += 1
             elseif cat == :elimndspol;  n_elimndspol  += 1
@@ -961,7 +973,9 @@
          forb=n_forb, noedge=n_noedge,
          elimdegpol=n_elimdegpol, elimdeg=n_elimdeg,
          elimndspol=n_elimndspol, elimndsconc=n_elimndsconc, elimnds=n_elimnds,
-         loop=n_loop,
+         reelimdegpol=n_reelimdegpol, reelimdeg=n_reelimdeg,
+         reelimndspol=n_reelimndspol, reelimndsconc=n_reelimndsconc,
+         loop=n_loop, unsatconc=n_unsatconc,
          ptbig=n_ptbig, hall=n_hall, prop=n_prop, guess=n_guess, nogood=n_nogood,
          pathg1=n_pathg1, pathg2=n_pathg2, pathg3=n_pathg3, pathg_other=n_pathg_other,
          d2g1=n_d2g1, d2g2=n_d2g2, d2g3=n_d2g3, d2g_other=n_d2g_other,
@@ -991,6 +1005,13 @@
             println(f, prefix, " CONE LABEL G1ADJ ",    stats.g1adj)
             println(f, prefix, " CONE LABEL G2ADJ ",    stats.g2adj)
             println(f, prefix, " CONE LABEL G3ADJ ",    stats.g3adj)
+            # Re-elimination labels (conditional)
+            stats.reelimdegpol  > 0 && println(f, prefix, " CONE LABEL REELIMDEGPOL ",  stats.reelimdegpol)
+            stats.reelimdeg     > 0 && println(f, prefix, " CONE LABEL REELIMDEG ",     stats.reelimdeg)
+            stats.reelimndspol  > 0 && println(f, prefix, " CONE LABEL REELIMNDSPOL ",  stats.reelimndspol)
+            stats.reelimndsconc > 0 && println(f, prefix, " CONE LABEL REELIMNDSCONC ", stats.reelimndsconc)
+            # UNSAT conclusion
+            stats.unsatconc     > 0 && println(f, prefix, " CONE LABEL UNSATCONC ",     stats.unsatconc)
             # Rare PBP labels (conditional)
             stats.gadj_other  > 0 && println(f, prefix, " CONE LABEL GADJ_OTHER ",  stats.gadj_other)
             stats.elimndspol  > 0 && println(f, prefix, " CONE LABEL ELIMNDSPOL ",  stats.elimndspol)

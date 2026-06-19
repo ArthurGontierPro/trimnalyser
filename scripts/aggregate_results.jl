@@ -87,6 +87,9 @@ const CSV_COLUMNS = [
     "grim_cone_pathg1", "grim_cone_pathg2", "grim_cone_pathg3", "grim_cone_pathg_other",
     "grim_cone_d2g1", "grim_cone_d2g2", "grim_cone_d2g3", "grim_cone_d2g_other",
     "grim_cone_d3g1", "grim_cone_d3g2", "grim_cone_d3g3", "grim_cone_d3g_other",
+    "grim_cone_reelimdegpol", "grim_cone_reelimdeg",
+    "grim_cone_reelimndspol", "grim_cone_reelimndsconc",
+    "grim_cone_unsatconc",
     "grim_cone_binback", "grim_cone_colpol",
     "grim_cone_hombd", "grim_cone_hompol", "grim_cone_hominj",
     "grim_cone_homdom", "grim_cone_homfin", "grim_cone_homcross",
@@ -241,6 +244,11 @@ function parse_out_file(filepath)
         let m = match(r"^grim CONE LABEL D3G2 (\d+)", line);        m !== nothing && (data["grim_cone_d3g2"]        = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL D3G3 (\d+)", line);        m !== nothing && (data["grim_cone_d3g3"]        = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL D3G_OTHER (\d+)", line);   m !== nothing && (data["grim_cone_d3g_other"]   = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL REELIMDEGPOL (\d+)", line);  m !== nothing && (data["grim_cone_reelimdegpol"]  = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL REELIMDEG (\d+)", line);    m !== nothing && (data["grim_cone_reelimdeg"]    = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL REELIMNDSPOL (\d+)", line); m !== nothing && (data["grim_cone_reelimndspol"] = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL REELIMNDSCONC (\d+)", line);m !== nothing && (data["grim_cone_reelimndsconc"]= parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL UNSATCONC (\d+)", line);    m !== nothing && (data["grim_cone_unsatconc"]    = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL BINBACK (\d+)", line);     m !== nothing && (data["grim_cone_binback"]     = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL COLPOL (\d+)", line);      m !== nothing && (data["grim_cone_colpol"]      = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL HOMBD (\d+)", line);       m !== nothing && (data["grim_cone_hombd"]       = parse(Int, m.captures[1])); end
@@ -686,6 +694,11 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "grim_cone_d3g2",         ""))
             push!(row, get(data, "grim_cone_d3g3",         ""))
             push!(row, get(data, "grim_cone_d3g_other",    ""))
+            push!(row, get(data, "grim_cone_reelimdegpol",  ""))
+            push!(row, get(data, "grim_cone_reelimdeg",    ""))
+            push!(row, get(data, "grim_cone_reelimndspol", ""))
+            push!(row, get(data, "grim_cone_reelimndsconc",""))
+            push!(row, get(data, "grim_cone_unsatconc",    ""))
             push!(row, get(data, "grim_cone_binback",      ""))
             push!(row, get(data, "grim_cone_colpol",       ""))
             push!(row, get(data, "grim_cone_hombd",        ""))
