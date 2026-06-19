@@ -84,7 +84,9 @@ const CSV_COLUMNS = [
     "grim_cone_loop",
     "grim_cone_ptbig", "grim_cone_hall",
     "grim_cone_prop", "grim_cone_guess", "grim_cone_nogood",
-    "grim_cone_pathg", "grim_cone_d2g", "grim_cone_d3g",
+    "grim_cone_pathg1", "grim_cone_pathg2", "grim_cone_pathg3", "grim_cone_pathg_other",
+    "grim_cone_d2g1", "grim_cone_d2g2", "grim_cone_d2g3", "grim_cone_d2g_other",
+    "grim_cone_d3g1", "grim_cone_d3g2", "grim_cone_d3g3", "grim_cone_d3g_other",
     "grim_cone_binback", "grim_cone_colpol",
     "grim_cone_hombd", "grim_cone_hompol", "grim_cone_hominj",
     "grim_cone_homdom", "grim_cone_homfin", "grim_cone_homcross",
@@ -98,7 +100,9 @@ const CSV_COLUMNS = [
     "grim_cone_frac_elimdegpol", "grim_cone_frac_elimnds", "grim_cone_frac_elimdeg",
     "grim_cone_frac_hall",
     "grim_cone_frac_prop", "grim_cone_frac_guess", "grim_cone_frac_nogood",
-    "grim_cone_frac_pathg", "grim_cone_frac_d2g", "grim_cone_frac_d3g",
+    "grim_cone_frac_pathg1", "grim_cone_frac_pathg2", "grim_cone_frac_pathg3", "grim_cone_frac_pathg_other",
+    "grim_cone_frac_d2g1", "grim_cone_frac_d2g2", "grim_cone_frac_d2g3", "grim_cone_frac_d2g_other",
+    "grim_cone_frac_d3g1", "grim_cone_frac_d3g2", "grim_cone_frac_d3g3", "grim_cone_frac_d3g_other",
     # M3.5: variable order
     "grim_cone_uniq_pat", "grim_cone_uniq_tar"
 ]
@@ -225,9 +229,18 @@ function parse_out_file(filepath)
         let m = match(r"^grim CONE LABEL PROP (\d+)", line);        m !== nothing && (data["grim_cone_prop"]        = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL GUESS (\d+)", line);       m !== nothing && (data["grim_cone_guess"]       = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL NOGOOD (\d+)", line);      m !== nothing && (data["grim_cone_nogood"]      = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL PATHG (\d+)", line);       m !== nothing && (data["grim_cone_pathg"]       = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL D2G (\d+)", line);         m !== nothing && (data["grim_cone_d2g"]         = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE LABEL D3G (\d+)", line);         m !== nothing && (data["grim_cone_d3g"]         = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL PATHG1 (\d+)", line);       m !== nothing && (data["grim_cone_pathg1"]       = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL PATHG2 (\d+)", line);      m !== nothing && (data["grim_cone_pathg2"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL PATHG3 (\d+)", line);      m !== nothing && (data["grim_cone_pathg3"]      = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL PATHG_OTHER (\d+)", line); m !== nothing && (data["grim_cone_pathg_other"] = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D2G1 (\d+)", line);        m !== nothing && (data["grim_cone_d2g1"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D2G2 (\d+)", line);        m !== nothing && (data["grim_cone_d2g2"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D2G3 (\d+)", line);        m !== nothing && (data["grim_cone_d2g3"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D2G_OTHER (\d+)", line);   m !== nothing && (data["grim_cone_d2g_other"]   = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D3G1 (\d+)", line);        m !== nothing && (data["grim_cone_d3g1"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D3G2 (\d+)", line);        m !== nothing && (data["grim_cone_d3g2"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D3G3 (\d+)", line);        m !== nothing && (data["grim_cone_d3g3"]        = parse(Int, m.captures[1])); end
+        let m = match(r"^grim CONE LABEL D3G_OTHER (\d+)", line);   m !== nothing && (data["grim_cone_d3g_other"]   = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL BINBACK (\d+)", line);     m !== nothing && (data["grim_cone_binback"]     = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL COLPOL (\d+)", line);      m !== nothing && (data["grim_cone_colpol"]      = parse(Int, m.captures[1])); end
         let m = match(r"^grim CONE LABEL HOMBD (\d+)", line);       m !== nothing && (data["grim_cone_hombd"]       = parse(Int, m.captures[1])); end
@@ -661,9 +674,18 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "grim_cone_prop",         ""))
             push!(row, get(data, "grim_cone_guess",        ""))
             push!(row, get(data, "grim_cone_nogood",       ""))
-            push!(row, get(data, "grim_cone_pathg",        ""))
-            push!(row, get(data, "grim_cone_d2g",          ""))
-            push!(row, get(data, "grim_cone_d3g",          ""))
+            push!(row, get(data, "grim_cone_pathg1",       ""))
+            push!(row, get(data, "grim_cone_pathg2",       ""))
+            push!(row, get(data, "grim_cone_pathg3",       ""))
+            push!(row, get(data, "grim_cone_pathg_other",  ""))
+            push!(row, get(data, "grim_cone_d2g1",         ""))
+            push!(row, get(data, "grim_cone_d2g2",         ""))
+            push!(row, get(data, "grim_cone_d2g3",         ""))
+            push!(row, get(data, "grim_cone_d2g_other",    ""))
+            push!(row, get(data, "grim_cone_d3g1",         ""))
+            push!(row, get(data, "grim_cone_d3g2",         ""))
+            push!(row, get(data, "grim_cone_d3g3",         ""))
+            push!(row, get(data, "grim_cone_d3g_other",    ""))
             push!(row, get(data, "grim_cone_binback",      ""))
             push!(row, get(data, "grim_cone_colpol",       ""))
             push!(row, get(data, "grim_cone_hombd",        ""))
@@ -698,9 +720,18 @@ function aggregate_results(proofdir::String, output_csv::String)
                 push!(row, labelfrac("grim_cone_prop"))
                 push!(row, labelfrac("grim_cone_guess"))
                 push!(row, labelfrac("grim_cone_nogood"))
-                push!(row, labelfrac("grim_cone_pathg"))
-                push!(row, labelfrac("grim_cone_d2g"))
-                push!(row, labelfrac("grim_cone_d3g"))
+                push!(row, labelfrac("grim_cone_pathg1"))
+                push!(row, labelfrac("grim_cone_pathg2"))
+                push!(row, labelfrac("grim_cone_pathg3"))
+                push!(row, labelfrac("grim_cone_pathg_other"))
+                push!(row, labelfrac("grim_cone_d2g1"))
+                push!(row, labelfrac("grim_cone_d2g2"))
+                push!(row, labelfrac("grim_cone_d2g3"))
+                push!(row, labelfrac("grim_cone_d2g_other"))
+                push!(row, labelfrac("grim_cone_d3g1"))
+                push!(row, labelfrac("grim_cone_d3g2"))
+                push!(row, labelfrac("grim_cone_d3g3"))
+                push!(row, labelfrac("grim_cone_d3g_other"))
             end
 
             # M3.5: variable order

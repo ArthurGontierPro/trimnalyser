@@ -198,12 +198,26 @@ function load_and_join(cluster_csv, graph_csv)
     df.g1adj_ratio  = df.g1adj_count ./ max.(df.g0adj_count, 1)
     df.g2adj_used   = coalesce.(df.grim_cone_g2adj, 0) .> 0
     df.g3adj_used   = coalesce.(df.grim_cone_g3adj, 0) .> 0
-    df.pathg_used   = coalesce.(df.grim_cone_pathg, 0) .> 0
-    df.pathg_count  = coalesce.(df.grim_cone_pathg, 0)
-    df.d2g_used     = coalesce.(df.grim_cone_d2g, 0) .> 0
-    df.d2g_count    = coalesce.(df.grim_cone_d2g, 0)
-    df.d3g_used     = coalesce.(df.grim_cone_d3g, 0) .> 0
-    df.d3g_count    = coalesce.(df.grim_cone_d3g, 0)
+    for g in (1, 2, 3)
+        for pfx in ("pathg", "d2g", "d3g")
+            col = "grim_cone_$(pfx)$(g)"
+            sym_used  = Symbol("$(pfx)$(g)_used")
+            sym_count = Symbol("$(pfx)$(g)_count")
+            if col ∈ names(df)
+                df[!, sym_used]  = coalesce.(df[!, col], 0) .> 0
+                df[!, sym_count] = coalesce.(df[!, col], 0)
+            else
+                df[!, sym_used]  = fill(false, nrow(df))
+                df[!, sym_count] = fill(0, nrow(df))
+            end
+        end
+    end
+    df.supp1_used = df.g1adj_used .| df.pathg1_used .| df.d2g1_used .| df.d3g1_used
+    df.supp2_used = df.g2adj_used .| df.pathg2_used .| df.d2g2_used .| df.d3g2_used
+    df.supp3_used = df.g3adj_used .| df.pathg3_used .| df.d2g3_used .| df.d3g3_used
+    df.supp1_count = df.g1adj_count .+ df.pathg1_count .+ df.d2g1_count .+ df.d3g1_count
+    df.supp2_count = df.g2adj_count .+ df.pathg2_count .+ df.d2g2_count .+ df.d3g2_count
+    df.supp3_count = df.g3adj_count .+ df.pathg3_count .+ df.d2g3_count .+ df.d3g3_count
 
     has_proof = df.has_proof .=== true
     has_g1    = .!ismissing.(df.grim_cone_g1adj)
@@ -598,7 +612,7 @@ tr.key > td.lbl{border-left:3px solid #e07000}
 """
 
 function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
-                    fam_stats_pathg, fam_stats_d2g, fam_stats_d3g,
+                    fam_stats_supp1, fam_stats_supp2, fam_stats_supp3,
                     strata_labels, strata_results, all_corr_rows)
     all_res = strata_results[1]   # first stratum must be ALL
 
@@ -673,7 +687,7 @@ function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
         end
 
         for (tname, trio) in [("g1adj", fam_stats_g1), ("g2adj", fam_stats_g2), ("g3adj", fam_stats_g3),
-                              ("pathg", fam_stats_pathg), ("d2g", fam_stats_d2g), ("d3g", fam_stats_d3g)]
+                              ("supp1", fam_stats_supp1), ("supp2", fam_stats_supp2), ("supp3", fam_stats_supp3)]
             write(io, "<h3>$tname</h3>\n")
             write(io, "<div style='display:flex;gap:2em;flex-wrap:wrap;align-items:flex-start'>\n")
             for (label, stats) in trio
@@ -729,7 +743,7 @@ function write_html(path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
                         "with-search only", "bio family", "LV family",
                         "images-CVIU11 family", "meshes-CVIU11 family"]
         for (sec_num, tname) in [("3","g1adj"), ("4","g2adj"), ("5","g3adj"),
-                                 ("6","pathg"), ("7","d2g"), ("8","d3g")]
+                                 ("6","supp1"), ("7","supp2"), ("8","supp3")]
             rows_by_subset = all_corr_rows[tname]
             for (si, slabel) in enumerate(subsets)
                 haskey(rows_by_subset, slabel) || continue
@@ -816,9 +830,9 @@ function main()
     fam_stats_g1    = trio("g1adj", :g1adj_used, :g1adj_count)
     fam_stats_g2    = trio("g2adj", :g2adj_used, :g2adj_count)
     fam_stats_g3    = trio("g3adj", :g3adj_used, :g3adj_count)
-    fam_stats_pathg = trio("pathg", :pathg_used, :pathg_count)
-    fam_stats_d2g   = trio("d2g",   :d2g_used,   :d2g_count)
-    fam_stats_d3g   = trio("d3g",   :d3g_used,   :d3g_count)
+    fam_stats_supp1 = trio("supp1", :supp1_used, :supp1_count)
+    fam_stats_supp2 = trio("supp2", :supp2_used, :supp2_count)
+    fam_stats_supp3 = trio("supp3", :supp3_used, :supp3_count)
     fam_stats = fam_stats_g1[1][2]  # kept for backwards-compat with strata below
 
     # Define strata — primary split is search/no-search (main confound), then family
@@ -861,7 +875,7 @@ function main()
         ("meshes-CVIU11",  df[isequal.(df.family, "meshes-CVIU11"), :]),
     ]
     targets = [(:g1adj_used, "g1adj"), (:g2adj_used, "g2adj"), (:g3adj_used, "g3adj"),
-                (:pathg_used, "pathg"), (:d2g_used, "d2g"), (:d3g_used, "d3g")]
+                (:supp1_used, "supp1"), (:supp2_used, "supp2"), (:supp3_used, "supp3")]
     all_corr_rows = Dict(
         tname => Dict(slabel => feature_correlations(sdf, slabel, tcol)
                       for (slabel, sdf) in subsets)
@@ -874,14 +888,24 @@ function main()
     end
 
     tprintln()
-    tprintln("── g2adj / g3adj / pathg / d2g / d3g usage (global) ──────────────")
-    for col in (:grim_cone_g2adj, :grim_cone_g3adj,
-                :grim_cone_pathg, :grim_cone_d2g, :grim_cone_d3g)
-        col ∉ propertynames(df) && continue
-        vals  = coalesce.(df[!, col], 0)
-        n_pos = sum(vals .> 0)
-        tprintf("  %-22s  %5d / %5d  (%.0f%%)  max=%d\n",
-            col, n_pos, nrow(df), 100n_pos/nrow(df), maximum(vals))
+    tprintln("── suppN usage (gNadj + intermediates) ───────────────────────────")
+    for (label, col) in [("supp1 (g1adj+pathg1+d2g1+d3g1)", :supp1_used),
+                          ("supp2 (g2adj+pathg2+d2g2+d3g2)", :supp2_used),
+                          ("supp3 (g3adj+d2g3+d3g3+pathg3)", :supp3_used)]
+        n_pos = sum(df[!, col])
+        tprintf("  %-40s  %5d / %5d  (%.0f%%)\n",
+            label, n_pos, nrow(df), 100n_pos/nrow(df))
+    end
+    tprintln()
+    tprintln("── gNadj-only vs suppN comparison ──────────────────────────────")
+    for (g, adj_col, supp_col) in [(1, :g1adj_used, :supp1_used),
+                                     (2, :g2adj_used, :supp2_used),
+                                     (3, :g3adj_used, :supp3_used)]
+        n_adj  = sum(df[!, adj_col])
+        n_supp = sum(df[!, supp_col])
+        delta  = n_supp - n_adj
+        tprintf("  g%dadj=%5d  supp%d=%5d  Δ=%+d (instances with intermediates but no gNadj)\n",
+            g, n_adj, g, n_supp, delta)
     end
 
     tprintln()
@@ -891,7 +915,7 @@ function main()
     println("Text report  → $txt_path")
 
     write_html(html_path, df, fam_stats_g1, fam_stats_g2, fam_stats_g3,
-               fam_stats_pathg, fam_stats_d2g, fam_stats_d3g,
+               fam_stats_supp1, fam_stats_supp2, fam_stats_supp3,
                strata_labels, strata_results, all_corr_rows)
 end
 

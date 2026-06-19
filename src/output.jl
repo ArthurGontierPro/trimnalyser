@@ -827,6 +827,17 @@
 
 # ══ M3.5: CP constraint provenance ════════════════════════════════════════════════════════
 
+    function _extract_graph_depth(label::String, prefix_len::Int)
+        i = prefix_len + 1
+        i > length(label) && return 0
+        n = 0
+        while i <= length(label) && label[i] >= '0' && label[i] <= '9'
+            n = n * 10 + (label[i] - '0')
+            i += 1
+        end
+        n
+    end
+
     function classify_label(label::String)
         startswith(label, "al1")        && return :al1
         startswith(label, "am1")        && return :am1
@@ -852,9 +863,18 @@
         startswith(label, "prop")       && return :prop
         startswith(label, "guess")      && return :guess
         startswith(label, "nogood")     && return :nogood
-        startswith(label, "pathg")      && return :pathg
-        startswith(label, "d2g")        && return :d2g
-        startswith(label, "d3g")        && return :d3g
+        if startswith(label, "pathg")
+            g = _extract_graph_depth(label, 5)
+            return g == 1 ? :pathg1 : g == 2 ? :pathg2 : g == 3 ? :pathg3 : :pathg_other
+        end
+        if startswith(label, "d2g")
+            g = _extract_graph_depth(label, 3)
+            return g == 1 ? :d2g1 : g == 2 ? :d2g2 : g == 3 ? :d2g3 : :d2g_other
+        end
+        if startswith(label, "d3g")
+            g = _extract_graph_depth(label, 3)
+            return g == 1 ? :d3g1 : g == 2 ? :d3g2 : g == 3 ? :d3g3 : :d3g_other
+        end
         startswith(label, "binback")    && return :binback
         startswith(label, "colpol")     && return :colpol
         startswith(label, "homcross")   && return :homcross
@@ -874,7 +894,9 @@
         n_al1 = n_am1 = n_inj = n_g0adj = n_g1adj = n_g2adj = n_g3adj = n_gadj_other = 0
         n_forb = n_noedge = n_elimdegpol = n_elimdeg = n_elimndspol = n_elimndsconc = n_elimnds = n_loop = 0
         n_ptbig = n_hall = n_prop = n_guess = n_nogood = 0
-        n_pathg = n_d2g = n_d3g = 0
+        n_pathg1 = n_pathg2 = n_pathg3 = n_pathg_other = 0
+        n_d2g1 = n_d2g2 = n_d2g3 = n_d2g_other = 0
+        n_d3g1 = n_d3g2 = n_d3g3 = n_d3g_other = 0
         n_binback = n_colpol = 0
         n_homcross = n_hombd = n_hompol = n_hominj = n_homdom = n_homfin = 0
         n_mcspart = n_mcsfin = n_notconn = n_cliqedge = 0
@@ -906,9 +928,18 @@
             elseif cat == :prop;        n_prop        += 1
             elseif cat == :guess;       n_guess       += 1
             elseif cat == :nogood;      n_nogood      += 1
-            elseif cat == :pathg;       n_pathg       += 1
-            elseif cat == :d2g;         n_d2g         += 1
-            elseif cat == :d3g;         n_d3g         += 1
+            elseif cat == :pathg1;      n_pathg1      += 1
+            elseif cat == :pathg2;      n_pathg2      += 1
+            elseif cat == :pathg3;      n_pathg3      += 1
+            elseif cat == :pathg_other; n_pathg_other += 1
+            elseif cat == :d2g1;        n_d2g1        += 1
+            elseif cat == :d2g2;        n_d2g2        += 1
+            elseif cat == :d2g3;        n_d2g3        += 1
+            elseif cat == :d2g_other;   n_d2g_other   += 1
+            elseif cat == :d3g1;        n_d3g1        += 1
+            elseif cat == :d3g2;        n_d3g2        += 1
+            elseif cat == :d3g3;        n_d3g3        += 1
+            elseif cat == :d3g_other;   n_d3g_other   += 1
             elseif cat == :binback;     n_binback     += 1
             elseif cat == :colpol;      n_colpol      += 1
             elseif cat == :homcross;    n_homcross    += 1
@@ -932,7 +963,9 @@
          elimndspol=n_elimndspol, elimndsconc=n_elimndsconc, elimnds=n_elimnds,
          loop=n_loop,
          ptbig=n_ptbig, hall=n_hall, prop=n_prop, guess=n_guess, nogood=n_nogood,
-         pathg=n_pathg, d2g=n_d2g, d3g=n_d3g,
+         pathg1=n_pathg1, pathg2=n_pathg2, pathg3=n_pathg3, pathg_other=n_pathg_other,
+         d2g1=n_d2g1, d2g2=n_d2g2, d2g3=n_d2g3, d2g_other=n_d2g_other,
+         d3g1=n_d3g1, d3g2=n_d3g2, d3g3=n_d3g3, d3g_other=n_d3g_other,
          binback=n_binback, colpol=n_colpol,
          homcross=n_homcross, hombd=n_hombd, hompol=n_hompol,
          hominj=n_hominj, homdom=n_homdom, homfin=n_homfin,
@@ -968,9 +1001,18 @@
             stats.prop        > 0 && println(f, prefix, " CONE LABEL PROP ",        stats.prop)
             stats.guess       > 0 && println(f, prefix, " CONE LABEL GUESS ",       stats.guess)
             stats.nogood      > 0 && println(f, prefix, " CONE LABEL NOGOOD ",      stats.nogood)
-            stats.pathg       > 0 && println(f, prefix, " CONE LABEL PATHG ",       stats.pathg)
-            stats.d2g         > 0 && println(f, prefix, " CONE LABEL D2G ",         stats.d2g)
-            stats.d3g         > 0 && println(f, prefix, " CONE LABEL D3G ",         stats.d3g)
+            stats.pathg1      > 0 && println(f, prefix, " CONE LABEL PATHG1 ",      stats.pathg1)
+            stats.pathg2      > 0 && println(f, prefix, " CONE LABEL PATHG2 ",      stats.pathg2)
+            stats.pathg3      > 0 && println(f, prefix, " CONE LABEL PATHG3 ",      stats.pathg3)
+            stats.pathg_other > 0 && println(f, prefix, " CONE LABEL PATHG_OTHER ", stats.pathg_other)
+            stats.d2g1        > 0 && println(f, prefix, " CONE LABEL D2G1 ",        stats.d2g1)
+            stats.d2g2        > 0 && println(f, prefix, " CONE LABEL D2G2 ",        stats.d2g2)
+            stats.d2g3        > 0 && println(f, prefix, " CONE LABEL D2G3 ",        stats.d2g3)
+            stats.d2g_other   > 0 && println(f, prefix, " CONE LABEL D2G_OTHER ",   stats.d2g_other)
+            stats.d3g1        > 0 && println(f, prefix, " CONE LABEL D3G1 ",        stats.d3g1)
+            stats.d3g2        > 0 && println(f, prefix, " CONE LABEL D3G2 ",        stats.d3g2)
+            stats.d3g3        > 0 && println(f, prefix, " CONE LABEL D3G3 ",        stats.d3g3)
+            stats.d3g_other   > 0 && println(f, prefix, " CONE LABEL D3G_OTHER ",   stats.d3g_other)
             stats.binback     > 0 && println(f, prefix, " CONE LABEL BINBACK ",     stats.binback)
             stats.colpol      > 0 && println(f, prefix, " CONE LABEL COLPOL ",      stats.colpol)
             stats.hombd       > 0 && println(f, prefix, " CONE LABEL HOMBD ",       stats.hombd)
