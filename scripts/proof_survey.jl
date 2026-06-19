@@ -341,9 +341,18 @@ function main()
             ls_elimdegpol = lbl_frac_stats(sub, "grim_cone_elimdegpol", "grim_total_cone"),
             ls_hall       = lbl_frac_stats(sub, "grim_cone_hall",       "grim_total_cone"),
             ls_loop       = lbl_frac_stats(sub, "grim_cone_loop",       "grim_total_cone"),
-            ls_pathg      = sum_lbl_frac_stats_z(sub, ["grim_cone_pathg1","grim_cone_pathg2","grim_cone_pathg3","grim_cone_pathg_other"], "grim_total_cone"),
-            ls_d2g        = sum_lbl_frac_stats_z(sub, ["grim_cone_d2g1","grim_cone_d2g2","grim_cone_d2g3","grim_cone_d2g_other"], "grim_total_cone"),
-            ls_d3g        = sum_lbl_frac_stats_z(sub, ["grim_cone_d3g1","grim_cone_d3g2","grim_cone_d3g3","grim_cone_d3g_other"], "grim_total_cone"),
+            ls_pathg1       = lbl_frac_stats_z(sub, "grim_cone_pathg1",       "grim_total_cone"),
+            ls_pathg2       = lbl_frac_stats_z(sub, "grim_cone_pathg2",       "grim_total_cone"),
+            ls_pathg3       = lbl_frac_stats_z(sub, "grim_cone_pathg3",       "grim_total_cone"),
+            ls_pathg_other  = lbl_frac_stats_z(sub, "grim_cone_pathg_other",  "grim_total_cone"),
+            ls_d2g1         = lbl_frac_stats_z(sub, "grim_cone_d2g1",        "grim_total_cone"),
+            ls_d2g2         = lbl_frac_stats_z(sub, "grim_cone_d2g2",        "grim_total_cone"),
+            ls_d2g3         = lbl_frac_stats_z(sub, "grim_cone_d2g3",        "grim_total_cone"),
+            ls_d2g_other    = lbl_frac_stats_z(sub, "grim_cone_d2g_other",   "grim_total_cone"),
+            ls_d3g1         = lbl_frac_stats_z(sub, "grim_cone_d3g1",        "grim_total_cone"),
+            ls_d3g2         = lbl_frac_stats_z(sub, "grim_cone_d3g2",        "grim_total_cone"),
+            ls_d3g3         = lbl_frac_stats_z(sub, "grim_cone_d3g3",        "grim_total_cone"),
+            ls_d3g_other    = lbl_frac_stats_z(sub, "grim_cone_d3g_other",   "grim_total_cone"),
             # §7/§9 stacked bars: _z variants (missing→0) so all means are over the same population.
             # Non-sparse OPB labels (al1/am1/inj/g0adj/forb) are always non-missing so ls_* = sz_*.
             # Sparse PBP labels need _z so instances without them contribute 0, not are skipped.
@@ -362,9 +371,18 @@ function main()
             sz_prop       = lbl_frac_stats_z(sub, "grim_cone_prop",       "grim_total_cone"),
             sz_guess      = lbl_frac_stats_z(sub, "grim_cone_guess",      "grim_total_cone"),
             sz_nogood     = lbl_frac_stats_z(sub, "grim_cone_nogood",     "grim_total_cone"),
-            sz_pathg      = sum_lbl_frac_stats_z(sub, ["grim_cone_pathg1","grim_cone_pathg2","grim_cone_pathg3","grim_cone_pathg_other"], "grim_total_cone"),
-            sz_d2g        = sum_lbl_frac_stats_z(sub, ["grim_cone_d2g1","grim_cone_d2g2","grim_cone_d2g3","grim_cone_d2g_other"], "grim_total_cone"),
-            sz_d3g        = sum_lbl_frac_stats_z(sub, ["grim_cone_d3g1","grim_cone_d3g2","grim_cone_d3g3","grim_cone_d3g_other"], "grim_total_cone"),
+            sz_pathg1       = lbl_frac_stats_z(sub, "grim_cone_pathg1",       "grim_total_cone"),
+            sz_pathg2       = lbl_frac_stats_z(sub, "grim_cone_pathg2",       "grim_total_cone"),
+            sz_pathg3       = lbl_frac_stats_z(sub, "grim_cone_pathg3",       "grim_total_cone"),
+            sz_pathg_other  = lbl_frac_stats_z(sub, "grim_cone_pathg_other",  "grim_total_cone"),
+            sz_d2g1         = lbl_frac_stats_z(sub, "grim_cone_d2g1",        "grim_total_cone"),
+            sz_d2g2         = lbl_frac_stats_z(sub, "grim_cone_d2g2",        "grim_total_cone"),
+            sz_d2g3         = lbl_frac_stats_z(sub, "grim_cone_d2g3",        "grim_total_cone"),
+            sz_d2g_other    = lbl_frac_stats_z(sub, "grim_cone_d2g_other",   "grim_total_cone"),
+            sz_d3g1         = lbl_frac_stats_z(sub, "grim_cone_d3g1",        "grim_total_cone"),
+            sz_d3g2         = lbl_frac_stats_z(sub, "grim_cone_d3g2",        "grim_total_cone"),
+            sz_d3g3         = lbl_frac_stats_z(sub, "grim_cone_d3g3",        "grim_total_cone"),
+            sz_d3g_other    = lbl_frac_stats_z(sub, "grim_cone_d3g_other",   "grim_total_cone"),
             sz_binback    = lbl_frac_stats_z(sub, "grim_cone_binback",    "grim_total_cone"),
             sz_colpol     = lbl_frac_stats_z(sub, "grim_cone_colpol",     "grim_total_cone"),
             sz_hombd      = lbl_frac_stats_z(sub, "grim_cone_hombd",      "grim_total_cone"),
@@ -423,9 +441,18 @@ function main()
             pb_g3adj      = lbl_frac_stats(sub, "grim_cone_g3adj",      "grim_pbp_cone"),
             pb_search     = sum_lbl_frac_stats_z(sub,
                 ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_pbp_cone"),
-            pb_pathg      = sum_lbl_frac_stats_z(sub, ["grim_cone_pathg1","grim_cone_pathg2","grim_cone_pathg3","grim_cone_pathg_other"], "grim_pbp_cone"),
-            pb_d2g        = sum_lbl_frac_stats_z(sub, ["grim_cone_d2g1","grim_cone_d2g2","grim_cone_d2g3","grim_cone_d2g_other"], "grim_pbp_cone"),
-            pb_d3g        = sum_lbl_frac_stats_z(sub, ["grim_cone_d3g1","grim_cone_d3g2","grim_cone_d3g3","grim_cone_d3g_other"], "grim_pbp_cone"),
+            pb_pathg1       = lbl_frac_stats_z(sub, "grim_cone_pathg1",       "grim_pbp_cone"),
+            pb_pathg2       = lbl_frac_stats_z(sub, "grim_cone_pathg2",       "grim_pbp_cone"),
+            pb_pathg3       = lbl_frac_stats_z(sub, "grim_cone_pathg3",       "grim_pbp_cone"),
+            pb_pathg_other  = lbl_frac_stats_z(sub, "grim_cone_pathg_other",  "grim_pbp_cone"),
+            pb_d2g1         = lbl_frac_stats_z(sub, "grim_cone_d2g1",        "grim_pbp_cone"),
+            pb_d2g2         = lbl_frac_stats_z(sub, "grim_cone_d2g2",        "grim_pbp_cone"),
+            pb_d2g3         = lbl_frac_stats_z(sub, "grim_cone_d2g3",        "grim_pbp_cone"),
+            pb_d2g_other    = lbl_frac_stats_z(sub, "grim_cone_d2g_other",   "grim_pbp_cone"),
+            pb_d3g1         = lbl_frac_stats_z(sub, "grim_cone_d3g1",        "grim_pbp_cone"),
+            pb_d3g2         = lbl_frac_stats_z(sub, "grim_cone_d3g2",        "grim_pbp_cone"),
+            pb_d3g3         = lbl_frac_stats_z(sub, "grim_cone_d3g3",        "grim_pbp_cone"),
+            pb_d3g_other    = lbl_frac_stats_z(sub, "grim_cone_d3g_other",   "grim_pbp_cone"),
             pb_unlabeled  = row_diff_frac_stats(sub, "grim_pbp_cone",
                 ["grim_cone_loop","grim_cone_elimnds","grim_cone_elimdeg",
                  "grim_cone_elimdegpol","grim_cone_elimndspol","grim_cone_elimndsconc",
@@ -460,9 +487,18 @@ function main()
             pbz_g3adj     = lbl_frac_stats_z(sub, "grim_cone_g3adj",      "grim_pbp_cone"),
             pbz_search    = sum_lbl_frac_stats_z(sub,
                 ["grim_cone_prop","grim_cone_guess","grim_cone_nogood"], "grim_pbp_cone"),
-            pbz_pathg     = sum_lbl_frac_stats_z(sub, ["grim_cone_pathg1","grim_cone_pathg2","grim_cone_pathg3","grim_cone_pathg_other"], "grim_pbp_cone"),
-            pbz_d2g       = sum_lbl_frac_stats_z(sub, ["grim_cone_d2g1","grim_cone_d2g2","grim_cone_d2g3","grim_cone_d2g_other"], "grim_pbp_cone"),
-            pbz_d3g       = sum_lbl_frac_stats_z(sub, ["grim_cone_d3g1","grim_cone_d3g2","grim_cone_d3g3","grim_cone_d3g_other"], "grim_pbp_cone"),
+            pbz_pathg1       = lbl_frac_stats_z(sub, "grim_cone_pathg1",       "grim_pbp_cone"),
+            pbz_pathg2       = lbl_frac_stats_z(sub, "grim_cone_pathg2",       "grim_pbp_cone"),
+            pbz_pathg3       = lbl_frac_stats_z(sub, "grim_cone_pathg3",       "grim_pbp_cone"),
+            pbz_pathg_other  = lbl_frac_stats_z(sub, "grim_cone_pathg_other",  "grim_pbp_cone"),
+            pbz_d2g1         = lbl_frac_stats_z(sub, "grim_cone_d2g1",        "grim_pbp_cone"),
+            pbz_d2g2         = lbl_frac_stats_z(sub, "grim_cone_d2g2",        "grim_pbp_cone"),
+            pbz_d2g3         = lbl_frac_stats_z(sub, "grim_cone_d2g3",        "grim_pbp_cone"),
+            pbz_d2g_other    = lbl_frac_stats_z(sub, "grim_cone_d2g_other",   "grim_pbp_cone"),
+            pbz_d3g1         = lbl_frac_stats_z(sub, "grim_cone_d3g1",        "grim_pbp_cone"),
+            pbz_d3g2         = lbl_frac_stats_z(sub, "grim_cone_d3g2",        "grim_pbp_cone"),
+            pbz_d3g3         = lbl_frac_stats_z(sub, "grim_cone_d3g3",        "grim_pbp_cone"),
+            pbz_d3g_other    = lbl_frac_stats_z(sub, "grim_cone_d3g_other",   "grim_pbp_cone"),
             n_with_labels   = nrow(sub),
             n_unlabeled_pos = "grim_cone_unlabeled" ∈ names(sub) ?
                 count(i -> !ismissing(sub[i,"grim_cone_unlabeled"]) && sub[i,"grim_cone_unlabeled"] > 0, 1:nrow(sub)) : 0,
@@ -714,15 +750,28 @@ function main()
                   lbl_cell_n(fd(f).ls_elimnds,     fd(f).n_with_labels),
                   lbl_cell_n(fd(f).ls_loop,        fd(f).n_with_labels),
                   lbl_cell_n(fd(f).ls_hall,        fd(f).n_with_labels),
-                  lbl_cell_n(fd(f).ls_pathg,       fd(f).n_with_labels),
-                  lbl_cell_n(fd(f).ls_d2g,         fd(f).n_with_labels),
-                  lbl_cell_n(fd(f).ls_d3g,         fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_pathg1,      fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_pathg2,      fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_pathg3,      fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_pathg_other, fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d2g1,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d2g2,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d2g3,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d2g_other,   fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d3g1,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d3g2,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d3g3,        fd(f).n_with_labels),
+                  lbl_cell_n(fd(f).ls_d3g_other,   fd(f).n_with_labels),
                   lbl_cell(fd(f).ls_unlabeled_total),
                   lbl_cell(fd(f).pb_unlabeled_total)] for f in present]
     prov_html = html_table(
         ["Family", "n", "al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj",
          "forb", "elimdegpol (POL)", "elimdeg (IA)", "elimnds", "loop",
-         "hall (POL)", "pathg", "d2g", "d3g", "unlab OPB", "unlab PBP"],
+         "hall (POL)",
+         "pathg1", "pathg2", "pathg3", "pathg_oth",
+         "d2g1", "d2g2", "d2g3", "d2g_oth",
+         "d3g1", "d3g2", "d3g3", "d3g_oth",
+         "unlab OPB", "unlab PBP"],
         prov_rows)
 
     # ── Section 7b: OPB axiom breakdown ──────────────────────────────────────────
@@ -754,15 +803,28 @@ function main()
                         lbl_cell_n(fd(f).pb_g3adj,      fd(f).pb_rup.n),
                         lbl_cell_n(fd(f).pb_hall,       fd(f).pb_rup.n),
                         lbl_cell_n(fd(f).pb_search,     fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_pathg,      fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_d2g,        fd(f).pb_rup.n),
-                        lbl_cell_n(fd(f).pb_d3g,        fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_pathg1,     fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_pathg2,     fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_pathg3,     fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_pathg_other,fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d2g1,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d2g2,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d2g3,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d2g_other,  fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d3g1,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d3g2,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d3g3,       fd(f).pb_rup.n),
+                        lbl_cell_n(fd(f).pb_d3g_other,  fd(f).pb_rup.n),
                         lbl_cell(fd(f).pb_unlabeled)] for f in present]
     prov_c_lbl_html = html_table(
         ["Family", "n (pbp>0)", "loop (RUP)", "elimnds (RUP)",
          "elimdegpol (POL)", "elimdeg (IA)",
          "g1adj (IA)", "g2adj (IA)", "g3adj (IA)",
-         "hall (POL)", "search (RUP)", "pathg", "d2g", "d3g", "unlabeled residual"],
+         "hall (POL)", "search (RUP)",
+         "pathg1", "pathg2", "pathg3", "pathg_oth",
+         "d2g1", "d2g2", "d2g3", "d2g_oth",
+         "d3g1", "d3g2", "d3g3", "d3g_oth",
+         "unlabeled residual"],
         prov_c_lbl_rows)
     # Table 3: cross-check — unlabeled PBP fraction by search presence
     SOLVER_COL = "solver_nodes"
@@ -819,7 +881,9 @@ function main()
           g0adj="#1b7837", g1adj="#5aae61", g2adj="#a6dba0", g3adj="#d9f0d3",
           forb="#ff7f0e", elimdegpol="#6a3d9a", elimdeg="#9467bd", elimnds="#c5a0d3",
           loop="#8c564b", hall="#e6ab02", search="#e31a1c",
-          pathg="#fb9a99", d2g="#f768a1", d3g="#ae017e",
+          pathg1="#fdd0a2", pathg2="#fb9a99", pathg3="#de2d26", pathg_other="#fee5d9",
+          d2g1="#fbb4b9", d2g2="#f768a1", d2g3="#c51b8a", d2g_other="#fde0dd",
+          d3g1="#d4b9da", d3g2="#ae017e", d3g3="#7a0177", d3g_other="#e7e1ef",
           unlabeled_opb="#dddddd", unlabeled_pbp="#aaaaaa")
     mean_arr(field) = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.mean) ? NaN : ls.mean end for f in present])
     med_arr(field)  = json_num_arr([let ls = getfield(fd(f), field); isnan(ls.med)  ? NaN : ls.med  end for f in present])
@@ -840,9 +904,18 @@ function main()
          ("g3adj (supp. 3, PBP)",      LC.g3adj,         mean_arr(:sz_g3adj)),
          ("hall (Hall sets, PBP)",     LC.hall,          mean_arr(:sz_hall)),
          ("search (prop+guess+nogood)",LC.search,        mean_arr(:sz_search)),
-         ("pathg",                     LC.pathg,         mean_arr(:sz_pathg)),
-         ("d2g",                       LC.d2g,           mean_arr(:sz_d2g)),
-         ("d3g",                       LC.d3g,           mean_arr(:sz_d3g)),
+         ("pathg1",                    LC.pathg1,        mean_arr(:sz_pathg1)),
+         ("pathg2",                    LC.pathg2,        mean_arr(:sz_pathg2)),
+         ("pathg3",                    LC.pathg3,        mean_arr(:sz_pathg3)),
+         ("pathg_oth",                 LC.pathg_other,   mean_arr(:sz_pathg_other)),
+         ("d2g1",                      LC.d2g1,          mean_arr(:sz_d2g1)),
+         ("d2g2",                      LC.d2g2,          mean_arr(:sz_d2g2)),
+         ("d2g3",                      LC.d2g3,          mean_arr(:sz_d2g3)),
+         ("d2g_oth",                   LC.d2g_other,     mean_arr(:sz_d2g_other)),
+         ("d3g1",                      LC.d3g1,          mean_arr(:sz_d3g1)),
+         ("d3g2",                      LC.d3g2,          mean_arr(:sz_d3g2)),
+         ("d3g3",                      LC.d3g3,          mean_arr(:sz_d3g3)),
+         ("d3g_oth",                   LC.d3g_other,     mean_arr(:sz_d3g_other)),
          ("unlabeled PBP residual",    LC.unlabeled_pbp, mean_arr(:pb_unlabeled_total))];
         ytitle="fraction of total cone (OPB+PBP)")
     comp_chart_med = stacked_bar_chart("cpCompMed", present,
@@ -861,9 +934,18 @@ function main()
          ("g3adj",                LC.g3adj,         med_arr(:sz_g3adj)),
          ("hall",                 LC.hall,          med_arr(:sz_hall)),
          ("search",               LC.search,        med_arr(:sz_search)),
-         ("pathg",                LC.pathg,         med_arr(:sz_pathg)),
-         ("d2g",                  LC.d2g,           med_arr(:sz_d2g)),
-         ("d3g",                  LC.d3g,           med_arr(:sz_d3g)),
+         ("pathg1",               LC.pathg1,        med_arr(:sz_pathg1)),
+         ("pathg2",               LC.pathg2,        med_arr(:sz_pathg2)),
+         ("pathg3",               LC.pathg3,        med_arr(:sz_pathg3)),
+         ("pathg_oth",            LC.pathg_other,   med_arr(:sz_pathg_other)),
+         ("d2g1",                 LC.d2g1,          med_arr(:sz_d2g1)),
+         ("d2g2",                 LC.d2g2,          med_arr(:sz_d2g2)),
+         ("d2g3",                 LC.d2g3,          med_arr(:sz_d2g3)),
+         ("d2g_oth",              LC.d2g_other,     med_arr(:sz_d2g_other)),
+         ("d3g1",                 LC.d3g1,          med_arr(:sz_d3g1)),
+         ("d3g2",                 LC.d3g2,          med_arr(:sz_d3g2)),
+         ("d3g3",                 LC.d3g3,          med_arr(:sz_d3g3)),
+         ("d3g_oth",              LC.d3g_other,     med_arr(:sz_d3g_other)),
          ("unlabeled PBP residual",LC.unlabeled_pbp,med_arr(:pb_unlabeled_total))];
         ytitle="fraction of total cone (OPB+PBP)")
 
@@ -889,9 +971,18 @@ function main()
          ("g1adj (IA)",    LC.g1adj,         mean_arr(:pbz_g1adj)),
          ("g2adj (IA)",    LC.g2adj,         mean_arr(:pbz_g2adj)),
          ("g3adj (IA)",    LC.g3adj,         mean_arr(:pbz_g3adj)),
-         ("pathg",         LC.pathg,         mean_arr(:pbz_pathg)),
-         ("d2g",           LC.d2g,           mean_arr(:pbz_d2g)),
-         ("d3g",           LC.d3g,           mean_arr(:pbz_d3g)),
+         ("pathg1",        LC.pathg1,        mean_arr(:pbz_pathg1)),
+         ("pathg2",        LC.pathg2,        mean_arr(:pbz_pathg2)),
+         ("pathg3",        LC.pathg3,        mean_arr(:pbz_pathg3)),
+         ("pathg_oth",     LC.pathg_other,   mean_arr(:pbz_pathg_other)),
+         ("d2g1",          LC.d2g1,          mean_arr(:pbz_d2g1)),
+         ("d2g2",          LC.d2g2,          mean_arr(:pbz_d2g2)),
+         ("d2g3",          LC.d2g3,          mean_arr(:pbz_d2g3)),
+         ("d2g_oth",       LC.d2g_other,     mean_arr(:pbz_d2g_other)),
+         ("d3g1",          LC.d3g1,          mean_arr(:pbz_d3g1)),
+         ("d3g2",          LC.d3g2,          mean_arr(:pbz_d3g2)),
+         ("d3g3",          LC.d3g3,          mean_arr(:pbz_d3g3)),
+         ("d3g_oth",       LC.d3g_other,     mean_arr(:pbz_d3g_other)),
          ("unlabeled",     LC.unlabeled_pbp, mean_arr(:pb_unlabeled))];
         ytitle="fraction of PBP cone steps")
 
@@ -1055,7 +1146,7 @@ function main()
     (OPB axioms + PBP level-0 + search PBP) attributed to each CP label category.
     Denominator = <code>grim_total_cone</code>. All columns are exhaustive: OPB labels + unlab OPB + PBP labels + unlab PBP = 100%.
     OPB labels (al1/am1/inj/g0adj/forb) live in the <code>.opb</code> file.
-    PBP labels (g1/2/3adj, loop, elimdeg, elimnds, pathg, d2g, d3g) are level-0 derived steps in the <code>.pbp</code> file.
+    PBP labels (g1/2/3adj, loop, elimdeg, elimnds, pathg1/2/3, d2g1/2/3, d3g1/2/3) are level-0 derived steps in the <code>.pbp</code> file.
     Sparse labels show <em>(n=X)</em> when computed over fewer than all instances.</p>
     <p class="note">Categories: <em>al1</em> = at-least-one domain; <em>am1</em> = at-most-one domain;
     <em>inj</em> = injectivity; <em>g0adj</em> = base adjacency (OPB);
@@ -1064,7 +1155,8 @@ function main()
     <em>elimdeg</em> = degree-incompatibility (PBP level-0, IA type);
     <em>elimnds</em> = NDS-incompatibility (PBP level-0, RUP type);
     <em>loop</em> = loop incompatibility (PBP, RUP type, only on instances with self-loops);
-    <em>pathg</em> = path-graph derivation step; <em>d2g</em>/<em>d3g</em> = distance-2/3 graph derivation steps
+    <em>pathgN</em> = path-graph derivation step at supplemental depth N; <em>d2gN</em>/<em>d3gN</em> = distance-2/3 graph derivation steps at depth N;
+    <em>*_oth</em> = residual (depth &gt; 3 or unmatched);
     (independent from gNadj after trimming — may appear without their original target constraint);
     <em>unlab OPB</em> = OPB axioms with no matching label (should be ~0 after M3.5);
     <em>unlab PBP</em> = PBP steps with no matching label.</p>
