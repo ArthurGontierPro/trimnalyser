@@ -155,7 +155,7 @@
     function runsipsolver(out_prefix, pat_lad, tar_lad)
         isfile(sipsolverpath) || (printstyled("  solver not found: $sipsolverpath\n"; color=:red); return (false, false))
         errfile = _cfg[].proofs*out_prefix*".err"
-        options = ["--no-clique-detection"]
+        options = ["--no-clique-detection","--staged"] # clique solver is different so we exclude it. staged is a preprocess optimisation.
         _cfg[].nosup && push!(options, "--no-supplementals")
         local exitcode = 0
         open(_cfg[].proofs*out_prefix*".out", "a") do fout
