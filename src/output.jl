@@ -909,11 +909,13 @@
         n_mcspart = n_mcsfin = n_notconn = n_cliqedge = 0
         n_other = 0
         labeled_opb_ids = Set{Int}()
+        labeled_pbp_ids = Set{Int}()
         for (label, id) in Iterators.flatten((ctrmap, ctrmap_evicted))
             id > length(cone) && continue
             cone[id] || continue
             cat = classify_label(label)
-            id <= nbopb && push!(labeled_opb_ids, id)
+            if id <= nbopb; push!(labeled_opb_ids, id)
+            else            push!(labeled_pbp_ids, id) end
             if     cat == :al1;         n_al1         += 1
             elseif cat == :am1;         n_am1         += 1
             elseif cat == :inj;         n_inj         += 1
@@ -967,7 +969,8 @@
             else                        n_other       += 1
             end
         end
-        n_unlabeled = sum(cone[1:nbopb]) - length(labeled_opb_ids)
+        n_unlabeled = sum(cone[1:nbopb]) - length(labeled_opb_ids) +
+                      sum(cone[nbopb+1:end]) - length(labeled_pbp_ids)
         (al1=n_al1, am1=n_am1, inj=n_inj, g0adj=n_g0adj,
          g1adj=n_g1adj, g2adj=n_g2adj, g3adj=n_g3adj, gadj_other=n_gadj_other,
          forb=n_forb, noedge=n_noedge,
