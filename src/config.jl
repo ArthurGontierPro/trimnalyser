@@ -13,6 +13,7 @@ mutable struct Config
     solve          ::Bool
     resolv         ::Bool
     allgraphs      ::Bool
+    instfile       ::Union{String,Nothing}
     pack           ::Bool
     render         ::Bool
     overwrite      ::Bool
@@ -48,6 +49,9 @@ function parse_config!(args=ARGS)
         i !== nothing ? args[i] : nothing
     end
     tt = argval("tt=", Int, 45)
+    instfile_val = let i = findfirst(x -> startswith(x, "instfile="), args)
+        i !== nothing ? String(args[i][10:end]) : nothing
+    end
     _cfg[] = Config(
         inst_val,
         "clit"             in args,
@@ -62,6 +66,7 @@ function parse_config!(args=ARGS)
         "solve"            in args,
         "resolv"           in args,
         "allgraphs"        in args,
+        instfile_val,
         "pack"             in args,
         "render"           in args,
         "overwrite"        in args,

@@ -42,6 +42,54 @@
         println("%Found ", length(list), " instances in ", proofs_dir)
         return list end
 
+    function paths_to_instance(patpath, tarpath)
+        if contains(patpath, "/LV/")
+            return "LV" * basename(patpath) * basename(tarpath)
+        elseif contains(patpath, "/biochemicalReactions/")
+            return "bio" * replace(basename(patpath), ".txt" => "") * replace(basename(tarpath), ".txt" => "")
+        elseif contains(patpath, "/images-CVIU11/")
+            return "cviu11_p" * replace(basename(patpath), "pattern" => "") * "_t" * replace(basename(tarpath), "target" => "")
+        elseif contains(patpath, "/images-PR15/")
+            return "pr15_p" * replace(basename(patpath), "pattern" => "")
+        elseif contains(patpath, "/meshes-CVIU11/")
+            return "mesh11_p" * replace(basename(patpath), "pattern" => "") * "_t" * replace(basename(tarpath), "target" => "")
+        elseif contains(patpath, "/phase/")
+            return "ph_" * replace(basename(patpath), "-pattern" => "")
+        elseif contains(patpath, "/scalefree/")
+            parts = splitpath(patpath)
+            idx = findfirst(==("scalefree"), parts)
+            return idx !== nothing && idx < length(parts) - 1 ? "sf_" * parts[idx + 1] : nothing
+        elseif contains(patpath, "/si/")
+            parts = splitpath(patpath)
+            idx = findfirst(==("si"), parts)
+            return idx !== nothing && idx + 2 <= length(parts) ? "si__" * parts[idx + 1] * "__" * parts[idx + 2] : nothing
+        end
+        return nothing end
+
+    function instancesfromfile(path)
+        list = String[]
+        skipped = 0
+        for line in eachline(path)
+            line = strip(line)
+            isempty(line) && continue
+            line[1] == '#' && continue
+            if contains(line, '\t')
+                parts = split(line, '\t'; limit=2)
+                ins = paths_to_instance(parts[1], parts[2])
+                if ins === nothing
+                    skipped += 1
+                else
+                    push!(list, ins)
+                end
+            else
+                push!(list, line)
+            end
+        end
+        _cfg[].rand && _shuffle!(list)
+        skipped > 0 && printstyled("  instfile: skipped $skipped unresolvable line(s)\n"; color=:yellow)
+        println("%Read ", length(list), " instances from ", path)
+        return list end
+
         # Enumerates all (pattern, target) instance names from the benchmark graph directories.
         # Filters pairs where both graphs have nodes in [minnodes, maxnodes] and pattern_size <= target_size.
     function allgraphinstances()
@@ -496,7 +544,9 @@
                 run_instance_full(args[j]); return
             end
         end
-        list = _cfg[].allgraphs ? allgraphinstances() : getinstancesfromdir(_cfg[].proofs)
+        list = _cfg[].allgraphs ? allgraphinstances() :
+               _cfg[].instfile !== nothing ? instancesfromfile(_cfg[].instfile) :
+               getinstancesfromdir(_cfg[].proofs)
         n = length(list)
         println("%Running ", n, " instances on ", Threads.nthreads(), " thread(s)")
         println("%OOM limit: ", _cfg[].maxinstmem_gb, " GB per subprocess, minfreemem: ", _cfg[].minfreemem ÷ 1024^3, " GB")

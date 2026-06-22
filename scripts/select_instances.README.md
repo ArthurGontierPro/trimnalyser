@@ -84,6 +84,16 @@ Fraction of cone steps that are `guess` or `nogood` labels (search-related proof
 - **`instances.txt`** — One line per instance: `pattern_path\ttarget_path` (absolute paths resolved via the same logic as `src/solver.jl:parsegraphfiles`).
 - **`instances_strata.csv`** — Diagnostic CSV with each selected instance's stratum assignment and raw metrics (`grim_total_cone`, rule fracs, guess/nogood counts, etc.).
 
+## Using with trimnalyser
+
+The generated `instances.txt` can be passed directly to the trimnalyser via the `instfile=` flag:
+
+```bash
+./trimnalyser --threads 92,1 solve resolv verif instfile=instances.txt st=18 tt=600
+```
+
+This runs the same parallel batch pipeline as `allgraphs`, but restricted to the selected instances. The trimnalyser reverse-maps the tab-separated paths back to instance names automatically. Plain instance-name files (one name per line, no tabs) are also accepted.
+
 ## How it works
 
 1. Load and join `cluster_results.csv` with `graph_features.csv` on instance name.
