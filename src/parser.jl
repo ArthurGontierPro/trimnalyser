@@ -78,16 +78,17 @@
         end end
 
     function readinstance(path,file)
-        store,varmap,ctrmap,obj = readopb(path,file)
+        store,varmap,ctrmap,ctrmap_evicted,obj = readopb(path,file)
         nbopb = length(store)
-        store,systemlink,redwitness,solirecord,assertrecord,output,conclusion = readproof(path,file,store,varmap,ctrmap,obj)
+        store,systemlink,redwitness,solirecord,assertrecord,output,conclusion = readproof(path,file,store,varmap,ctrmap,ctrmap_evicted,obj)
         prism = availableranges(redwitness)
-        return store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,prism end
+        return store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,ctrmap_evicted,output,conclusion,obj,prism end
 
     function readopb(path,file)
         store = FlatEqStore()
         varmap = Dict{Vector{UInt8},Int}()
         ctrmap = Dict{String, Int}()
+        ctrmap_evicted = Pair{String,Int}[]
         obj = ""
         # mmap the file: maps OS page cache directly into virtual address space — zero memcpy.
         # Avoids the file→heap copy that read(file,String) incurs. minfreemem already gates this.
@@ -97,7 +98,9 @@
             if isempty(ss) || ss[1]==UInt8('*') || ss[1]==UInt8('p') return end
             st = tokenize!(ss)
             if st[1][1]==UInt8('@')
-                ctrmap[String(view(st[1], 2:length(st[1])))] = c
+                name = String(view(st[1], 2:length(st[1])))
+                haskey(ctrmap, name) && push!(ctrmap_evicted, name => ctrmap[name])
+                ctrmap[name] = c
                 st = st[2:end]
             end
             if ss[1] == UInt8('m')
@@ -107,7 +110,7 @@
                 c+=1
             end
         end
-        return store,varmap,ctrmap,obj end
+        return store,varmap,ctrmap,ctrmap_evicted,obj end
 
         # readobj stores its result permanently (as obj), so it needs its own copy.
         # All other callers (readeq → normcoefeq → push_eq!) are done with lits before the next readlits call.
@@ -194,7 +197,7 @@
         end
         eq.rhs = c + eq.rhs end
 
-    function readproof(path,file,store,varmap,ctrmap,obj)
+    function readproof(path,file,store,varmap,ctrmap,ctrmap_evicted,obj)
         systemlink = SystemLink()
         redwitness = Dict{Int, Red}()
         solirecord = Dict{Int, Vector{Lit}}()
@@ -217,7 +220,9 @@
             end
             st = tokenize!(ss)
             if st[1][1]==UInt8('@')
-                ctrmap[String(view(st[1], 2:length(st[1])))] = c
+                name = String(view(st[1], 2:length(st[1])))
+                haskey(ctrmap, name) && push!(ctrmap_evicted, name => ctrmap[name])
+                ctrmap[name] = c
                 st = st[2:end]
             end
             type = st[1]

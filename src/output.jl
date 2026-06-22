@@ -895,7 +895,7 @@
         return :other
     end
 
-    function cone_label_stats(cone::Vector{Bool}, ctrmap::Dict{String,Int}, nbopb::Int)
+    function cone_label_stats(cone::Vector{Bool}, ctrmap::Dict{String,Int}, ctrmap_evicted::Vector{Pair{String,Int}}, nbopb::Int)
         n_al1 = n_am1 = n_inj = n_g0adj = n_g1adj = n_g2adj = n_g3adj = n_gadj_other = 0
         n_forb = n_noedge = n_elimdegpol = n_elimdeg = n_elimndspol = n_elimndsconc = n_elimnds = n_loop = 0
         n_unsatconc = 0
@@ -909,7 +909,7 @@
         n_mcspart = n_mcsfin = n_notconn = n_cliqedge = 0
         n_other = 0
         labeled_opb_ids = Set{Int}()
-        for (label, id) in ctrmap
+        for (label, id) in Iterators.flatten((ctrmap, ctrmap_evicted))
             id > length(cone) && continue
             cone[id] || continue
             cat = classify_label(label)

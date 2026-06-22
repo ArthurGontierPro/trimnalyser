@@ -86,7 +86,7 @@
         prefix = mode isa Clit ? "gclt" : "grim"
         parse_time = trim_time = write_time = 0 ; file = ins ; cone_stats = nothing
         parse_time = @elapsed begin
-            store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,output,conclusion,obj,prism = readinstance(_cfg[].proofs,file)
+            store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,ctrmap_evicted,output,conclusion,obj,prism = readinstance(_cfg[].proofs,file)
         end
         inp_lits = length(store.vars)
         writeout_parse(ins, parse_time, nbopb, length(systemlink), inp_lits, length(varmap), prefix)
@@ -112,7 +112,7 @@
         varmap_inv = Vector{String}(undef, length(varmap))
         for (k, v) in varmap; varmap_inv[v] = String(copy(k)); end
         if mode isa Grim
-            label_stats = cone_label_stats(cone, ctrmap, nbopb)
+            label_stats = cone_label_stats(cone, ctrmap, ctrmap_evicted, nbopb)
             writeout_cone_labels(ins, label_stats, prefix)
             var_data = cone_var_order(cone, varmap_inv, sys, nbopb)
             writeout_var_order(ins, var_data, prefix)
