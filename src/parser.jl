@@ -94,7 +94,7 @@
         content_opb = Mmap.mmap(path*file*opb)
         c = 1
         _scan_lines(content_opb) do ss
-            if isempty(ss) || ss[1]==UInt8('*') return end
+            if isempty(ss) || ss[1]==UInt8('*') || ss[1]==UInt8('p') return end
             st = tokenize!(ss)
             if st[1][1]==UInt8('@')
                 ctrmap[String(view(st[1], 2:length(st[1])))] = c
