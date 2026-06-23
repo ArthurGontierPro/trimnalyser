@@ -60,7 +60,7 @@ julia --project=. build_sysimage.jl
 
 | File | Contents |
 |------|----------|
-| `src/TrimAnalyser.jl` | Module root, static constants, include chain, precompile workload |
+| `src/TrimAnalyser.jl` | Module root, static constants, include chain |
 | `src/config.jl` | `Config` struct, `parse_config!`, `argflags` |
 | `src/utilities.jl` | `available_memory`, file helpers |
 | `src/types.jl` | Core structs: `FlatEqStore`, `SystemLink`, `PBSystem`, `Trail`, `Ante`, `PolScratch` |

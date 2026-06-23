@@ -268,9 +268,11 @@ On machines with fast disk I/O (cluster NVMe, RAM-backed tmpfs), a sysimage elim
 julia --project=. build_sysimage.jl
 ```
 
-The wrapper `./trimnalyser` picks up `trimnalyser.so` automatically if it exists — no flags needed.
+The wrapper `./trimnalyser` picks up `trimnalyser.so` automatically if it exists — no flags needed. Pass `nosys` to skip sysimage build and use and run with vanilla Julia (useful for fast dev loops).
 
-> **Note:** `PackageCompiler` must be installed globally (`julia -e 'using Pkg; Pkg.add("PackageCompiler")'`).
+The sysimage build uses `precompile_workload.jl` to trace a real trim run during the snapshot phase, so all hot code paths are baked into the `.so` as native code. There is no separate precompilation step — the workload runs directly inside PackageCompiler's snapshot process.
+
+> **Note:** `PackageCompiler` must be installed globally (`julia -e 'using Pkg; Pkg.add("PackageCompiler")'`). If not installed, the build is skipped gracefully and Julia falls back to JIT compilation.
 
 ---
 
@@ -290,7 +292,7 @@ Runs two integration tests against the instances bundled in `test/instances/`: a
 trimnalyser          shell wrapper (auto-detects sysimage, handles --project)
 bin/trimnalyser.jl   thin CLI entry point
 src/
-  TrimAnalyser.jl    module root, static constants, include chain, precompile workload
+  TrimAnalyser.jl    module root, static constants, include chain
   config.jl          Config struct, parse_config!(), argflags
   utilities.jl       available_memory, file helpers
   types.jl           FlatEqStore, SystemLink, PBSystem, Trail, Ante, PolScratch
@@ -309,7 +311,8 @@ scripts/
   proof_survey.jl             M3 family-stratified HTML analysis report
   classify_supplementals.jl   M3.5 supplemental graph usage classifier + HTML report
   Project.toml                script dependencies (CSV.jl, DataFrames.jl)
-build_sysimage.jl    staleness-aware sysimage builder
+build_sysimage.jl        staleness-aware sysimage builder
+precompile_workload.jl   trim workload executed by PackageCompiler during sysimage build
 test/
   runtests.jl        integration tests
   instances/         test OPB/VeriPB proof pairs
