@@ -93,7 +93,7 @@
         sys = PBSystem(store, length(varmap))  # zero-copy: PBSystem reuses FlatEqStore's flat arrays directly
         n = length(sys.rhs)
         full_step_counts = count_step_types_full(systemlink)
-        cone     = zeros(Bool, n)
+        cone     = falses(n)
         conelits = Dict{Int,Set{Int}}()
         trim_time = @elapsed begin
             getcone!(cone, conelits, sys, systemlink, nbopb, prism, redwitness, conclusion, obj, mode)

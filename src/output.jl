@@ -42,7 +42,7 @@
             println(f, prefix, " VAR ", s.vars_used, "/", s.vars_total)
         end end
 
-    function count_step_types(systemlink::SystemLink, cone::Vector{Bool}, nbopb::Int)
+    function count_step_types(systemlink::SystemLink, cone::BitVector, nbopb::Int)
         n_rup = n_pol = n_red = n_ia = n_other = 0
         for i in nbopb+1:length(cone)
             cone[i] || continue
@@ -949,7 +949,7 @@
         return :other
     end
 
-    function cone_label_stats(cone::Vector{Bool}, ctrmap::Dict{String,Int}, ctrmap_evicted::Vector{Pair{String,Int}}, nbopb::Int)
+    function cone_label_stats(cone::BitVector, ctrmap::Dict{String,Int}, ctrmap_evicted::Vector{Pair{String,Int}}, nbopb::Int)
         n_al1 = n_am1 = n_inj = n_g0adj = n_g1adj = n_g2adj = n_g3adj = n_gadj_other = 0
         n_forb = n_noedge = n_elimdegpol = n_elimdeg = n_elimndspol = n_elimndsconc = n_elimnds = n_loop = 0
         n_unsatconc = 0
@@ -1201,7 +1201,7 @@
     # Count pattern vertex and target vertex occurrences in OPB cone equations.
     # Variable names have format "<pat_int>_<tar_int>" (e.g. "3_7").
     # Returns (order=[(pat_str, count), ...] sorted desc, n_unique_tar=Int).
-    function cone_var_order(cone::Vector{Bool}, varmap_inv::Vector{String}, sys::PBSystem, nbopb::Int)
+    function cone_var_order(cone::BitVector, varmap_inv::Vector{String}, sys::PBSystem, nbopb::Int)
         pat_counts = Dict{String,Int}()
         tar_seen   = Set{String}()
         for i in 1:nbopb

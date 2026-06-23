@@ -153,7 +153,7 @@ end
 results = Vector{Union{ResultRow, Nothing}}(nothing, n)
 done    = Threads.Atomic{Int}(0)
 
-Threads.@threads for i in 1:n
+Threads.@threads :greedy for i in 1:n
     entry = entries[i]
     family = instance_family(entry.name)
 

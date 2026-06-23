@@ -159,7 +159,7 @@
 
     function conflicttrail(ceq::Int, sys::PBSystem, t::Trail,
                            ante::Ante, conelits, rs::RupState, mode::Union{Grim,Clit},
-                           cone::Vector{Bool}; rev_init::Int=-1)
+                           cone::BitVector; rev_init::Int=-1)
         to_explain    = rs.to_explain     # self-cleaning: empty after each normal exit
         is_to_explain = rs.is_to_explain  # self-cleaning: all-false after each normal exit
         ante_set!(ante, ceq)
@@ -208,7 +208,7 @@
         end end
 
             # Trail-based unit propagation.
-    function propagate!(sys::PBSystem, t::Trail, prism, ante::Ante, conelits, rs::RupState, cone::Vector{Bool})
+    function propagate!(sys::PBSystem, t::Trail, prism, ante::Ante, conelits, rs::RupState, cone::BitVector)
         init_slack_cache!(t, sys)
         i = 1; n = length(sys.rhs)
         que = trues(n)                                # all constraints initially pending
@@ -276,8 +276,8 @@
         # and pq_nonprio (others). Priority pass drains pq_prio fully before taking one step
         # from pq_nonprio.
     function ruptrail(sys::PBSystem, init::Int, t::Trail,
-                      ante::Ante, on_frontier::Vector{Bool},
-                      cone::Vector{Bool}, conelits, prism, subrange, rs::RupState, mode=Grim())
+                      ante::Ante, on_frontier::BitVector,
+                      cone::BitVector, conelits, prism, subrange, rs::RupState, mode=Grim())
         init_slack_cache!(t, sys)
         fill!(rs.que, false)               # reset queue (may have stale trues from early return)
         empty!(rs.pq_prio); empty!(rs.pq_nonprio)
@@ -298,7 +298,7 @@
         end
         return false end
 
-    @inline function push_frontier!(frontier, on_frontier::Vector{Bool}, cone::Vector{Bool}, j::Int)
+    @inline function push_frontier!(frontier, on_frontier::BitVector, cone::BitVector, j::Int)
         cone[j] && return                             # already in cone (scheduled or processed)
         on_frontier[j] = true; cone[j] = true; push!(frontier, j) end
 
@@ -319,7 +319,7 @@
         for r in prism, i in r
             1 <= i <= n && (prism_bv[i] = true)       # bitvector version of prism for O(1) inprism checks
         end
-        on_frontier = zeros(Bool, n)                   # true = constraint is scheduled in frontier
+        on_frontier = falses(n)                          # true = constraint is scheduled in frontier
         trail      = Trail(length(sys.var_ptr) - 1)    # var_ptr has length n_vars+1 (CSR convention)
 
         firstcontradiction = 0                         # root of the backward reachability
@@ -441,7 +441,7 @@
         end
         return true end
 
-    function getfirstboundeq(sys::PBSystem, obj, conclusion::String, cone::Vector{Bool})
+    function getfirstboundeq(sys::PBSystem, obj, conclusion::String, cone::BitVector)
         st = split(conclusion, keepempty=false) # conclusion BOUNDS 10 20   ||  10 : id 20 : id
         ub = 0; lb = parse(Int, st[3])
         if length(st) > 3

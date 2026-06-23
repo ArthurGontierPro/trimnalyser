@@ -194,10 +194,10 @@
     @inline slack_reversed_cached(t::Trail, e::Int) = @inbounds t.slack_rev_cache[e]
 
     struct Ante
-        flags::Vector{Bool}   # O(1) membership
+        flags::BitVector       # O(1) membership
         list ::Vector{Int} end# O(k) iteration; may contain stale (false) entries
 
-    Ante(n::Int) = Ante(zeros(Bool, n), Int[])
+    Ante(n::Int) = Ante(falses(n), Int[])
     struct RupState                                    # scratch buffers for one getcone! call; RED subproof calls allocate their own
         que           ::BitVector                      # ruptrail equation queue
         pq_prio       ::BinaryMinHeap{Int}             # priority equations (cone/on_frontier)

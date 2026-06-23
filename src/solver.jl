@@ -96,7 +96,7 @@
 
         # Extracts core pattern nodes P and target nodes T from OPB cone constraints,
         # restricted to variables kept by conelits (weakened-out variables are excluded).
-    function corenodes(sys::PBSystem, cone::Vector{Bool}, varmap_inv::Vector{String},
+    function corenodes(sys::PBSystem, cone::BitVector, varmap_inv::Vector{String},
                        conelits::Dict{Int,Set{Int}}, nbopb::Int)
         P = Set{Int}(); T = Set{Int}()
         for i in 1:nbopb
@@ -181,7 +181,7 @@
         end
         return (isfile(_cfg[].proofs*out_prefix*opb) && isfile(_cfg[].proofs*out_prefix*pbp), false) end
 
-    function writeunsatcore(ins, sys::PBSystem, cone::Vector{Bool},
+    function writeunsatcore(ins, sys::PBSystem, cone::BitVector,
                             conelits::Dict{Int,Set{Int}}, varmap_inv::Vector{String}, nbopb::Int)
         patfile, tarfile = parsegraphfiles(ins)
         (patfile === nothing || !isfile(patfile) || !isfile(tarfile)) && return ""

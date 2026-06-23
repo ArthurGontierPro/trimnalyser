@@ -191,7 +191,7 @@
         # size by nbopb + all proof steps (including any empty equations) so that
         # constraint IDs in pol links — which count every systemlink entry — are always in range.
         succ = Vector{Vector{Int}}(undef, nbopb + length(systemlink))
-        dels = zeros(Bool, length(sys.rhs))
+        dels = falses(length(sys.rhs))
         dels[1:nbopb] .= true
         for p in prism
             dels[p] .= true
