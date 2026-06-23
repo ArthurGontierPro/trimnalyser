@@ -125,18 +125,19 @@ struct InstanceEntry
 end
 
 vo_files = filter(f -> endswith(f, ".var_order") && !contains(f, ".core"), readdir(proofs_dir))
-entries = InstanceEntry[]
-local n_unresolved = 0
-for f in vo_files
-    ins = f[1:end-length(".var_order")]
-    pat, tar = parsegraphfiles(ins, GRAPHS)
-    if pat === nothing || !isfile(pat) || !isfile(tar)
-        n_unresolved += 1
-        continue
+entries, n_unresolved = let entries = InstanceEntry[], nr = 0
+    for f in vo_files
+        ins = f[1:end-length(".var_order")]
+        pat, tar = parsegraphfiles(ins, GRAPHS)
+        if pat === nothing || !isfile(pat) || !isfile(tar)
+            nr += 1
+            continue
+        end
+        push!(entries, InstanceEntry(ins, pat, tar, joinpath(proofs_dir, f)))
     end
-    push!(entries, InstanceEntry(ins, pat, tar, joinpath(proofs_dir, f)))
+    sort!(entries, by=e -> e.name)
+    entries, nr
 end
-sort!(entries, by=e -> e.name)
 
 n = length(entries)
 nthreads = Threads.nthreads()
