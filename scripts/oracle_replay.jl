@@ -3,12 +3,14 @@
 # Compares baseline (default Glasgow heuristic) vs oracle (--pattern-order-file).
 # No proof logging — measures raw search performance.
 #
+# Discovers all .var_order files in proofs_dir, derives instance names and LAD
+# paths, runs baseline + oracle on each. Skips .coreN iterations (resolv cores
+# use reduced LAD files that may not exist).
+#
 # Usage:
-#   julia scripts/oracle_replay.jl <proofs_dir> <instance_list> [output_csv] [solver_timeout]
+#   julia --threads=N scripts/oracle_replay.jl <proofs_dir> [output_csv] [solver_timeout]
 #
 # proofs_dir:     directory containing .var_order files
-# instance_list:  text file — either one instance name per line (e.g. "LVg10g12")
-#                 or tab-separated LAD path pairs (e.g. "/path/to/pat\t/path/to/tar")
 # output_csv:     defaults to oracle_replay_results.csv
 # solver_timeout: seconds, defaults to 60
 
@@ -30,31 +32,6 @@ function instance_family(ins)
     startswith(ins, "sf_")    && return "scalefree"
     startswith(ins, "si__")   && return "si"
     return "unknown"
-end
-
-function paths_to_instance(patpath, tarpath)
-    if contains(patpath, "/LV/")
-        return "LV" * basename(patpath) * basename(tarpath)
-    elseif contains(patpath, "/biochemicalReactions/")
-        return "bio" * replace(basename(patpath), ".txt" => "") * replace(basename(tarpath), ".txt" => "")
-    elseif contains(patpath, "/images-CVIU11/")
-        return "cviu11_p" * replace(basename(patpath), "pattern" => "") * "_t" * replace(basename(tarpath), "target" => "")
-    elseif contains(patpath, "/images-PR15/")
-        return "pr15_p" * replace(basename(patpath), "pattern" => "")
-    elseif contains(patpath, "/meshes-CVIU11/")
-        return "mesh11_p" * replace(basename(patpath), "pattern" => "") * "_t" * replace(basename(tarpath), "target" => "")
-    elseif contains(patpath, "/phase/")
-        return "ph_" * replace(basename(patpath), "-pattern" => "")
-    elseif contains(patpath, "/scalefree/")
-        parts = splitpath(patpath)
-        idx = findfirst(==("scalefree"), parts)
-        return idx !== nothing && idx < length(parts) - 1 ? "sf_" * parts[idx + 1] : nothing
-    elseif contains(patpath, "/si/")
-        parts = splitpath(patpath)
-        idx = findfirst(==("si"), parts)
-        return idx !== nothing && idx + 2 <= length(parts) ? "si__" * parts[idx + 1] * "__" * parts[idx + 2] : nothing
-    end
-    return nothing
 end
 
 function parsegraphfiles(ins, graphs)
@@ -128,57 +105,43 @@ const CSV_COLUMNS = [
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-if length(ARGS) < 2
-    println("Usage: julia scripts/oracle_replay.jl <proofs_dir> <instance_list> [output_csv] [solver_timeout]")
+if length(ARGS) < 1
+    println("Usage: julia --threads=N scripts/oracle_replay.jl <proofs_dir> [output_csv] [solver_timeout]")
     exit(1)
 end
 
-proofs_dir   = ARGS[1]
-instfile     = ARGS[2]
-output_csv   = length(ARGS) >= 3 ? ARGS[3] : "oracle_replay_results.csv"
-solver_timeout = length(ARGS) >= 4 ? parse(Int, ARGS[4]) : 60
+proofs_dir     = ARGS[1]
+output_csv     = length(ARGS) >= 2 ? ARGS[2] : "oracle_replay_results.csv"
+solver_timeout = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 60
 
 isfile(SOLVER) || (println("Solver not found: $SOLVER"); exit(1))
-isfile(instfile) || (println("Instance list not found: $instfile"); exit(1))
+isdir(proofs_dir) || (println("Proofs dir not found: $proofs_dir"); exit(1))
 
 struct InstanceEntry
     name::String
     pat::String
     tar::String
+    vo::String
 end
 
-function load_instances(path, graphs)
-    entries = InstanceEntry[]
-    skipped = 0
-    for line in eachline(path)
-        line = strip(line)
-        isempty(line) && continue
-        line[1] == '#' && continue
-        if contains(line, '\t')
-            parts = split(line, '\t'; limit=2)
-            ins = paths_to_instance(parts[1], parts[2])
-            if ins === nothing
-                skipped += 1
-            else
-                push!(entries, InstanceEntry(ins, parts[1], parts[2]))
-            end
-        else
-            pat, tar = parsegraphfiles(line, graphs)
-            if pat === nothing
-                skipped += 1
-            else
-                push!(entries, InstanceEntry(line, pat, tar))
-            end
-        end
+vo_files = filter(f -> endswith(f, ".var_order") && !contains(f, ".core"), readdir(proofs_dir))
+entries = InstanceEntry[]
+local n_unresolved = 0
+for f in vo_files
+    ins = f[1:end-length(".var_order")]
+    pat, tar = parsegraphfiles(ins, GRAPHS)
+    if pat === nothing || !isfile(pat) || !isfile(tar)
+        n_unresolved += 1
+        continue
     end
-    skipped > 0 && println("  skipped $skipped unresolvable lines")
-    entries
+    push!(entries, InstanceEntry(ins, pat, tar, joinpath(proofs_dir, f)))
 end
+sort!(entries, by=e -> e.name)
 
-entries = load_instances(instfile, GRAPHS)
 n = length(entries)
 nthreads = Threads.nthreads()
-println("Oracle replay: $n instances, timeout=$(solver_timeout)s, threads=$nthreads")
+println("Oracle replay: $n instances from $(length(vo_files)) .var_order files, timeout=$(solver_timeout)s, threads=$nthreads")
+n_unresolved > 0 && println("  $n_unresolved instances skipped (LAD files not found)")
 println("Solver: $SOLVER")
 println("Graphs: $GRAPHS")
 
@@ -188,20 +151,13 @@ end
 
 results = Vector{Union{ResultRow, Nothing}}(nothing, n)
 done    = Threads.Atomic{Int}(0)
-skipped = Threads.Atomic{Int}(0)
 
 Threads.@threads for i in 1:n
     entry = entries[i]
-    vo_file = joinpath(proofs_dir, entry.name * ".var_order")
-    if !isfile(vo_file) || !isfile(entry.pat) || !isfile(entry.tar)
-        Threads.atomic_add!(skipped, 1)
-        continue
-    end
-
     family = instance_family(entry.name)
 
     baseline = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout)
-    oracle   = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout; order_file=vo_file)
+    oracle   = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout; order_file=entry.vo)
 
     node_ratio = (baseline.nodes > 0 && oracle.nodes > 0) ?
         round(oracle.nodes / baseline.nodes; digits=4) : -1.0
@@ -216,7 +172,7 @@ Threads.@threads for i in 1:n
     ], ","))
 
     d = Threads.atomic_add!(done, 1) + 1
-    d % 50 == 0 && println("  $d/$n done ($(skipped[]) skipped)...")
+    d % 50 == 0 && println("  $d/$n done...")
 end
 
 open(output_csv, "w") do io
@@ -225,5 +181,5 @@ open(output_csv, "w") do io
         r !== nothing && println(io, r.line)
     end
 end
-println("Done: $(done[]) instances processed, $(skipped[]) skipped")
+println("Done: $(done[]) instances processed")
 println("Results in $output_csv")
