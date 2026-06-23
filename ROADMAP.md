@@ -1,32 +1,22 @@
 # TrimAnalyser — Research Roadmap
 
-TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via the resolv loop, outputs ~115-column CSV per run, and maps proof cone leaves back to CP constructs via labelled Glasgow proofs.
+TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via the resolv loop, outputs ~160-column CSV per run, and maps proof cone leaves back to CP constructs via labelled Glasgow proofs.
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-18:** M1, M2, M2.5, M3.5.1–M3.5.3 complete + M3.5.2 exhaustive label coverage. M3 is current. Cluster run launched 2026-06-18; results expected ~2026-06-20.
+**Status as of 2026-06-23:** M1–M2.5, M3.5.1–M3.5.3 complete. M3 first-pass analysis and full cluster run (15,431 instances, 6,920 resolv iterations) harvested 2026-06-22. M3.5.4 is current.
 
 ---
 
-## M1 — Full newSIP benchmark coverage ✅
+## M1–M2.5 — Infrastructure ✅
 
-Instance enumeration for all 8 newSIP families in `src/orchestrator.jl`. See `allgraphinstances()` for pairing rules per family layout.
-
----
-
-## M2 — Proof-to-feature extraction ✅
-
-~100 CSV columns across `src/output.jl` and `scripts/aggregate_results.jl`: step-type fractions, cone depth distribution, RUP/POL depth profiles, compression rate, resolv shrinkage. Graph features in `scripts/graph_features.jl`.
+- **M1** — Full newSIP benchmark coverage (8 families, `allgraphinstances()` in `src/orchestrator.jl`).
+- **M2** — Proof-to-feature extraction (~160 CSV columns: step-type fractions, cone depth distribution, RUP/POL depth profiles, compression rate, resolv shrinkage, exhaustive M3.5.2 cone labels). Graph features in `scripts/graph_features.jl`.
+- **M2.5** — Pipeline timeout correctness (orchestrator threads with independent `st`/`tt`/`vt` budgets, OOM monitor).
 
 ---
 
-## M2.5 — Pipeline timeout correctness ✅
-
-Verif and resolv moved into orchestrator threads with independent `st`/`tt`/`vt` budgets. OOM monitor covers Glasgow solver processes.
-
----
-
-## M3 — Graph taxonomy and heuristic fingerprinting 🔜 CURRENT
+## M3 — Graph taxonomy and heuristic fingerprinting ✅
 
 **Goal:** Characterise which graph families and structural properties predict proof difficulty and solver behaviour.
 
@@ -44,9 +34,7 @@ Source: Solnon 2019 (GBR), Table 2. All counts are non-induced SI instances.
 | `images-CVIU11` / `images-PR15` | images | 52 | 6,250 | Overwhelmingly UNSAT |
 | `meshes-CVIU11` | meshes | 88 | 2,930 | Overwhelmingly UNSAT |
 
-`scalefree` has 20 UNSAT instances; depending on how many complete within timeout, it may contribute limited proof data.
-
-### First pass — manual analysis (LV, bio, images-CVIU11, meshes-CVIU11)
+### First pass — manual analysis
 
 Full write-up in `paper/notes.tex` (§3 families, §4 fingerprints, §5 drivers, §6 heuristic implications, §7 open questions).
 
@@ -63,103 +51,104 @@ Full write-up in `paper/notes.tex` (§3 families, §4 fingerprints, §5 drivers,
 
 Mesh shape = "single-wave algebraic certificate" (depth ≈ 1, pure POL, OPB-heavy). Image shape = "propagation cascade" (deep IA chains, PBP-heavy). Key structural drivers: width–depth tradeoff (pol_ante_mean × cone_depth_max inversely correlated), clustering → proof flatness, node ratio → resolv effectiveness.
 
-### Cluster run — launched 2026-06-18
+### Cluster run — 2026-06-22 (harvested)
 
-First run with exhaustive M3.5.2 labels. Results expected ~2026-06-20.
+15,431 instances, 15,394 with graph features, 6,920 `.coreN` resolv iterations. Full innerjoin coverage (was 1,708/3,590 before). Reports in `6-22-fullrun/`: `proof_survey.html`, `classify_supplementals.html/.txt`, `cluster_results.csv`, `graph_features.csv`. Before/after merge comparison in `6-22-median-run-{before,after}-merge/`.
 
-**Expected outputs:** CP provenance fingerprints per family (proof_survey sections 7–11), search/path/elim label fractions, supplemental graph depth profiles, coverage of phase/scalefree/si families.
+**Supplemental usage findings (from classify_supplementals):**
 
-### Next — graph_features for resolv iterations
+| Family | Instances | g1adj > 0 | Rate | Median g1adj |
+|---|---|---|---|---|
+| LV | 3,770 | 297 | 8% | 0 |
+| bio | 7,637 | 4,194 | 55% | 12 |
+| images-CVIU11 | 804 | 804 | 100% | 38,178 |
+| meshes-CVIU11 | 2,102 | 10 | 0% | 0 |
 
-`graph_features.jl` currently only processes base instances. Resolv iterations (`.coreN`) have reduced LAD files in `vis/` with different graph structure — these need graph features too so `classify_supplementals` sees the full dataset (currently 1708/3590 instances after innerjoin).
+No proof data yet for: images-PR15, phase, scalefree, si (SAT-dominated or timeout-limited).
 
 ### Open questions (`notes.tex §7`)
 
-- **Two-axis classifier:** `cone_depth_entropy × pol_frac` as primary family discriminants (more robust than `ia_frac` which may be removed in future proof formats).
-- **Images-CVIU11 coverage:** only ~17% of instances have cone data — determine timeout/memout split (UNSAT instances are the majority, so SAT is not the explanation).
-- **Scalefree proof coverage:** 20 UNSAT instances exist; determine how many complete within timeout and whether they yield enough cone data for fingerprinting.
+- **Two-axis classifier:** `cone_depth_entropy × pol_frac` as primary family discriminants.
+- **Scalefree proof coverage:** 20 UNSAT instances exist; determine how many complete within timeout.
 - **Intra-family scaling:** proof size as O(|V(P)|), O(|V(T)|), or O(|V(P)|·|V(T)|)?
 - **Intra-LV sub-fingerprinting:** `pat_deg_var` and `pat_is_bipartite` as stratification axes.
 
-### Second pass — automated clustering (after cluster run)
+### Second pass — automated clustering
 
 Cluster by `(graph_features, proof_features)` using k-means / hierarchical; primary axes `cone_depth_entropy` and `pol_frac`. Visualise in proof_survey (PCA/t-SNE). Deliverable: taxonomy doc + scalability plots.
 
 ---
 
-## M3.5 — CP constraint provenance and branching heuristic 🔜
+## M3.5 — CP constraint provenance and branching heuristic ✅
 
 **Goal:** Map cone leaves to CP constructs; identify which Glasgow components are proof-critical per family; derive branching heuristic.
 
-### M3.5.1 — Label coverage in `proof.cc` ✅
+### M3.5.1–M3.5.3 — Label infrastructure ✅
 
-Glasgow (branch `labels-for-analysis`, commits b5439ad + de50e8c) writes labels on all level-0 constraints:
+- **M3.5.1** — Glasgow (branch `labels-for-analysis`) writes labels on all level-0 constraints: 37 label categories covering domain, injectivity, adjacency, elimination, search, path-graph, and bound constructs. Full label table in `paper/notes.tex §2`.
+- **M3.5.2** — `classify_label` + `cone_label_stats` + `writeout_cone_labels` in `src/output.jl`. Exhaustive: every Glasgow label maps to a named counter. ~40 count columns + 9 fraction columns in CSV. Prefix ordering: longer prefixes checked first (`elimdegpol` before `elimdeg`, etc.).
+- **M3.5.3** — Branching heuristic sidecar: pattern vertex occurrence counts in OPB cone → `<instance>.var_order`. CSV: `grim_cone_uniq_pat`, `grim_cone_uniq_tar`.
 
-All Glasgow M3.5.2 PB constraints are labeled — model constraints in the OPB file, proof steps in the PBP file.
+### M3.5 analysis — from 2026-06-22 cluster run
 
-| Label | Location | CP construct |
-|---|---|---|
-| `@al1<p>`, `@am1<p>` | OPB | At-least/at-most-one domain |
-| `@inj<t>` | OPB | Injectivity |
-| `@adj<p>_<t>_<q>` (`@g0adj` legacy alias) | OPB | Base adjacency |
-| `@forb<p>_<t>`, `@noedge<...>` | OPB | Pre-search forbidden / no-edge |
-| `@g<k>adj<p>_<t>_<q>` (k≥1) | PBP | Supplemental graph adjacency |
-| `@elimdegpol<v>`, `@elimdeg<v>` | PBP | Degree elimination (pol + ia steps) |
-| `@elimndspol<v>`, `@elimndsconc<v>`, `@elimnds<v>` | PBP | NDS elimination |
-| `@loop<p>_<t>` | PBP | Loop incompatibility |
-| `@hall<...>` | PBP | Hall-set violation |
-| `@prop<...>`, `@guess<...>`, `@nogood<...>` | PBP | Search: propagation / branching / clause learning |
-| `@pathg<...>`, `@d2g<...>`, `@d3g<...>` | PBP | Path-graph derivation intermediaries |
-| `@ptbig<...>` | PBP | Pattern-too-big pruning |
-| `@binback<...>` | PBP | Binary backjump |
-| `@colpol<...>` | PBP | Colour-bound pol step |
-| `@hom*<...>` (bd/pol/inj/dom/fin/cross) | PBP | Homomorphism-based bound |
-| `@mcs*<...>` (part/fin) | PBP | MCS bound |
-| `@notconn<...>`, `@cliqedge<...>` | PBP | Connectivity / clique-edge pruning |
+Per-family supplemental usage now quantified (see M3 cluster run table). Key findings:
+- g1adj bimodal: 77% zero, 23% with counts sometimes exceeding g0adj. Per-family stratification required.
+- images-CVIU11: 100% supplemental usage, massive counts (median 38k g1adj). meshes-CVIU11: near-zero.
+- bio: 55% g1adj usage overall, jumps to 100% in search-heavy instances.
+- Families with near-zero gNadj → depth-N supplementals can be disabled — direct `--supplementals` tuning knob for M4.
 
-Guard on `@elimdeg`/`@elimnds`: label emitted only on first derivation to avoid duplicates when multiple supplemental levels derive the same pair. The unlabeled UNSAT conclusion (`rup >= 1 ;`) is the only PBP step without a label — structural, always present.
-
-### M3.5.2 — Cone label analysis in trimmer ✅
-
-`classify_label` (37 categories) + `cone_label_stats` + `writeout_cone_labels` in `src/output.jl`. Exhaustive: every Glasgow label maps to a named counter. ~40 count columns + 9 fraction columns in CSV. OPB `n_unlabeled = 0` confirmed; PBP residual = 1 (unlabeled UNSAT conclusion — structural).
-
-Key correctness requirement: `classify_label` must check longer prefixes first (`elimdegpol` before `elimdeg`, `elimndspol`/`elimndsconc` before `elimnds`, `homcross` before `hom*`). `gadj_other` catches g4adj+ (present when `exact_path_4` supplemental is used).
-
-### M3.5.3 — Branching heuristic sidecar ✅
-
-Pattern vertex occurrence counts in OPB cone → `<instance>.var_order` (sorted descending). CSV: `grim_cone_uniq_pat`, `grim_cone_uniq_tar`.
-
-### M3.5 analysis — pending cluster data
-
-New sections in `proof_survey.jl` (sections 7 7b 7c).
-
-**Finding (2026-06-16):** g1adj present in 23% of instances; distribution is bimodal — 77% zero, 23% with counts sometimes exceeding g0adj (max ratio 1.06). When g1adj is used, it is often critical. Aggregate median = 0 hides this; per-family stratification is required.
-
-**Key question:** For each family, which supplemental graph depths (g1/g2/g3) contribute meaningfully to the UNSAT cone? A near-zero gNadj fraction for a family means depth-N supplementals can be disabled without affecting proof validity — a direct `--supplementals` tuning knob for M4.
-
-### M3.5.4 — Structural classifier for supplemental graph usage 🔜
+### M3.5.4 — Structural classifier for supplemental graph usage 🔜 CURRENT
 
 **Goal:** Identify which graph structural properties predict whether g1adj/g2adj/g3adj appear in the UNSAT cone. Feed result into M4 as a fast pre-solve probe.
 
-**Inputs:** `graph_features.csv` (33 structural features) joined with `cluster_results.csv` (g1adj/g2adj/g3adj counts).
+**Inputs:** `6-22-fullrun/graph_features.csv` (33 structural features + 30 core features) joined with `6-22-fullrun/cluster_results.csv` (g1adj/g2adj/g3adj counts). 15,394 instances in innerjoin.
 
 **Steps:**
 
-1. **Per-family stratification** — for each family (LV, bio, images, meshes, phase, scalefree), compute: fraction of instances with g1adj > 0, median g1adj count, median g1adj/g0adj ratio. Determines which families systematically use supplemental graphs.
+1. **Per-family stratification** — for each family (LV, bio, images, meshes, phase, scalefree), compute: fraction of instances with g1adj > 0, median g1adj count, median g1adj/g0adj ratio. *(Partially done in classify_supplementals — extend with g0adj ratios.)*
 
-2. **Feature correlation** — for the joined dataset, compute point-biserial correlation of each `graph_features` column against `g1adj_used` (binary). Primary candidates: `pat_triangles`, `pat_clustering`, `density_ratio`, `node_ratio`, `pat_deg_var`, `diameter_ratio`.
+2. **Feature correlation** — point-biserial correlation of each `graph_features` column against `g1adj_used` (binary). Primary candidates: `pat_triangles`, `pat_clustering`, `density_ratio`, `node_ratio`, `pat_deg_var`, `diameter_ratio`.
 
-3. **Simple classifier** — decision tree (depth ≤ 3) or explicit threshold rules on the top 2–3 features. Interpretability required; no black-box models. Target: per-family precision ≥ 0.80.
+3. **Simple classifier** — decision tree (depth ≤ 3) or explicit threshold rules on top 2–3 features. Interpretability required; no black-box models. Target: per-family precision ≥ 0.80.
 
-4. **proof_survey section** — new section: per-family g1adj usage rate stacked bar + top structural predictors table + classifier confusion matrix.
+4. **proof_survey section** — per-family g1adj usage rate stacked bar + top structural predictors table + classifier confusion matrix.
 
-5. **M4 implication** — families/configurations where classifier predicts g1adj ≈ 0 → propose `--supplementals=0` as default for those; document expected speedup from skipping supplemental graph construction.
+5. **M4 implication** — families where classifier predicts g1adj ≈ 0 → propose `--supplementals=0` as default; document expected speedup.
 
 **Deliverable:** classifier rules in `paper/notes.tex §8` + new proof_survey section.
 
-### M3.5.5 — Glasgow branching integration (future)
+### M3.5.5 — Branching order aggregation and variance analysis 🔜 NEXT
 
-Read `.var_order` at startup as initial branching heuristic. Held until M3.5 cluster data confirms meaningful heuristic variation across instances. Hypothesis: preprocessing flags (M4) have larger impact than branching order.
+**Goal:** Determine whether cone-derived branching orders vary meaningfully across instances within a family. If they don't, one canonical ordering per family suffices and M3.5.6 is low-priority; if they do, per-instance branching matters and M3.5.6 becomes high-priority.
+
+**Problem:** `.var_order` files (~8,400 on cluster) contain the full ranked vertex lists but weren't harvested — only the scalar `grim_cone_uniq_pat`/`grim_cone_uniq_tar` counts reached the CSV. Pulling ~8,400 small files is wasteful; aggregate on the cluster instead.
+
+**Steps:**
+
+1. **`scripts/aggregate_var_order.jl`** — new script, runs on cluster. Reads all `<instance>.var_order` files from `/scratch/arthur/proofs/`. For each instance, computes:
+   - `vo_n_pat`: number of ranked pattern vertices
+   - `vo_top1_pat`, `vo_top1_frac`: most-frequent pattern vertex ID and its count / total count
+   - `vo_top3_pats`: top-3 vertex IDs (comma-separated, for within-family comparison)
+   - `vo_rank_entropy`: Shannon entropy of normalised count distribution (high = flat ordering, low = few vertices dominate)
+   - `vo_gini`: Gini coefficient of counts (0 = uniform, 1 = one vertex has all)
+   - `vo_top3_frac`: fraction of total count in top 3 vertices
+
+   Outputs a single `var_order_stats.csv` (one row per instance).
+
+2. **Within-family ordering similarity** — in the same script or a second pass: for each family, sample up to 200 instance pairs, compute Kendall tau on the shared vertex rankings. Output per-family `vo_mean_tau` and `vo_std_tau` to a summary table at the end of the CSV or a separate `var_order_family_summary.csv`.
+
+3. **Integrate into harvest pipeline** — add `aggregate_var_order.jl` as step 2.5 in `scripts/harvest.sh`, add `var_order_stats.csv` to `scripts/harvest_pull.sh`.
+
+4. **Interpret results:**
+   - High `vo_mean_tau` (> 0.7) within a family → stable ordering, one canonical order per family suffices → M3.5.6 is low-value.
+   - Low `vo_mean_tau` (< 0.4) → per-instance branching order matters → M3.5.6 becomes a priority for M4.
+   - `vo_rank_entropy` close to max → flat ordering, branching order doesn't matter regardless.
+
+**Deliverable:** `var_order_stats.csv` + `var_order_family_summary.csv`, interpretation in `paper/notes.tex §9`.
+
+### M3.5.6 — Glasgow branching integration (future)
+
+Read `.var_order` at startup as initial branching heuristic. Gated on M3.5.5: only worth pursuing if within-family Kendall tau is low (< 0.4) and rank entropy is not near-max. Hypothesis: preprocessing flags (M4) have larger impact than branching order.
 
 ---
 
@@ -197,9 +186,12 @@ Lightweight graph-feature probe at Glasgow startup selects heuristic config. Sub
 ## Dependency graph
 
 ```
-M1 → M2 → M2.5 → M3 (taxonomy)
-                    └─ M3.5 (CP provenance) ←── cluster run 2026-06-15
-                          └─ M4 (heuristic learning)
+M1 → M2 → M2.5 → M3 (taxonomy) ✅
+                    └─ M3.5.1–3 (CP provenance) ✅
+                          ├─ M3.5.4 (supplemental classifier) ←── CURRENT
+                          └─ M3.5.5 (branching order variance) ←── NEXT
+                                └─ M3.5.6 (Glasgow branching integration, gated on M3.5.5)
+                          └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.5)
                                 └─ M5 (cross-solver)
                                       └─ M6 (integration)
 ```
