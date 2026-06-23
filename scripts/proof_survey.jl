@@ -300,7 +300,7 @@ function main()
             med_botfrac = med(nonnull(sub, "grim_cone_bottom_frac")),
             med_p50     = med(nonnull(sub, "grim_cone_depth_p50")),
             med_p90     = med(nonnull(sub, "grim_cone_depth_p90")),
-            burst_pct   = let bd = Float64[x for x in skipmissing(sub[!, "grim_pol_before_rup_burst"])]
+            burst_pct   = let bd = Float64[x for x in skipmissing(sub[!, "grim_cone_pol_before_rup_burst"])]
                               isempty(bd) ? NaN : mean(==(1), bd)
                           end,
             n_resolv    = let ps = filter(x -> x > 0, nonnull(sub, "resolv_pat_shrinkage"))
@@ -316,13 +316,13 @@ function main()
             med_width_cv   = med(nonnull(sub, "grim_cone_width_cv")),
             med_lit_weak   = med(nonnull(sub, "grim_literal_weakening_rate")),
             # M3.5: POL step structure
-            med_pol_depth_mean     = med(nonnull(sub, "grim_pol_depth_mean")),
-            med_pol_depth_cv       = med(nonnull(sub, "grim_pol_depth_cv")),
-            med_pol_depth_frac_bot = med(nonnull(sub, "grim_pol_depth_frac_bot")),
-            med_pol_depth_frac_top = med(nonnull(sub, "grim_pol_depth_frac_top")),
-            med_pol_ante_mean      = med(nonnull(sub, "grim_pol_ante_mean")),
-            med_pol_ante_max       = med(nonnull(sub, "grim_pol_ante_max")),
-            med_pol_opb_frac       = med(nonnull(sub, "grim_pol_opb_frac")),
+            med_pol_depth_mean     = med(nonnull(sub, "grim_cone_pol_depth_mean")),
+            med_pol_depth_cv       = med(nonnull(sub, "grim_cone_pol_depth_cv")),
+            med_pol_depth_frac_bot = med(nonnull(sub, "grim_cone_pol_depth_frac_bot")),
+            med_pol_depth_frac_top = med(nonnull(sub, "grim_cone_pol_depth_frac_top")),
+            med_pol_ante_mean      = med(nonnull(sub, "grim_cone_pol_ante_mean")),
+            med_pol_ante_max       = med(nonnull(sub, "grim_cone_pol_ante_max")),
+            med_pol_opb_frac       = med(nonnull(sub, "grim_cone_pol_opb_frac")),
             # M3.5.3: branching heuristic — unique pattern nodes in OPB cone
             med_uniq_pat = med(nonnull(sub, "grim_cone_uniq_pat")),
             # §7: CP provenance — fraction of total cone (OPB+PBP)

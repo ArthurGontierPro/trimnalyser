@@ -196,9 +196,9 @@ function main()
             end
             println(io)
             for (label, col, note) in [
-                    ("POL depth mean", "grim_pol_depth_mean", "centroid in depth space"),
-                    ("POL ante mean ", "grim_pol_ante_mean",  "avg antecedents per POL step"),
-                    ("POL OPB frac  ", "grim_pol_opb_frac",   "fraction of POL antes from axioms")]
+                    ("POL depth mean", "grim_cone_pol_depth_mean", "centroid in depth space"),
+                    ("POL ante mean ", "grim_cone_pol_ante_mean",  "avg antecedents per POL step"),
+                    ("POL OPB frac  ", "grim_cone_pol_opb_frac",   "fraction of POL antes from axioms")]
                 data = pcol(col); isempty(data) && continue
                 println(io, @sprintf("  %s  mean %6.2f   (%s)", label, mean(data), note))
             end
