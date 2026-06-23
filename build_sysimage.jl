@@ -52,3 +52,4 @@ PackageCompiler.create_sysimage(
 
 write(STAMP, string(VERSION))
 println("Done in $(round(Int, time()-t0))s → trimnalyser.so  ($(round(filesize(SO)/1024^2; digits=0)) MB)")
+println("BUILD_SCRIPT_EXIT")
