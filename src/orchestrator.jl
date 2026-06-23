@@ -211,11 +211,11 @@
         end
         subout = _cfg[].proofs * ins * ".subout"
         suberr = _cfg[].proofs * ins * ".suberr"
-        julia_flags = isfile(_sysimage) ? `--sysimage $_sysimage -t1,1` : `-t1,1`
-        proc = run(pipeline(addenv(`timeout $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`,
-                                  "JULIA_NUM_THREADS" => "1",
-                                  "OPENBLAS_NUM_THREADS" => "1",
-                                  "MKL_NUM_THREADS" => "1"),
+        use_sysimage = isfile(_sysimage)
+        julia_flags = use_sysimage ? `--sysimage $_sysimage -t1,1` : `-t1,1`
+        sub_env = ["JULIA_NUM_THREADS" => "1", "OPENBLAS_NUM_THREADS" => "1", "MKL_NUM_THREADS" => "1"]
+        use_sysimage && push!(sub_env, "TRIMNALYSER_SYSIMAGE" => "1")
+        proc = run(pipeline(addenv(`timeout $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`, sub_env...),
                            stdout=subout, stderr=suberr),
                    wait=false)
         wait(proc)
