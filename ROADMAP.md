@@ -4,7 +4,7 @@ TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via 
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-23:** M1–M2.5, M3.5.1–M3.5.3 complete. M3 first-pass analysis and full cluster run (15,431 instances, 6,920 resolv iterations) harvested 2026-06-22. M3.5.4 is current.
+**Status as of 2026-06-23:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5 complete. M3 first-pass analysis and full cluster run (15,431 instances, 6,920 resolv iterations) harvested 2026-06-22. M3.5.6 oracle replay ready (Glasgow `--pattern-order-file` flag implemented, sanity-checked: 3.1x node reduction on LVg10g12). Cluster run pending.
 
 ---
 
@@ -117,38 +117,42 @@ Per-family supplemental usage now quantified (see M3 cluster run table). Key fin
 
 **Deliverable:** classifier rules in `paper/notes.tex §8` + new proof_survey section.
 
-### M3.5.5 — Branching order aggregation and variance analysis 🔜 NEXT
+### M3.5.5 — Branching order variance analysis ✅
 
-**Goal:** Determine whether cone-derived branching orders vary meaningfully across instances within a family. If they don't, one canonical ordering per family suffices and M3.5.6 is low-priority; if they do, per-instance branching matters and M3.5.6 becomes high-priority.
+**Finding:** Within-family Kendall tau is **low across all four families** — no canonical per-family ordering exists. Per-instance branching matters. M3.5.6 promoted to high-priority.
 
-**Problem:** `.var_order` files (~8,400 on cluster) contain the full ranked vertex lists but weren't harvested — only the scalar `grim_cone_uniq_pat`/`grim_cone_uniq_tar` counts reached the CSV. Pulling ~8,400 small files is wasteful; aggregate on the cluster instead.
+| Family | Instances | Mean tau | Std tau | Min tau | Max tau |
+|---|---|---|---|---|---|
+| LV | 3,771 | 0.104 | 0.229 | -1.000 | 0.964 |
+| bio | 7,637 | 0.096 | 0.250 | -0.500 | 1.000 |
+| images-CVIU11 | 804 | 0.075 | 0.213 | -0.463 | 0.961 |
+| meshes-CVIU11 | 2,102 | 0.086 | 0.270 | -0.667 | 1.000 |
 
-**Steps:**
+All mean tau values are well below the 0.4 threshold (range 0.075–0.104). The high standard deviation and wide min/max range show that some instance pairs agree strongly while others are near-anticorrelated — ordering is instance-specific, not family-specific.
 
-1. **`scripts/aggregate_var_order.jl`** — new script, runs on cluster. Reads all `<instance>.var_order` files from `/scratch/arthur/proofs/`. For each instance, computes:
-   - `vo_n_pat`: number of ranked pattern vertices
-   - `vo_top1_pat`, `vo_top1_frac`: most-frequent pattern vertex ID and its count / total count
-   - `vo_top3_pats`: top-3 vertex IDs (comma-separated, for within-family comparison)
-   - `vo_rank_entropy`: Shannon entropy of normalised count distribution (high = flat ordering, low = few vertices dominate)
-   - `vo_gini`: Gini coefficient of counts (0 = uniform, 1 = one vertex has all)
-   - `vo_top3_frac`: fraction of total count in top 3 vertices
+**Infrastructure:** `scripts/aggregate_var_order.jl` integrated into `harvest.sh` (step 3/5) and `harvest_pull.sh`. Outputs: `var_order_stats.csv` (14,314 rows, per-instance entropy/Gini/top-k) + `var_order_family_summary.csv`.
 
-   Outputs a single `var_order_stats.csv` (one row per instance).
+### M3.5.6 — Glasgow per-instance branching integration 🔜 CURRENT
 
-2. **Within-family ordering similarity** — in the same script or a second pass: for each family, sample up to 200 instance pairs, compute Kendall tau on the shared vertex rankings. Output per-family `vo_mean_tau` and `vo_std_tau` to a summary table at the end of the CSV or a separate `var_order_family_summary.csv`.
+**Goal:** Feed cone-derived branching order into Glasgow as initial variable ordering, per instance. M3.5.5 confirmed this is high-value: within-family tau ~0.1 means a static per-family ordering captures almost no signal.
 
-3. **Integrate into harvest pipeline** — add `aggregate_var_order.jl` as step 2.5 in `scripts/harvest.sh`, add `var_order_stats.csv` to `scripts/harvest_pull.sh`.
+**Phase 1 — Oracle replay (ceiling test):**
 
-4. **Interpret results:**
-   - High `vo_mean_tau` (> 0.7) within a family → stable ordering, one canonical order per family suffices → M3.5.6 is low-value.
-   - Low `vo_mean_tau` (< 0.4) → per-instance branching order matters → M3.5.6 becomes a priority for M4.
-   - `vo_rank_entropy` close to max → flat ordering, branching order doesn't matter regardless.
+Glasgow modified (`labels-for-analysis` branch): new `--pattern-order-file` flag overrides `find_branch_domain` to use a fixed priority ordering instead of smallest-domain-first. Reads `.var_order` format directly. Local sanity check on LVg10g12: **88 → 28 nodes (3.1x)**.
 
-**Deliverable:** `var_order_stats.csv` + `var_order_family_summary.csv`, interpretation in `paper/notes.tex §9`.
+`scripts/oracle_replay.jl` runs on cluster: for each instance, solves baseline (default heuristic) and oracle (`--pattern-order-file <instance>.var_order`), no proof logging. Output: `oracle_replay_results.csv` with per-instance node/time ratios.
 
-### M3.5.6 — Glasgow branching integration (future)
+**Decision criteria:**
+- Median node_ratio < 0.7 across families → oracle ordering is valuable, proceed to Phase 2.
+- Median node_ratio ≈ 1.0 → ordering doesn't help despite being "perfect"; search dynamics dominate. Stop here.
 
-Read `.var_order` at startup as initial branching heuristic. Gated on M3.5.5: only worth pursuing if within-family Kendall tau is low (< 0.4) and rank entropy is not near-max. Hypothesis: preprocessing flags (M4) have larger impact than branching order.
+**Phase 2 — Cross-instance transfer (if Phase 1 positive):**
+For a new instance, use `.var_order` from the most structurally similar solved instance (nearest-neighbour in `graph_features` space). Measures practical value without oracle access.
+
+**Phase 3 — Feature-predicted ordering (if Phase 2 positive):**
+Train `(graph_features → vertex priority)` model. Lightweight at solve time.
+
+**Deliverable:** per-phase speedup vs baseline; recommendation for M4.
 
 ---
 
@@ -188,10 +192,10 @@ Lightweight graph-feature probe at Glasgow startup selects heuristic config. Sub
 ```
 M1 → M2 → M2.5 → M3 (taxonomy) ✅
                     └─ M3.5.1–3 (CP provenance) ✅
-                          ├─ M3.5.4 (supplemental classifier) ←── CURRENT
-                          └─ M3.5.5 (branching order variance) ←── NEXT
-                                └─ M3.5.6 (Glasgow branching integration, gated on M3.5.5)
-                          └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.5)
+                          ├─ M3.5.4 (supplemental classifier)
+                          └─ M3.5.5 (branching order variance) ✅
+                                └─ M3.5.6 (per-instance branching) ←── CURRENT (oracle replay)
+                          └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.6)
                                 └─ M5 (cross-solver)
                                       └─ M6 (integration)
 ```

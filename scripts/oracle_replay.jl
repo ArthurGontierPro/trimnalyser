@@ -1,0 +1,166 @@
+#!/usr/bin/env julia
+# Oracle replay experiment: re-solve instances with cone-derived branching order.
+# Compares baseline (default Glasgow heuristic) vs oracle (--pattern-order-file).
+# No proof logging — measures raw search performance.
+#
+# Usage:
+#   julia scripts/oracle_replay.jl <proofs_dir> <instance_list> [output_csv] [solver_timeout]
+#
+# proofs_dir:     directory containing .var_order files
+# instance_list:  text file, one instance name per line (base instances only, no .coreN)
+# output_csv:     defaults to oracle_replay_results.csv
+# solver_timeout: seconds, defaults to 60
+
+const GRAPHS = get(ENV, "TRIMNALYSER_GRAPHS",
+    contains(gethostname(), "dcs.gla.ac.uk") || startswith(gethostname(), "fataepyc") ?
+    "/scratch/arthur/newSIPbenchmarks/" : "/home/arthur_gla/veriPB/newSIPbenchmarks/")
+
+const SOLVER = get(ENV, "GLASGOW_SUBGRAPH_SOLVER",
+    contains(gethostname(), "dcs.gla.ac.uk") || startswith(gethostname(), "fataepyc") ?
+    "/scratch/arthur/glasgow_subgraph_solver" : "/home/arthur_gla/veriPB/subgraphsolver/glasgow-subgraph-solver/build/glasgow_subgraph_solver")
+
+function instance_family(ins)
+    startswith(ins, "LV")     && return "LV"
+    startswith(ins, "bio")    && return "bio"
+    startswith(ins, "cviu11") && return "images-CVIU11"
+    startswith(ins, "pr15")   && return "images-PR15"
+    startswith(ins, "mesh11") && return "meshes-CVIU11"
+    startswith(ins, "ph_")    && return "phase"
+    startswith(ins, "sf_")    && return "scalefree"
+    startswith(ins, "si__")   && return "si"
+    return "unknown"
+end
+
+function parsegraphfiles(ins, graphs)
+    g = graphs
+    if startswith(ins, "bio")
+        pat = ins[4:end-3]; tar = ins[end-2:end]
+        base = g * "biochemicalReactions/"
+        return base * pat * ".txt", base * tar * ".txt"
+    elseif startswith(ins, "LV")
+        i = findlast('g', ins)
+        base = g * "LV/"
+        return base * "g" * ins[4:i-1], base * "g" * ins[i+1:end]
+    elseif startswith(ins, "cviu11_p")
+        m = match(r"^cviu11_p(\d+)_t(\d+)$", ins)
+        m === nothing && return nothing, nothing
+        base = g * "images-CVIU11/"
+        return base * "patterns/pattern" * m[1], base * "targets/target" * m[2]
+    elseif startswith(ins, "pr15_p")
+        m = match(r"^pr15_p(\d+)$", ins)
+        m === nothing && return nothing, nothing
+        base = g * "images-PR15/"
+        return base * "pattern" * m[1], base * "target"
+    elseif startswith(ins, "mesh11_p")
+        m = match(r"^mesh11_p(\d+)_t(\d+)$", ins)
+        m === nothing && return nothing, nothing
+        base = g * "meshes-CVIU11/"
+        return base * "patterns/pattern" * m[1], base * "targets/target" * m[2]
+    elseif startswith(ins, "ph_")
+        base = g * "phase/"
+        return base * ins[4:end] * "-pattern", base * ins[4:end] * "-target"
+    elseif startswith(ins, "sf_")
+        base = g * "scalefree/" * ins[4:end] * "/"
+        return base * "pattern", base * "target"
+    elseif startswith(ins, "si__")
+        parts = split(ins[5:end], "__"; limit=2)
+        length(parts) != 2 && return nothing, nothing
+        base = g * "si/" * parts[1] * "/" * parts[2] * "/"
+        return base * "pattern", base * "target"
+    end
+    return nothing, nothing
+end
+
+function run_solver(solver, pat, tar, timeout; order_file=nothing)
+    cmd_parts = ["timeout", string(timeout), solver,
+                 "--no-clique-detection", "--staged", "--format", "lad", pat, tar]
+    if order_file !== nothing
+        push!(cmd_parts, "--pattern-order-file", order_file)
+    end
+    out = IOBuffer()
+    err = IOBuffer()
+    exitcode = try
+        p = run(pipeline(Cmd(cmd_parts), stdout=out, stderr=err), wait=true)
+        p.exitcode
+    catch e
+        e isa ProcessFailedException ? e.procs[1].exitcode : -1
+    end
+    output = String(take!(out))
+    nodes = let m = match(r"nodes = (\d+)", output); m !== nothing ? parse(Int, m[1]) : -1 end
+    runtime = let m = match(r"runtime = (\d+)", output); m !== nothing ? parse(Int, m[1]) : -1 end
+    status = let m = match(r"status = (\w+)", output); m !== nothing ? m[1] : "error" end
+    timed_out = exitcode in (124, 137)
+    (nodes=nodes, runtime=runtime, status=status, timed_out=timed_out)
+end
+
+const CSV_COLUMNS = [
+    "instance", "family",
+    "baseline_nodes", "baseline_ms", "baseline_status",
+    "oracle_nodes", "oracle_ms", "oracle_status",
+    "node_ratio", "time_ratio"
+]
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+if length(ARGS) < 2
+    println("Usage: julia scripts/oracle_replay.jl <proofs_dir> <instance_list> [output_csv] [solver_timeout]")
+    exit(1)
+end
+
+proofs_dir   = ARGS[1]
+instfile     = ARGS[2]
+output_csv   = length(ARGS) >= 3 ? ARGS[3] : "oracle_replay_results.csv"
+solver_timeout = length(ARGS) >= 4 ? parse(Int, ARGS[4]) : 60
+
+isfile(SOLVER) || (println("Solver not found: $SOLVER"); exit(1))
+isfile(instfile) || (println("Instance list not found: $instfile"); exit(1))
+
+instances = filter(!isempty, strip.(readlines(instfile)))
+println("Oracle replay: $(length(instances)) instances, timeout=$(solver_timeout)s")
+println("Solver: $SOLVER")
+println("Graphs: $GRAPHS")
+
+let n_skipped = 0, n_done = 0
+    open(output_csv, "w") do io
+        println(io, join(CSV_COLUMNS, ","))
+
+        for (i, ins) in enumerate(instances)
+            vo_file = joinpath(proofs_dir, ins * ".var_order")
+            if !isfile(vo_file)
+                n_skipped += 1
+                continue
+            end
+
+            pat, tar = parsegraphfiles(ins, GRAPHS)
+            if pat === nothing || !isfile(pat) || !isfile(tar)
+                n_skipped += 1
+                continue
+            end
+
+            family = instance_family(ins)
+
+            baseline = run_solver(SOLVER, pat, tar, solver_timeout)
+            oracle   = run_solver(SOLVER, pat, tar, solver_timeout; order_file=vo_file)
+
+            node_ratio = (baseline.nodes > 0 && oracle.nodes > 0) ?
+                round(oracle.nodes / baseline.nodes; digits=4) : -1.0
+            time_ratio = (baseline.runtime > 0 && oracle.runtime > 0) ?
+                round(oracle.runtime / baseline.runtime; digits=4) : -1.0
+
+            println(io, join([
+                ins, family,
+                baseline.nodes, baseline.runtime, baseline.status,
+                oracle.nodes, oracle.runtime, oracle.status,
+                node_ratio, time_ratio
+            ], ","))
+
+            n_done += 1
+            if n_done % 50 == 0
+                println("  $n_done/$(length(instances)) done ($(n_skipped) skipped)...")
+                flush(io)
+            end
+        end
+    end
+    println("Done: $n_done instances processed, $n_skipped skipped")
+    println("Results in $output_csv")
+end
