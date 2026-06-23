@@ -219,10 +219,9 @@
                 ss = @view ss[1:i-1]
             end
             st = tokenize!(ss)
+            pending_name = ""
             if st[1][1]==UInt8('@')
-                name = String(view(st[1], 2:length(st[1])))
-                haskey(ctrmap, name) && push!(ctrmap_evicted, name => ctrmap[name])
-                ctrmap[name] = c
+                pending_name = String(view(st[1], 2:length(st[1])))
                 st = st[2:end]
             end
             type = st[1]
@@ -245,6 +244,10 @@
                 end
             elseif !tok_in(type, ["%","*","wiplvl","w","setlvl","#","f","d","del","end","pseudo-Boolean"])
                 printstyled("  [warn] unknown line head (skipped): $(String(ss))\n"; color=:yellow)
+            end
+            if !isempty(pending_name)
+                haskey(ctrmap, pending_name) && push!(ctrmap_evicted, pending_name => ctrmap[pending_name])
+                ctrmap[pending_name] = c
             end
             pushed && (c+=1)
         end
