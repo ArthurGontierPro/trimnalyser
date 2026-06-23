@@ -4,7 +4,7 @@ TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via 
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-23:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5 complete. M3 first-pass analysis and full cluster run (15,431 instances, 6,920 resolv iterations) harvested 2026-06-22. M3.5.6 oracle replay ready (Glasgow `--pattern-order-file` flag implemented, sanity-checked: 3.1x node reduction on LVg10g12). Cluster run pending.
+**Status as of 2026-06-23:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6 complete. M3.5.7 (trimmed vs full proof comparison) in progress — output format refactor + full-proof stats. M3.5.4 still open.
 
 ---
 
@@ -132,27 +132,84 @@ All mean tau values are well below the 0.4 threshold (range 0.075–0.104). The 
 
 **Infrastructure:** `scripts/aggregate_var_order.jl` integrated into `harvest.sh` (step 3/5) and `harvest_pull.sh`. Outputs: `var_order_stats.csv` (14,314 rows, per-instance entropy/Gini/top-k) + `var_order_family_summary.csv`.
 
-### M3.5.6 — Glasgow per-instance branching integration 🔜 CURRENT
+### M3.5.6 — Glasgow per-instance branching integration ✅
 
-**Goal:** Feed cone-derived branching order into Glasgow as initial variable ordering, per instance. M3.5.5 confirmed this is high-value: within-family tau ~0.1 means a static per-family ordering captures almost no signal.
+**Goal:** Measure whether cone-derived branching order can improve Glasgow's search.
 
-**Phase 1 — Oracle replay (ceiling test):**
+**What was tested:** Glasgow's `find_branch_domain` normally uses **dynamic smallest-domain-first** — at each search node, pick the unfixed pattern vertex with the fewest remaining target candidates (tiebreak by pattern degree). The oracle replaces this with a **static fixed ordering** from `.var_order` (cone vertex frequency), ignoring domain sizes entirely.
 
-Glasgow modified (`labels-for-analysis` branch): new `--pattern-order-file` flag overrides `find_branch_domain` to use a fixed priority ordering instead of smallest-domain-first. Reads `.var_order` format directly. Local sanity check on LVg10g12: **88 → 28 nodes (3.1x)**.
+Glasgow modified (`labels-for-analysis` branch `a87b8ab`): `--pattern-order-file` flag. `scripts/oracle_replay.jl` runs baseline vs oracle on all 7,430 base instances with `.var_order` files (92 threads, 180s timeout).
 
-`scripts/oracle_replay.jl` runs on cluster: for each instance, solves baseline (default heuristic) and oracle (`--pattern-order-file <instance>.var_order`), no proof logging. Output: `oracle_replay_results.csv` with per-instance node/time ratios.
+**Results — oracle ceiling is modest and family-dependent:**
 
-**Decision criteria:**
-- Median node_ratio < 0.7 across families → oracle ordering is valuable, proceed to Phase 2.
-- Median node_ratio ≈ 1.0 → ordering doesn't help despite being "perfect"; search dynamics dominate. Stop here.
+| Family | Search instances | Geomean node ratio | Oracle better | Oracle worse |
+|---|---|---|---|---|
+| LV | 203 | **0.93** | 29% | 19% |
+| bio | 2,206 | **0.85** | 38% | 25% |
+| images-CVIU11 | 489 | **1.41** | 24% | 59% |
+| meshes-CVIU11 | 0 | — | — | — |
 
-**Phase 2 — Cross-instance transfer (if Phase 1 positive):**
-For a new instance, use `.var_order` from the most structurally similar solved instance (nearest-neighbour in `graph_features` space). Measures practical value without oracle access.
+4,531 instances (61%) have 0 search nodes (solved by preprocessing alone — branching irrelevant). Meshes: 100% preprocessing. Bio has 96 instances with 10x+ oracle speedup but also 63 with 10x+ slowdown.
 
-**Phase 3 — Feature-predicted ordering (if Phase 2 positive):**
-Train `(graph_features → vertex priority)` model. Lightweight at solve time.
+**Why the oracle hurts on images:** deep propagation cascades cause domain sizes to shift dramatically during search. The adaptive smallest-domain-first heuristic tracks this; a static ordering cannot. The oracle forces branching on proof-critical vertices even when their domains are large, expanding the search tree.
 
-**Deliverable:** per-phase speedup vs baseline; recommendation for M4.
+**Conclusion:** A static ordering override is the wrong integration point. The cone data has signal (bio geomean 0.85) but a fixed ordering fights Glasgow's adaptive heuristic. Two paths remain:
+1. **Tiebreaker integration** — use cone-derived priority only to break ties in smallest-domain-first (same domain size → prefer proof-critical vertex). Small change, preserves fail-first, may capture the bio/LV upside without the images downside.
+2. **Preprocessing flags (M4)** — higher leverage: 61% of instances are decided by preprocessing alone. Tuning `--staged`, `--no-supplementals`, NDS per family likely outweighs any branching improvement.
+
+**Decision: Phase 2/3 cancelled.** Cross-instance transfer and feature-predicted ordering would perform worse than this oracle ceiling, which is already marginal. Tiebreaker integration is a low-cost experiment for M4. Focus shifts to M4 preprocessing heuristics.
+
+### M3.5.7 — Trimmed vs full proof comparison 🔜 CURRENT
+
+**Goal:** Compute the same statistics on the full (untrimmed) proof as on the trimmed cone. Test whether trimming biases our understanding of which Glasgow components are proof-critical. The cone shows what is *logically necessary* for the UNSAT certificate — but it also potentially shows what the solver *could have used directly*. Comparing cone vs full proof statistics lets us quantify this.
+
+**Hypothesis:** If cone label/vertex distributions are a proportional subsample of the full proof, trimming introduces no bias and our M3.5 conclusions hold as-is. If they diverge (e.g., supplementals are heavily used during search but rare in the cone), the full-proof view is more relevant for heuristic guidance (M4).
+
+**Output format refactor — fraction `cone/total`:**
+
+For count-based stats, the `.out` file switches from separate lines to a single fraction line:
+```
+# Before (current):                  # After (M3.5.7):
+grim OPB NBEQ 999                    grim OPB 55/999
+grim OPB CONE 55                     grim PBP 12/500
+grim PBP NBEQ 500                    grim NBEQ 67/1499
+grim PBP CONE 12                     grim RUP 8/400
+grim CONE RUP 8                      grim POL 3/80
+grim CONE LABEL G0ADJ 40             grim LABEL G0ADJ 40/800
+```
+
+Applies to: equation counts (OPB/PBP/NBEQ), step types (RUP/POL/IA/RED), literal/variable counts, all 37 label categories.
+
+For distributional stats (depth, entropy, CV, antecedent profiles), there is no natural cone/total ratio — these are independent measurements on different DAGs. These get parallel `full` prefix lines:
+```
+grim CONE DEPTH MAX 93
+grim FULL DEPTH MAX 150
+grim CONE DEPTH ENTROPY 2.18
+grim FULL DEPTH ENTROPY 3.4
+```
+
+**New `.full.var_order` file:**
+
+Alongside the existing `.var_order` (cone vertex frequencies), write `.full.var_order` (vertex frequencies from ALL OPB equations, not just cone). Enables direct oracle replay comparison: cone-ordering vs full-proof-ordering as heuristic signal.
+
+**Implementation plan:**
+
+| Step | File(s) | Change |
+|------|---------|--------|
+| 1. Full-proof stat functions | `src/output.jl` | `count_step_types_full(systemlink)` — all PBP steps, no cone filter. `full_label_stats(ctrmap, ctrmap_evicted, nbopb, n_total)` — all labels, no cone filter. `full_var_order(varmap_inv, sys, nbopb)` — vertex freq from ALL OPB equations. |
+| 2. Full-proof depth | `src/output.jl` | `compute_full_depth(systemlink, nbopb)` + `compute_full_depth_dist(...)` — depth over entire proof DAG (including dead-end branches). |
+| 3. Writeout refactor | `src/output.jl` | Merge `writeout_parse`/`writeout_trim` into fraction format. `writeout_step_types` takes (cone_counts, full_counts). `writeout_cone_labels` takes (cone_labels, full_labels). New `writeout_full_depth`. |
+| 4. Pipeline integration | `src/pipeline.jl` | Compute full-proof stats before `getcone!` (step types, labels, var_order need only `systemlink`/`ctrmap`, not `cone`). Pass both to writeout functions. Write `.full.var_order`. |
+| 5. Aggregate refactor | `scripts/aggregate_results.jl` | Parse `N/M` fraction → dual CSV columns `*_cone` / `*_full`. Add `full_*` columns for depth/distribution stats. Compute `cone_full_ratio` derived columns. |
+| 6. Downstream scripts | `scripts/classify_supplementals.jl`, `scripts/proof_survey.jl`, `scripts/quick_stats.jl` | Update to new CSV column names. Add cone-vs-full comparison sections in reports. |
+| 7. `plotresultstable` update | `src/output.jl` | Parse new fraction format in the inline stats display. |
+
+**Key design decisions:**
+- Full-proof depth includes dead-end branches — measures what the solver actually explored, not just the minimal certificate. Full depth ≥ cone depth always.
+- Label "utilization rate" = cone_count / full_count per category. Low utilization → the solver generates many constraints of this type but few end up needed.
+- The `.full.var_order` enables a direct re-run of M3.5.6 oracle replay to compare cone-derived vs full-proof-derived branching heuristics.
+
+**Deliverable:** Updated `.out` format, dual-view CSV columns, `.full.var_order` files. Cluster re-run needed (new `.out` format is a breaking change — old `.out` files become unparseable by the new aggregate script).
 
 ---
 
@@ -193,9 +250,10 @@ Lightweight graph-feature probe at Glasgow startup selects heuristic config. Sub
 M1 → M2 → M2.5 → M3 (taxonomy) ✅
                     └─ M3.5.1–3 (CP provenance) ✅
                           ├─ M3.5.4 (supplemental classifier)
-                          └─ M3.5.5 (branching order variance) ✅
-                                └─ M3.5.6 (per-instance branching) ←── CURRENT (oracle replay)
-                          └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.6)
-                                └─ M5 (cross-solver)
-                                      └─ M6 (integration)
+                          ├─ M3.5.5 (branching order variance) ✅
+                          │     └─ M3.5.6 (oracle replay) ✅ — static override marginal, tiebreaker for M4
+                          └─ M3.5.7 (trimmed vs full proof) 🔜 — output refactor + full-proof stats
+                                └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7)
+                                      └─ M5 (cross-solver)
+                                            └─ M6 (integration)
 ```

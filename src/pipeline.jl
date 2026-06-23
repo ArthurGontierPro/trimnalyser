@@ -89,9 +89,10 @@
             store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,ctrmap_evicted,output,conclusion,obj,prism = readinstance(_cfg[].proofs,file)
         end
         inp_lits = length(store.vars)
-        writeout_parse(ins, parse_time, nbopb, length(systemlink), inp_lits, length(varmap), prefix)
+        writeout_parse(ins, parse_time, inp_lits, length(varmap), prefix)
         sys = PBSystem(store, length(varmap))  # zero-copy: PBSystem reuses FlatEqStore's flat arrays directly
         n = length(sys.rhs)
+        full_step_counts = count_step_types_full(systemlink)
         cone     = zeros(Bool, n)
         conelits = Dict{Int,Set{Int}}()
         trim_time = @elapsed begin
@@ -99,23 +100,26 @@
         end
         writeout_trim(ins, trim_time, cone, nbopb, prefix)
         step_counts = count_step_types(systemlink, cone, nbopb)
-        depth_stats = compute_cone_depth(cone, systemlink, nbopb)
-        writeout_step_types(ins, step_counts, prefix)
-        writeout_cone_depth(ins, depth_stats, prefix)
-        depth_dist = compute_cone_depth_dist(cone, systemlink, nbopb, depth_stats.depth_arr)
-        writeout_cone_depth_dist(ins, depth_dist, prefix)
-        # (_cfg[].core || _cfg[].resolv) &&
-        #     write_cone_dot(ins, cone, systemlink, nbopb, depth_stats.depth_arr, conelits, prefix)
-        writeout_conelits(ins, sys, cone, conelits, prefix)
+        writeout_step_types(ins, step_counts, full_step_counts, prefix)
+        cone_depth  = compute_cone_depth(cone, systemlink, nbopb)
+        all_true    = trues(n)
+        full_depth  = compute_cone_depth(all_true, systemlink, nbopb)
+        writeout_depth(ins, cone_depth, full_depth, prefix)
+        cone_dist = compute_cone_depth_dist(cone, systemlink, nbopb, cone_depth.depth_arr)
+        full_dist = compute_cone_depth_dist(all_true, systemlink, nbopb, full_depth.depth_arr)
+        writeout_depth_dist(ins, cone_dist, full_dist, prefix)
+        writeout_conelits(ins, sys, cone, conelits, inp_lits, prefix)
         cone_stats = conelits_stats(sys, cone, conelits)
         printconestat(cone, cone_stats)
         varmap_inv = Vector{String}(undef, length(varmap))
         for (k, v) in varmap; varmap_inv[v] = String(copy(k)); end
         if mode isa Grim
-            label_stats = cone_label_stats(cone, ctrmap, ctrmap_evicted, nbopb)
-            writeout_cone_labels(ins, label_stats, prefix)
-            var_data = cone_var_order(cone, varmap_inv, sys, nbopb)
-            writeout_var_order(ins, var_data, prefix)
+            cone_label = cone_label_stats(cone, ctrmap, ctrmap_evicted, nbopb)
+            full_label = full_label_stats(ctrmap, ctrmap_evicted, nbopb, n)
+            writeout_labels(ins, cone_label, full_label, prefix)
+            cone_vo = cone_var_order(cone, varmap_inv, sys, nbopb)
+            full_vo = full_var_order(varmap_inv, sys, nbopb)
+            writeout_var_order(ins, cone_vo, full_vo, prefix)
         end
         if isempty(output)
             printstyled("  $ins: proof truncated (no output line) — skipping write\n"; color=:red)

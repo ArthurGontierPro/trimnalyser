@@ -1,5 +1,5 @@
 # ══ Output & display ══════════════════════════════════════════════════════════════════════════
-    function writeout_parse(ins, t1, nbopb, n_pbp, inp_lits, inp_vars, prefix)
+    function writeout_parse(ins, t1, inp_lits, inp_vars, prefix)
         opb_sz = filesize(_cfg[].proofs*ins*opb)
         pbp_sz = filesize(_cfg[].proofs*ins*pbp)
         open(_cfg[].proofs*ins*".out", "a") do f
@@ -9,19 +9,17 @@
             println(f, "inp LIT ",        inp_lits)
             println(f, "inp VAR ",        inp_vars)
             println(f, prefix, " PARSE TIME ", t1)
-            println(f, prefix, " OPB NBEQ ",  nbopb)
-            println(f, prefix, " PBP NBEQ ",  n_pbp)
-            println(f, prefix, " NBEQ ",      nbopb + n_pbp)
         end end
 
     function writeout_trim(ins, t2, cone, nbopb, prefix)
         cone_opb = sum(cone[1:nbopb])
         cone_pbp = sum(cone[nbopb+1:end])
+        n_pbp = length(cone) - nbopb
         open(_cfg[].proofs*ins*".out", "a") do f
             println(f, prefix, " TRIM TIME ", t2)
-            println(f, prefix, " OPB CONE ",  cone_opb)
-            println(f, prefix, " PBP CONE ",  cone_pbp)
-            println(f, prefix, " CONE ",      cone_opb + cone_pbp)
+            println(f, prefix, " OPB ",  cone_opb, "/", nbopb)
+            println(f, prefix, " PBP ",  cone_pbp, "/", n_pbp)
+            println(f, prefix, " NBEQ ", cone_opb + cone_pbp, "/", nbopb + n_pbp)
         end end
 
     function conelits_stats(sys, cone, conelits)
@@ -36,12 +34,12 @@
         end
         return (lits_cone=lits_cone, lits_smol=lits_smol, vars_used=sum(used_vars), vars_total=length(used_vars)) end
 
-    function writeout_conelits(ins, sys, cone, conelits, prefix)
+    function writeout_conelits(ins, sys, cone, conelits, inp_lits, prefix)
         s = conelits_stats(sys, cone, conelits)
         open(_cfg[].proofs*ins*".out", "a") do f
-            println(f, prefix, " CONE LIT ", s.lits_cone)
+            println(f, prefix, " LIT ", s.lits_cone, "/", inp_lits)
             println(f, prefix, " SMOL LIT ", s.lits_smol)
-            println(f, prefix, " CONE VAR ", s.vars_used)
+            println(f, prefix, " VAR ", s.vars_used, "/", s.vars_total)
         end end
 
     function count_step_types(systemlink::SystemLink, cone::Vector{Bool}, nbopb::Int)
@@ -73,16 +71,43 @@
         end
         (rup=n_rup, pol=n_pol, red=n_red, ia=n_ia, other=n_other) end
 
-    function writeout_step_types(ins, counts, prefix)
+    function count_step_types_full(systemlink::SystemLink)
+        n_rup = n_pol = n_red = n_ia = n_other = 0
+        for i in 1:length(systemlink)
+            k = systemlink.idx[i]
+            if k == -1
+                n_rup += 1
+            elseif k == -4
+                n_red += 1
+            elseif k > 0
+                rt = systemlink.data[systemlink.ptr[k]]
+                if rt == -2;     n_pol += 1
+                elseif rt == -3; n_ia  += 1
+                else             n_other += 1 end
+            elseif k == 0
+                link = get(systemlink.extra, i, nothing)
+                rt   = (link !== nothing && !isempty(link)) ? link[1] : -1
+                if rt == -2;     n_pol += 1
+                elseif rt == -3; n_ia  += 1
+                elseif rt == -1; n_rup += 1
+                else             n_rup += 1 end
+            else
+                n_other += 1
+            end
+        end
+        (rup=n_rup, pol=n_pol, red=n_red, ia=n_ia, other=n_other) end
+
+    function writeout_step_types(ins, cone_counts, full_counts, prefix)
         open(_cfg[].proofs*ins*".out", "a") do f
-            println(f, prefix, " CONE RUP ",  counts.rup)
-            println(f, prefix, " CONE POL ",  counts.pol)
-            println(f, prefix, " CONE RED ",  counts.red)
-            println(f, prefix, " CONE IA ",   counts.ia)
-            counts.other > 0 && println(f, prefix, " CONE OTHER ", counts.other)
+            println(f, prefix, " RUP ",  cone_counts.rup, "/", full_counts.rup)
+            println(f, prefix, " POL ",  cone_counts.pol, "/", full_counts.pol)
+            println(f, prefix, " RED ",  cone_counts.red, "/", full_counts.red)
+            println(f, prefix, " IA ",   cone_counts.ia,  "/", full_counts.ia)
+            (cone_counts.other > 0 || full_counts.other > 0) &&
+                println(f, prefix, " OTHER ", cone_counts.other, "/", full_counts.other)
         end end
 
-    function compute_cone_depth(cone::Vector{Bool}, systemlink::SystemLink, nbopb::Int)
+    function compute_cone_depth(cone::AbstractVector{Bool}, systemlink::SystemLink, nbopb::Int)
         n = length(cone)
         depth = zeros(Int32, n)
         n_pbp = 0; d_sum = Int64(0); d_max = Int32(0)
@@ -104,10 +129,12 @@
         mean = n_pbp > 0 ? d_sum / n_pbp : 0.0
         (max_depth=Int(d_max), mean_depth=mean, depth_arr=depth) end
 
-    function writeout_cone_depth(ins, stats, prefix)
+    function writeout_depth(ins, cone_stats, full_stats, prefix)
         open(_cfg[].proofs*ins*".out", "a") do f
-            println(f, prefix, " CONE DEPTH MAX ",  stats.max_depth)
-            println(f, prefix, " CONE DEPTH MEAN ", round(stats.mean_depth; digits=2))
+            println(f, prefix, " CONE DEPTH MAX ",  cone_stats.max_depth)
+            println(f, prefix, " FULL DEPTH MAX ",  full_stats.max_depth)
+            println(f, prefix, " CONE DEPTH MEAN ", round(cone_stats.mean_depth; digits=2))
+            println(f, prefix, " FULL DEPTH MEAN ", round(full_stats.mean_depth; digits=2))
         end end
 
     function compute_cone_depth_dist(cone, systemlink, nbopb, depth_arr)
@@ -247,24 +274,37 @@
          pol_ante_max=pol_ante_max, pol_opb_frac=round(pol_opb_frac; digits=4),
          pol_before_rup_burst=pol_before_rup_burst) end
 
-    function writeout_cone_depth_dist(ins, dist, prefix)
+    function writeout_depth_dist(ins, cone_dist, full_dist, prefix)
         open(_cfg[].proofs*ins*".out", "a") do f
-            println(f, prefix, " CONE DEPTH P50 ",        dist.cone_depth_p50)
-            println(f, prefix, " CONE DEPTH P90 ",        dist.cone_depth_p90)
-            println(f, prefix, " CONE DEPTH ENTROPY ",    dist.cone_depth_entropy)
-            println(f, prefix, " CONE BOTTOM FRAC ",      dist.cone_bottom_frac)
-            println(f, prefix, " CONE BOTTLENECK DEPTH ", dist.cone_bottleneck_depth)
-            println(f, prefix, " CONE WIDTH MAX ",        dist.cone_width_max)
-            println(f, prefix, " CONE WIDTH CV ",         dist.cone_width_cv)
-            println(f, prefix, " RUP DEPTH CV ",          dist.rup_depth_cv)
-            println(f, prefix, " POL DEPTH MEAN ",        dist.pol_depth_mean)
-            println(f, prefix, " POL DEPTH CV ",          dist.pol_depth_cv)
-            println(f, prefix, " POL DEPTH FRAC BOT ",    dist.pol_depth_frac_bot)
-            println(f, prefix, " POL DEPTH FRAC TOP ",    dist.pol_depth_frac_top)
-            println(f, prefix, " POL ANTE MEAN ",         dist.pol_ante_mean)
-            println(f, prefix, " POL ANTE MAX ",          dist.pol_ante_max)
-            println(f, prefix, " POL OPB FRAC ",          dist.pol_opb_frac)
-            println(f, prefix, " POL BURST ",             Int(dist.pol_before_rup_burst))
+            println(f, prefix, " CONE DEPTH P50 ",        cone_dist.cone_depth_p50)
+            println(f, prefix, " FULL DEPTH P50 ",        full_dist.cone_depth_p50)
+            println(f, prefix, " CONE DEPTH P90 ",        cone_dist.cone_depth_p90)
+            println(f, prefix, " FULL DEPTH P90 ",        full_dist.cone_depth_p90)
+            println(f, prefix, " CONE DEPTH ENTROPY ",    cone_dist.cone_depth_entropy)
+            println(f, prefix, " FULL DEPTH ENTROPY ",    full_dist.cone_depth_entropy)
+            println(f, prefix, " CONE BOTTOM FRAC ",      cone_dist.cone_bottom_frac)
+            println(f, prefix, " FULL BOTTOM FRAC ",      full_dist.cone_bottom_frac)
+            println(f, prefix, " CONE BOTTLENECK DEPTH ", cone_dist.cone_bottleneck_depth)
+            println(f, prefix, " CONE WIDTH MAX ",        cone_dist.cone_width_max)
+            println(f, prefix, " FULL WIDTH MAX ",        full_dist.cone_width_max)
+            println(f, prefix, " CONE WIDTH CV ",         cone_dist.cone_width_cv)
+            println(f, prefix, " FULL WIDTH CV ",         full_dist.cone_width_cv)
+            println(f, prefix, " CONE RUP DEPTH CV ",     cone_dist.rup_depth_cv)
+            println(f, prefix, " FULL RUP DEPTH CV ",     full_dist.rup_depth_cv)
+            println(f, prefix, " CONE POL DEPTH MEAN ",   cone_dist.pol_depth_mean)
+            println(f, prefix, " FULL POL DEPTH MEAN ",   full_dist.pol_depth_mean)
+            println(f, prefix, " CONE POL DEPTH CV ",     cone_dist.pol_depth_cv)
+            println(f, prefix, " FULL POL DEPTH CV ",     full_dist.pol_depth_cv)
+            println(f, prefix, " CONE POL DEPTH FRAC BOT ", cone_dist.pol_depth_frac_bot)
+            println(f, prefix, " CONE POL DEPTH FRAC TOP ", cone_dist.pol_depth_frac_top)
+            println(f, prefix, " CONE POL ANTE MEAN ",    cone_dist.pol_ante_mean)
+            println(f, prefix, " FULL POL ANTE MEAN ",    full_dist.pol_ante_mean)
+            println(f, prefix, " CONE POL ANTE MAX ",     cone_dist.pol_ante_max)
+            println(f, prefix, " FULL POL ANTE MAX ",     full_dist.pol_ante_max)
+            println(f, prefix, " CONE POL OPB FRAC ",     cone_dist.pol_opb_frac)
+            println(f, prefix, " FULL POL OPB FRAC ",     full_dist.pol_opb_frac)
+            println(f, prefix, " CONE POL BURST ",        Int(cone_dist.pol_before_rup_burst))
+            println(f, prefix, " FULL POL BURST ",        Int(full_dist.pol_before_rup_burst))
         end end
 
     # ── Proof-cone DOT visualisation ────────────────────────────────────────────
@@ -661,6 +701,8 @@
          runtime_ms   = gi(r"runtime\s*=\s*(\d+)"),
          status       = gs(r"status\s*=\s*(\w+)")) end
 
+    _parse_frac(s) = let p = findfirst('/', s); p === nothing ? (tryparse(Int, s), nothing) : (tryparse(Int, s[1:p-1]), tryparse(Int, s[p+1:end])) end
+
     function plotresultstable()
         list = filter(x -> ext(x)==".out" && !endswith(x,".smolverif.out") && !endswith(x,".verif.out"), readdir(_cfg[].proofs))
         list = onlyname.(list)
@@ -675,34 +717,46 @@
                 elseif occursin("grim OPB SIZE ", line)      res[T_GRIM_OSIZ] = tryparse(Int, split(line)[end])
                 elseif occursin("grim PBP SIZE ", line)      res[T_GRIM_PSIZ] = tryparse(Int, split(line)[end])
                 elseif occursin("grim SIZE ", line)          res[T_GRIM_SIZE] = tryparse(Int, split(line)[end])
-                elseif occursin("grim OPB CONE ", line)      res[T_GRIM_OCONE]= tryparse(Int, split(line)[end])
-                elseif occursin("grim PBP CONE ", line)      res[T_GRIM_PCONE]= tryparse(Int, split(line)[end])
-                elseif occursin("grim CONE LIT ", line)      res[T_GRIM_CLIT] = tryparse(Int, split(line)[end])
+                elseif match(r"^grim OPB \d+/\d+$", line) !== nothing
+                    a, b = _parse_frac(split(line)[end]); res[T_GRIM_OCONE] = a; res[T_GRIM_ONBEQ] = b
+                elseif match(r"^grim PBP \d+/\d+$", line) !== nothing
+                    a, b = _parse_frac(split(line)[end]); res[T_GRIM_PCONE] = a; res[T_GRIM_PNBEQ] = b
+                elseif match(r"^grim NBEQ \d+/\d+$", line) !== nothing
+                    a, b = _parse_frac(split(line)[end]); res[T_GRIM_CONE] = a; res[T_GRIM_NBEQ] = b
+                elseif match(r"^grim LIT \d+/\d+$", line) !== nothing
+                    res[T_GRIM_CLIT], _ = _parse_frac(split(line)[end])
                 elseif occursin("grim SMOL LIT ", line)      res[T_GRIM_SLIT] = tryparse(Int, split(line)[end])
-                elseif occursin("grim CONE VAR ", line)      res[T_GRIM_CVAR] = tryparse(Int, split(line)[end])
-                elseif occursin("grim CONE ", line)          res[T_GRIM_CONE] = tryparse(Int, split(line)[end])
-                elseif occursin("grim OPB NBEQ ", line)      res[T_GRIM_ONBEQ]= tryparse(Int, split(line)[end])
-                elseif occursin("grim PBP NBEQ ", line)      res[T_GRIM_PNBEQ]= tryparse(Int, split(line)[end])
+                elseif match(r"^grim VAR \d+/\d+$", line) !== nothing
+                    res[T_GRIM_CVAR], _ = _parse_frac(split(line)[end])
                 elseif occursin("inp OPB SIZE ", line)       res[T_INP_OSIZ]  = tryparse(Int, split(line)[end])
                 elseif occursin("inp PBP SIZE ", line)       res[T_INP_PSIZ]  = tryparse(Int, split(line)[end])
                 elseif occursin("inp SIZE ", line)           res[T_INP_SIZE]  = tryparse(Int, split(line)[end])
                 elseif occursin("inp LIT ", line)            res[T_INP_LIT]   = tryparse(Int, split(line)[end])
                 elseif occursin("inp VAR ", line)            res[T_INP_VAR]   = tryparse(Int, split(line)[end])
-                elseif occursin("grim NBEQ ", line)          res[T_GRIM_NBEQ] = tryparse(Int, split(line)[end])
                 elseif occursin("gclt TRIM TIME ", line)     res[T_GCLT_TTIME]= tryparse(Int, split(line)[end])
-                elseif occursin("gclt OPB CONE ", line)      res[T_GCLT_OCONE]= tryparse(Int, split(line)[end])
-                elseif occursin("gclt PBP CONE ", line)      res[T_GCLT_PCONE]= tryparse(Int, split(line)[end])
-                elseif occursin("gclt CONE LIT ", line)      res[T_GCLT_CLIT] = tryparse(Int, split(line)[end])
+                elseif match(r"^gclt OPB \d+/\d+$", line) !== nothing
+                    res[T_GCLT_OCONE], _ = _parse_frac(split(line)[end])
+                elseif match(r"^gclt PBP \d+/\d+$", line) !== nothing
+                    res[T_GCLT_PCONE], _ = _parse_frac(split(line)[end])
+                elseif match(r"^gclt NBEQ \d+/\d+$", line) !== nothing
+                    res[T_GCLT_CONE], _ = _parse_frac(split(line)[end])
+                elseif match(r"^gclt LIT \d+/\d+$", line) !== nothing
+                    res[T_GCLT_CLIT], _ = _parse_frac(split(line)[end])
                 elseif occursin("gclt SMOL LIT ", line)      res[T_GCLT_SLIT] = tryparse(Int, split(line)[end])
-                elseif occursin("gclt CONE VAR ", line)      res[T_GCLT_CVAR] = tryparse(Int, split(line)[end])
-                elseif occursin("gclt CONE ", line)          res[T_GCLT_CONE] = tryparse(Int, split(line)[end])
+                elseif match(r"^gclt VAR \d+/\d+$", line) !== nothing
+                    res[T_GCLT_CVAR], _ = _parse_frac(split(line)[end])
                 elseif occursin("gbfs TRIM TIME ", line)     res[T_GBFS_TTIME]= tryparse(Int, split(line)[end])
-                elseif occursin("gbfs OPB CONE ", line)      res[T_GBFS_OCONE]= tryparse(Int, split(line)[end])
-                elseif occursin("gbfs PBP CONE ", line)      res[T_GBFS_PCONE]= tryparse(Int, split(line)[end])
-                elseif occursin("gbfs CONE LIT ", line)      res[T_GBFS_CLIT] = tryparse(Int, split(line)[end])
+                elseif match(r"^gbfs OPB \d+/\d+$", line) !== nothing
+                    res[T_GBFS_OCONE], _ = _parse_frac(split(line)[end])
+                elseif match(r"^gbfs PBP \d+/\d+$", line) !== nothing
+                    res[T_GBFS_PCONE], _ = _parse_frac(split(line)[end])
+                elseif match(r"^gbfs NBEQ \d+/\d+$", line) !== nothing
+                    res[T_GBFS_CONE], _ = _parse_frac(split(line)[end])
+                elseif match(r"^gbfs LIT \d+/\d+$", line) !== nothing
+                    res[T_GBFS_CLIT], _ = _parse_frac(split(line)[end])
                 elseif occursin("gbfs SMOL LIT ", line)      res[T_GBFS_SLIT] = tryparse(Int, split(line)[end])
-                elseif occursin("gbfs CONE VAR ", line)      res[T_GBFS_CVAR] = tryparse(Int, split(line)[end])
-                elseif occursin("gbfs CONE ", line)          res[T_GBFS_CONE] = tryparse(Int, split(line)[end])
+                elseif match(r"^gbfs VAR \d+/\d+$", line) !== nothing
+                    res[T_GBFS_CVAR], _ = _parse_frac(split(line)[end])
                 elseif occursin("veri smol TIME ", line)     res[T_VERI_STIME]= tryparse(Int, split(line)[end])
                 elseif occursin("veri TIME ", line)          res[T_VERI_TIME] = tryparse(Int, split(line)[end])
                 elseif occursin("veri OPB SIZE ", line)      res[T_VERI_OSIZ] = tryparse(Int, split(line)[end])
@@ -991,65 +1045,156 @@
          other=n_other, unlabeled=n_unlabeled)
     end
 
-    function writeout_cone_labels(ins, stats, prefix)
+    function full_label_stats(ctrmap::Dict{String,Int}, ctrmap_evicted::Vector{Pair{String,Int}}, nbopb::Int, n_total::Int)
+        n_al1 = n_am1 = n_inj = n_g0adj = n_g1adj = n_g2adj = n_g3adj = n_gadj_other = 0
+        n_forb = n_noedge = n_elimdegpol = n_elimdeg = n_elimndspol = n_elimndsconc = n_elimnds = n_loop = 0
+        n_unsatconc = 0
+        n_reelimdegpol = n_reelimdeg = n_reelimndspol = n_reelimndsconc = 0
+        n_ptbig = n_hall = n_prop = n_guess = n_nogood = 0
+        n_pathg1 = n_pathg2 = n_pathg3 = n_pathg_other = 0
+        n_d2g1 = n_d2g2 = n_d2g3 = n_d2g_other = 0
+        n_d3g1 = n_d3g2 = n_d3g3 = n_d3g_other = 0
+        n_binback = n_colpol = 0
+        n_homcross = n_hombd = n_hompol = n_hominj = n_homdom = n_homfin = 0
+        n_mcspart = n_mcsfin = n_notconn = n_cliqedge = 0
+        n_other = 0
+        labeled_opb_ids = Set{Int}()
+        labeled_pbp_ids = Set{Int}()
+        for (label, id) in Iterators.flatten((ctrmap, ctrmap_evicted))
+            id > n_total && continue
+            cat = classify_label(label)
+            if id <= nbopb; push!(labeled_opb_ids, id)
+            else            push!(labeled_pbp_ids, id) end
+            if     cat == :al1;         n_al1         += 1
+            elseif cat == :am1;         n_am1         += 1
+            elseif cat == :inj;         n_inj         += 1
+            elseif cat == :g0adj;       n_g0adj       += 1
+            elseif cat == :g1adj;       n_g1adj       += 1
+            elseif cat == :g2adj;       n_g2adj       += 1
+            elseif cat == :g3adj;       n_g3adj       += 1
+            elseif cat == :gadj_other;  n_gadj_other  += 1
+            elseif cat == :forb;        n_forb        += 1
+            elseif cat == :noedge;      n_noedge      += 1
+            elseif cat == :unsatconc;   n_unsatconc   += 1
+            elseif cat == :reelimdegpol;  n_reelimdegpol  += 1
+            elseif cat == :reelimdeg;     n_reelimdeg     += 1
+            elseif cat == :reelimndspol;  n_reelimndspol  += 1
+            elseif cat == :reelimndsconc; n_reelimndsconc += 1
+            elseif cat == :elimdegpol;  n_elimdegpol  += 1
+            elseif cat == :elimdeg;     n_elimdeg     += 1
+            elseif cat == :elimndspol;  n_elimndspol  += 1
+            elseif cat == :elimndsconc; n_elimndsconc += 1
+            elseif cat == :elimnds;     n_elimnds     += 1
+            elseif cat == :loop;        n_loop        += 1
+            elseif cat == :ptbig;       n_ptbig       += 1
+            elseif cat == :hall;        n_hall        += 1
+            elseif cat == :prop;        n_prop        += 1
+            elseif cat == :guess;       n_guess       += 1
+            elseif cat == :nogood;      n_nogood      += 1
+            elseif cat == :pathg1;      n_pathg1      += 1
+            elseif cat == :pathg2;      n_pathg2      += 1
+            elseif cat == :pathg3;      n_pathg3      += 1
+            elseif cat == :pathg_other; n_pathg_other += 1
+            elseif cat == :d2g1;        n_d2g1        += 1
+            elseif cat == :d2g2;        n_d2g2        += 1
+            elseif cat == :d2g3;        n_d2g3        += 1
+            elseif cat == :d2g_other;   n_d2g_other   += 1
+            elseif cat == :d3g1;        n_d3g1        += 1
+            elseif cat == :d3g2;        n_d3g2        += 1
+            elseif cat == :d3g3;        n_d3g3        += 1
+            elseif cat == :d3g_other;   n_d3g_other   += 1
+            elseif cat == :binback;     n_binback     += 1
+            elseif cat == :colpol;      n_colpol      += 1
+            elseif cat == :homcross;    n_homcross    += 1
+            elseif cat == :hombd;       n_hombd       += 1
+            elseif cat == :hompol;      n_hompol      += 1
+            elseif cat == :hominj;      n_hominj      += 1
+            elseif cat == :homdom;      n_homdom      += 1
+            elseif cat == :homfin;      n_homfin      += 1
+            elseif cat == :mcspart;     n_mcspart     += 1
+            elseif cat == :mcsfin;      n_mcsfin      += 1
+            elseif cat == :notconn;     n_notconn     += 1
+            elseif cat == :cliqedge;    n_cliqedge    += 1
+            else                        n_other       += 1
+            end
+        end
+        n_pbp = n_total - nbopb
+        n_unlabeled = nbopb - length(labeled_opb_ids) + n_pbp - length(labeled_pbp_ids)
+        (al1=n_al1, am1=n_am1, inj=n_inj, g0adj=n_g0adj,
+         g1adj=n_g1adj, g2adj=n_g2adj, g3adj=n_g3adj, gadj_other=n_gadj_other,
+         forb=n_forb, noedge=n_noedge,
+         elimdegpol=n_elimdegpol, elimdeg=n_elimdeg,
+         elimndspol=n_elimndspol, elimndsconc=n_elimndsconc, elimnds=n_elimnds,
+         reelimdegpol=n_reelimdegpol, reelimdeg=n_reelimdeg,
+         reelimndspol=n_reelimndspol, reelimndsconc=n_reelimndsconc,
+         loop=n_loop, unsatconc=n_unsatconc,
+         ptbig=n_ptbig, hall=n_hall, prop=n_prop, guess=n_guess, nogood=n_nogood,
+         pathg1=n_pathg1, pathg2=n_pathg2, pathg3=n_pathg3, pathg_other=n_pathg_other,
+         d2g1=n_d2g1, d2g2=n_d2g2, d2g3=n_d2g3, d2g_other=n_d2g_other,
+         d3g1=n_d3g1, d3g2=n_d3g2, d3g3=n_d3g3, d3g_other=n_d3g_other,
+         binback=n_binback, colpol=n_colpol,
+         homcross=n_homcross, hombd=n_hombd, hompol=n_hompol,
+         hominj=n_hominj, homdom=n_homdom, homfin=n_homfin,
+         mcspart=n_mcspart, mcsfin=n_mcsfin,
+         notconn=n_notconn, cliqedge=n_cliqedge,
+         other=n_other, unlabeled=n_unlabeled)
+    end
+
+    function writeout_labels(ins, cone, full, prefix)
+        _lbl(f, tag, c, t) = (c > 0 || t > 0) && println(f, prefix, " LABEL ", tag, " ", c, "/", t)
         open(_cfg[].proofs * ins * ".out", "a") do f
-            # OPB axiom labels (always written, even if 0)
-            println(f, prefix, " CONE LABEL AL1 ",      stats.al1)
-            println(f, prefix, " CONE LABEL AM1 ",      stats.am1)
-            println(f, prefix, " CONE LABEL INJ ",      stats.inj)
-            println(f, prefix, " CONE LABEL G0ADJ ",    stats.g0adj)
-            println(f, prefix, " CONE LABEL FORB ",     stats.forb)
-            println(f, prefix, " CONE LABEL NOEDGE ",   stats.noedge)
-            # PBP degree/NDS elimination (always written, paired with OPB elimdeg)
-            println(f, prefix, " CONE LABEL ELIMDEGPOL ",  stats.elimdegpol)
-            println(f, prefix, " CONE LABEL ELIMDEG ",     stats.elimdeg)
-            println(f, prefix, " CONE LABEL ELIMNDS ",     stats.elimnds)
-            # PBP supplemental adjacency (always written)
-            println(f, prefix, " CONE LABEL G1ADJ ",    stats.g1adj)
-            println(f, prefix, " CONE LABEL G2ADJ ",    stats.g2adj)
-            println(f, prefix, " CONE LABEL G3ADJ ",    stats.g3adj)
-            # Re-elimination labels (conditional)
-            stats.reelimdegpol  > 0 && println(f, prefix, " CONE LABEL REELIMDEGPOL ",  stats.reelimdegpol)
-            stats.reelimdeg     > 0 && println(f, prefix, " CONE LABEL REELIMDEG ",     stats.reelimdeg)
-            stats.reelimndspol  > 0 && println(f, prefix, " CONE LABEL REELIMNDSPOL ",  stats.reelimndspol)
-            stats.reelimndsconc > 0 && println(f, prefix, " CONE LABEL REELIMNDSCONC ", stats.reelimndsconc)
-            # UNSAT conclusion
-            stats.unsatconc     > 0 && println(f, prefix, " CONE LABEL UNSATCONC ",     stats.unsatconc)
-            # Rare PBP labels (conditional)
-            stats.gadj_other  > 0 && println(f, prefix, " CONE LABEL GADJ_OTHER ",  stats.gadj_other)
-            stats.elimndspol  > 0 && println(f, prefix, " CONE LABEL ELIMNDSPOL ",  stats.elimndspol)
-            stats.elimndsconc > 0 && println(f, prefix, " CONE LABEL ELIMNDSCONC ", stats.elimndsconc)
-            stats.loop        > 0 && println(f, prefix, " CONE LABEL LOOP ",        stats.loop)
-            stats.ptbig       > 0 && println(f, prefix, " CONE LABEL PTBIG ",       stats.ptbig)
-            stats.hall        > 0 && println(f, prefix, " CONE LABEL HALL ",        stats.hall)
-            stats.prop        > 0 && println(f, prefix, " CONE LABEL PROP ",        stats.prop)
-            stats.guess       > 0 && println(f, prefix, " CONE LABEL GUESS ",       stats.guess)
-            stats.nogood      > 0 && println(f, prefix, " CONE LABEL NOGOOD ",      stats.nogood)
-            stats.pathg1      > 0 && println(f, prefix, " CONE LABEL PATHG1 ",      stats.pathg1)
-            stats.pathg2      > 0 && println(f, prefix, " CONE LABEL PATHG2 ",      stats.pathg2)
-            stats.pathg3      > 0 && println(f, prefix, " CONE LABEL PATHG3 ",      stats.pathg3)
-            stats.pathg_other > 0 && println(f, prefix, " CONE LABEL PATHG_OTHER ", stats.pathg_other)
-            stats.d2g1        > 0 && println(f, prefix, " CONE LABEL D2G1 ",        stats.d2g1)
-            stats.d2g2        > 0 && println(f, prefix, " CONE LABEL D2G2 ",        stats.d2g2)
-            stats.d2g3        > 0 && println(f, prefix, " CONE LABEL D2G3 ",        stats.d2g3)
-            stats.d2g_other   > 0 && println(f, prefix, " CONE LABEL D2G_OTHER ",   stats.d2g_other)
-            stats.d3g1        > 0 && println(f, prefix, " CONE LABEL D3G1 ",        stats.d3g1)
-            stats.d3g2        > 0 && println(f, prefix, " CONE LABEL D3G2 ",        stats.d3g2)
-            stats.d3g3        > 0 && println(f, prefix, " CONE LABEL D3G3 ",        stats.d3g3)
-            stats.d3g_other   > 0 && println(f, prefix, " CONE LABEL D3G_OTHER ",   stats.d3g_other)
-            stats.binback     > 0 && println(f, prefix, " CONE LABEL BINBACK ",     stats.binback)
-            stats.colpol      > 0 && println(f, prefix, " CONE LABEL COLPOL ",      stats.colpol)
-            stats.hombd       > 0 && println(f, prefix, " CONE LABEL HOMBD ",       stats.hombd)
-            stats.hompol      > 0 && println(f, prefix, " CONE LABEL HOMPOL ",      stats.hompol)
-            stats.hominj      > 0 && println(f, prefix, " CONE LABEL HOMINJ ",      stats.hominj)
-            stats.homdom      > 0 && println(f, prefix, " CONE LABEL HOMDOM ",      stats.homdom)
-            stats.homfin      > 0 && println(f, prefix, " CONE LABEL HOMFIN ",      stats.homfin)
-            stats.homcross    > 0 && println(f, prefix, " CONE LABEL HOMCROSS ",    stats.homcross)
-            stats.mcspart     > 0 && println(f, prefix, " CONE LABEL MCSPART ",     stats.mcspart)
-            stats.mcsfin      > 0 && println(f, prefix, " CONE LABEL MCSFIN ",      stats.mcsfin)
-            stats.notconn     > 0 && println(f, prefix, " CONE LABEL NOTCONN ",     stats.notconn)
-            stats.cliqedge    > 0 && println(f, prefix, " CONE LABEL CLIQEDGE ",    stats.cliqedge)
-            stats.unlabeled   > 0 && println(f, prefix, " CONE UNLABELED ",         stats.unlabeled)
+            println(f, prefix, " LABEL AL1 ",         cone.al1,        "/", full.al1)
+            println(f, prefix, " LABEL AM1 ",         cone.am1,        "/", full.am1)
+            println(f, prefix, " LABEL INJ ",         cone.inj,        "/", full.inj)
+            println(f, prefix, " LABEL G0ADJ ",       cone.g0adj,      "/", full.g0adj)
+            println(f, prefix, " LABEL FORB ",        cone.forb,       "/", full.forb)
+            println(f, prefix, " LABEL NOEDGE ",      cone.noedge,     "/", full.noedge)
+            println(f, prefix, " LABEL ELIMDEGPOL ",  cone.elimdegpol, "/", full.elimdegpol)
+            println(f, prefix, " LABEL ELIMDEG ",     cone.elimdeg,    "/", full.elimdeg)
+            println(f, prefix, " LABEL ELIMNDS ",     cone.elimnds,    "/", full.elimnds)
+            println(f, prefix, " LABEL G1ADJ ",       cone.g1adj,      "/", full.g1adj)
+            println(f, prefix, " LABEL G2ADJ ",       cone.g2adj,      "/", full.g2adj)
+            println(f, prefix, " LABEL G3ADJ ",       cone.g3adj,      "/", full.g3adj)
+            _lbl(f, "REELIMDEGPOL",  cone.reelimdegpol,  full.reelimdegpol)
+            _lbl(f, "REELIMDEG",     cone.reelimdeg,     full.reelimdeg)
+            _lbl(f, "REELIMNDSPOL",  cone.reelimndspol,  full.reelimndspol)
+            _lbl(f, "REELIMNDSCONC", cone.reelimndsconc, full.reelimndsconc)
+            _lbl(f, "UNSATCONC",     cone.unsatconc,     full.unsatconc)
+            _lbl(f, "GADJ_OTHER",    cone.gadj_other,    full.gadj_other)
+            _lbl(f, "ELIMNDSPOL",    cone.elimndspol,    full.elimndspol)
+            _lbl(f, "ELIMNDSCONC",   cone.elimndsconc,   full.elimndsconc)
+            _lbl(f, "LOOP",          cone.loop,          full.loop)
+            _lbl(f, "PTBIG",         cone.ptbig,         full.ptbig)
+            _lbl(f, "HALL",          cone.hall,          full.hall)
+            _lbl(f, "PROP",          cone.prop,          full.prop)
+            _lbl(f, "GUESS",         cone.guess,         full.guess)
+            _lbl(f, "NOGOOD",        cone.nogood,        full.nogood)
+            _lbl(f, "PATHG1",        cone.pathg1,        full.pathg1)
+            _lbl(f, "PATHG2",        cone.pathg2,        full.pathg2)
+            _lbl(f, "PATHG3",        cone.pathg3,        full.pathg3)
+            _lbl(f, "PATHG_OTHER",   cone.pathg_other,   full.pathg_other)
+            _lbl(f, "D2G1",          cone.d2g1,          full.d2g1)
+            _lbl(f, "D2G2",          cone.d2g2,          full.d2g2)
+            _lbl(f, "D2G3",          cone.d2g3,          full.d2g3)
+            _lbl(f, "D2G_OTHER",     cone.d2g_other,     full.d2g_other)
+            _lbl(f, "D3G1",          cone.d3g1,          full.d3g1)
+            _lbl(f, "D3G2",          cone.d3g2,          full.d3g2)
+            _lbl(f, "D3G3",          cone.d3g3,          full.d3g3)
+            _lbl(f, "D3G_OTHER",     cone.d3g_other,     full.d3g_other)
+            _lbl(f, "BINBACK",       cone.binback,       full.binback)
+            _lbl(f, "COLPOL",        cone.colpol,        full.colpol)
+            _lbl(f, "HOMBD",         cone.hombd,         full.hombd)
+            _lbl(f, "HOMPOL",        cone.hompol,        full.hompol)
+            _lbl(f, "HOMINJ",        cone.hominj,        full.hominj)
+            _lbl(f, "HOMDOM",        cone.homdom,        full.homdom)
+            _lbl(f, "HOMFIN",        cone.homfin,        full.homfin)
+            _lbl(f, "HOMCROSS",      cone.homcross,      full.homcross)
+            _lbl(f, "MCSPART",       cone.mcspart,       full.mcspart)
+            _lbl(f, "MCSFIN",        cone.mcsfin,        full.mcsfin)
+            _lbl(f, "NOTCONN",       cone.notconn,       full.notconn)
+            _lbl(f, "CLIQEDGE",      cone.cliqedge,      full.cliqedge)
+            (cone.unlabeled > 0 || full.unlabeled > 0) &&
+                println(f, prefix, " UNLABELED ", cone.unlabeled, "/", full.unlabeled)
         end
     end
 
@@ -1079,15 +1224,44 @@
         (order = order, n_unique_tar = length(tar_seen))
     end
 
-    function writeout_var_order(ins, var_data, prefix)
-        isempty(var_data.order) && return
-        open(_cfg[].proofs * ins * ".out", "a") do f
-            println(f, prefix, " CONE UNIQ PAT ", length(var_data.order))
-            println(f, prefix, " CONE UNIQ TAR ", var_data.n_unique_tar)
+    function full_var_order(varmap_inv::Vector{String}, sys::PBSystem, nbopb::Int)
+        pat_counts = Dict{String,Int}()
+        tar_seen   = Set{String}()
+        for i in 1:nbopb
+            for k in eqrange(sys, i)
+                v = Int(sys.vars[k])
+                v > length(varmap_inv) && continue
+                name = varmap_inv[v]
+                sep  = findfirst('_', name)
+                sep === nothing && continue
+                start = name[1] == 'x' ? 2 : 1
+                pat = name[start:sep-1]
+                tar = name[sep+1:end]
+                pat_counts[pat] = get(pat_counts, pat, 0) + 1
+                push!(tar_seen, tar)
+            end
         end
-        open(_cfg[].proofs * ins * ".var_order", "w") do f
-            for (pat, cnt) in var_data.order
-                println(f, pat, " ", cnt)
+        order = sort!(collect(pat_counts), by = x -> x[2], rev = true)
+        (order = order, n_unique_tar = length(tar_seen))
+    end
+
+    function writeout_var_order(ins, cone_data, full_data, prefix)
+        open(_cfg[].proofs * ins * ".out", "a") do f
+            println(f, prefix, " UNIQ PAT ", length(cone_data.order), "/", length(full_data.order))
+            println(f, prefix, " UNIQ TAR ", cone_data.n_unique_tar, "/", full_data.n_unique_tar)
+        end
+        if !isempty(cone_data.order)
+            open(_cfg[].proofs * ins * ".var_order", "w") do f
+                for (pat, cnt) in cone_data.order
+                    println(f, pat, " ", cnt)
+                end
+            end
+        end
+        if !isempty(full_data.order)
+            open(_cfg[].proofs * ins * ".full.var_order", "w") do f
+                for (pat, cnt) in full_data.order
+                    println(f, pat, " ", cnt)
+                end
             end
         end
     end
