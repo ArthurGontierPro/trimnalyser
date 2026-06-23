@@ -336,7 +336,7 @@
         ante = Ante(n)
         rs   = RupState(n, length(sys.var_ptr) - 1)   # reusable scratch buffers for rup/conflict analysis
         mode isa Clit && compute_essentials!(rs.essentials, sys)  # forward pass: essential vars per constraint
-        frontier = BinaryMaxHeap{Int}()                # max-heap: process highest-indexed eq first (backwards)
+        frontier = MaxHeap()                            # max-heap: process highest-indexed eq first (backwards)
 
         # Local function: clear ante, reset trail, run rup. i and subrange are parameters (not captured)
         # to avoid Julia boxing mutable loop variables. Everything else is captured from getcone! scope.

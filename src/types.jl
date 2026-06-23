@@ -200,9 +200,9 @@
     Ante(n::Int) = Ante(falses(n), Int[])
     struct RupState                                    # scratch buffers for one getcone! call; RED subproof calls allocate their own
         que           ::BitVector                      # ruptrail equation queue
-        pq_prio       ::BinaryMinHeap{Int}             # priority equations (cone/on_frontier)
-        pq_nonprio    ::BinaryMinHeap{Int}             # non-priority equations
-        to_explain    ::BinaryMaxHeap{Int}             # conflicttrail: trail positions still needing explanation
+        pq_prio       ::MinHeap                         # priority equations (cone/on_frontier)
+        pq_nonprio    ::MinHeap                         # non-priority equations
+        to_explain    ::MaxHeap                         # conflicttrail: trail positions still needing explanation
         is_to_explain ::BitVector                      # membership guard for to_explain (self-cleaning)
         falsified_lits::Vector{Tuple{Int,Int,Int,Int32}} # conflicttrail: reused per-iteration buffer
         essentials    ::Dict{Int,Set{Int}} end           # forward-pass: essential vars per constraint (Clit only)
@@ -213,9 +213,9 @@
     struct Clit end        # cone-first sort + essentials-aware filter in conflict analysis
     RupState(n_eqs::Int, n_vars::Int) = RupState(
         falses(n_eqs),
-        BinaryMinHeap{Int}(),
-        BinaryMinHeap{Int}(),
-        BinaryMaxHeap{Int}(),
+        MinHeap(),
+        MinHeap(),
+        MaxHeap(),
         falses(n_vars + 1),
         Tuple{Int,Int,Int,Int32}[],
         Dict{Int,Set{Int}}())
