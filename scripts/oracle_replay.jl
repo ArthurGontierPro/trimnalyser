@@ -176,50 +176,54 @@ function load_instances(path, graphs)
 end
 
 entries = load_instances(instfile, GRAPHS)
-println("Oracle replay: $(length(entries)) instances, timeout=$(solver_timeout)s")
+n = length(entries)
+nthreads = Threads.nthreads()
+println("Oracle replay: $n instances, timeout=$(solver_timeout)s, threads=$nthreads")
 println("Solver: $SOLVER")
 println("Graphs: $GRAPHS")
 
-let n_skipped = 0, n_done = 0
-    open(output_csv, "w") do io
-        println(io, join(CSV_COLUMNS, ","))
-
-        for (i, entry) in enumerate(entries)
-            vo_file = joinpath(proofs_dir, entry.name * ".var_order")
-            if !isfile(vo_file)
-                n_skipped += 1
-                continue
-            end
-
-            if !isfile(entry.pat) || !isfile(entry.tar)
-                n_skipped += 1
-                continue
-            end
-
-            family = instance_family(entry.name)
-
-            baseline = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout)
-            oracle   = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout; order_file=vo_file)
-
-            node_ratio = (baseline.nodes > 0 && oracle.nodes > 0) ?
-                round(oracle.nodes / baseline.nodes; digits=4) : -1.0
-            time_ratio = (baseline.runtime > 0 && oracle.runtime > 0) ?
-                round(oracle.runtime / baseline.runtime; digits=4) : -1.0
-
-            println(io, join([
-                entry.name, family,
-                baseline.nodes, baseline.runtime, baseline.status,
-                oracle.nodes, oracle.runtime, oracle.status,
-                node_ratio, time_ratio
-            ], ","))
-
-            n_done += 1
-            if n_done % 50 == 0
-                println("  $n_done/$(length(entries)) done ($(n_skipped) skipped)...")
-                flush(io)
-            end
-        end
-    end
-    println("Done: $n_done instances processed, $n_skipped skipped")
-    println("Results in $output_csv")
+struct ResultRow
+    line::String
 end
+
+results = Vector{Union{ResultRow, Nothing}}(nothing, n)
+done    = Threads.Atomic{Int}(0)
+skipped = Threads.Atomic{Int}(0)
+
+Threads.@threads for i in 1:n
+    entry = entries[i]
+    vo_file = joinpath(proofs_dir, entry.name * ".var_order")
+    if !isfile(vo_file) || !isfile(entry.pat) || !isfile(entry.tar)
+        Threads.atomic_add!(skipped, 1)
+        continue
+    end
+
+    family = instance_family(entry.name)
+
+    baseline = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout)
+    oracle   = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout; order_file=vo_file)
+
+    node_ratio = (baseline.nodes > 0 && oracle.nodes > 0) ?
+        round(oracle.nodes / baseline.nodes; digits=4) : -1.0
+    time_ratio = (baseline.runtime > 0 && oracle.runtime > 0) ?
+        round(oracle.runtime / baseline.runtime; digits=4) : -1.0
+
+    results[i] = ResultRow(join([
+        entry.name, family,
+        baseline.nodes, baseline.runtime, baseline.status,
+        oracle.nodes, oracle.runtime, oracle.status,
+        node_ratio, time_ratio
+    ], ","))
+
+    d = Threads.atomic_add!(done, 1) + 1
+    d % 50 == 0 && println("  $d/$n done ($(skipped[]) skipped)...")
+end
+
+open(output_csv, "w") do io
+    println(io, join(CSV_COLUMNS, ","))
+    for r in results
+        r !== nothing && println(io, r.line)
+    end
+end
+println("Done: $(done[]) instances processed, $(skipped[]) skipped")
+println("Results in $output_csv")
