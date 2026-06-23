@@ -45,8 +45,9 @@ end
 
 PackageCompiler.create_sysimage(
     [:TrimAnalyser];
-    sysimage_path = SO,
-    project       = ROOT,
+    sysimage_path              = SO,
+    project                    = ROOT,
+    precompile_execution_file  = joinpath(ROOT, "precompile_workload.jl"),
 )
 
 write(STAMP, string(VERSION))

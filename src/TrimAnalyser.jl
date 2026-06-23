@@ -45,19 +45,4 @@ include("orchestrator.jl")
 
 export main
 
-# ── Precompile workload ───────────────────────────────────────────────────────
-using PrecompileTools
-@compile_workload begin
-    let _proofs = joinpath(@__DIR__, "..", "test", "instances") * "/", _inst = "LVg10g12"
-        if isfile(_proofs * _inst * opb) && isfile(_proofs * _inst * pbp)
-            mktempdir() do dir
-                cp(_proofs * _inst * opb, joinpath(dir, _inst * opb))
-                cp(_proofs * _inst * pbp, joinpath(dir, _inst * pbp))
-                parse_config!([dir * "/", _inst])
-                trimnalyse(_inst; mode=Grim())
-            end
-        end
-    end
-end
-
 end # module TrimAnalyser

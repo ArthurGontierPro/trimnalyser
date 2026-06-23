@@ -6,9 +6,7 @@ version = "3.0.0"
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
-PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 
 [compat]
 DataStructures = "0.19.1"
-PrecompileTools = "1"
 Mmap = "1"
