@@ -116,7 +116,13 @@ outer traversal → `cone` accumulation → `activate!` routing → `pq_prio`/`p
 - `<instance>.out` / `.err` — per-instance logs (parsed by `aggregate_results.jl`)
 - `cluster_results.csv` — aggregated metrics (~100 columns) from all `.out` files
 
+## Startup & Sysimage Call Chain
+
+See [`docs/startup-callchain.md`](docs/startup-callchain.md) for the full call chain diagram, sysimage contract (the `--sysimage`/`--project`/`TRIMNALYSER_SYSIMAGE` triad), subprocess launcher details, and debugging guide.
+
 ## Known Design Flaws
+
+**Sysimage flag triad is fragile.** Three flags (`--sysimage`, `--project`, `TRIMNALYSER_SYSIMAGE`) must be set consistently across bash wrapper + subprocess launcher. They are set independently in two places (`trimnalyser:34`, `orchestrator.jl:214–218`) with no shared definition. See `docs/startup-callchain.md` for the contract table.
 
 **`run_instance_full` / `run_instance_batch` duplication.** Both implement solve→check→trim→verify→resolv with different subprocess handling for the trim step. Any fix must be mirrored in both. Should be unified with a strategy parameter.
 
