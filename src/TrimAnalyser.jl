@@ -5,7 +5,7 @@ julia --project --threads 192,1 bin/trimnalyser.jl solve resolv verif allgraphs 
 =#
 module TrimAnalyser
 
-using Mmap
+using DataStructures, Mmap
 
 # ── Static constants (cluster detection, paths) ──────────────────────────────
 const instance_prefixes = ("LV", "bio", "cviu11", "pr15", "mesh11", "ph_", "sf_")
@@ -33,7 +33,6 @@ include("config.jl")
 
 # ── Core sections (in dependency order) ──────────────────────────────────────
 include("utilities.jl")
-include("heap.jl")
 include("types.jl")
 include("parser.jl")
 include("pol.jl")
