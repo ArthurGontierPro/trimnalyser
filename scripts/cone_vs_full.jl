@@ -86,7 +86,6 @@ const COLORS = Dict(
     :homdom => "#98df8a", :homfin => "#ffbb78", :homcross => "#c49c94",
     :mcspart => "#f7b6d2", :mcsfin => "#dbdb8d",
     :notconn => "#c7c7c7", :cliqedge => "#aaaaaa",
-    :unlabeled_opb => "#dddddd", :unlabeled_pbp => "#888888",
 )
 
 const FAMILIES = ["LV", "bio", "images-CVIU11", "meshes-CVIU11", "scalefree"]
@@ -128,32 +127,6 @@ function compute_family_data(fsub)
                                mean(cone_raw), median(cone_raw))
     end
 
-    # Unlabeled OPB
-    full_opb_labeled = sum(safecol(fsub, "grim_full_$sym") for (sym, _) in OPB_LABELS)
-    full_opb_raw = fsub.full_opb_total
-    full_opb_unlabeled = max.(0.0, full_opb_raw .- full_opb_labeled)
-    full[:unlabeled_opb] = LabelStats(mean(full_opb_unlabeled ./ ft), median(full_opb_unlabeled ./ ft),
-                                      mean(full_opb_unlabeled), median(full_opb_unlabeled))
-
-    cone_opb_labeled = sum(safecol(fsub, "grim_cone_$sym") for (sym, _) in OPB_LABELS)
-    cone_opb_raw = safecol(fsub, "grim_opb_cone")
-    cone_opb_unlabeled = max.(0.0, cone_opb_raw .- cone_opb_labeled)
-    cone[:unlabeled_opb] = LabelStats(mean(cone_opb_unlabeled ./ ft), median(cone_opb_unlabeled ./ ft),
-                                      mean(cone_opb_unlabeled), median(cone_opb_unlabeled))
-
-    # Unlabeled PBP
-    full_pbp_labeled = sum(safecol(fsub, "grim_full_$sym") for (sym, _) in PBP_LABELS)
-    full_pbp_raw = fsub.full_pbp_total
-    full_pbp_unlabeled = max.(0.0, full_pbp_raw .- full_pbp_labeled)
-    full[:unlabeled_pbp] = LabelStats(mean(full_pbp_unlabeled ./ ft), median(full_pbp_unlabeled ./ ft),
-                                      mean(full_pbp_unlabeled), median(full_pbp_unlabeled))
-
-    cone_pbp_labeled = sum(safecol(fsub, "grim_cone_$sym") for (sym, _) in PBP_LABELS)
-    cone_pbp_raw = safecol(fsub, "grim_pbp_cone")
-    cone_pbp_unlabeled = max.(0.0, cone_pbp_raw .- cone_pbp_labeled)
-    cone[:unlabeled_pbp] = LabelStats(mean(cone_pbp_unlabeled ./ ft), median(cone_pbp_unlabeled ./ ft),
-                                      mean(cone_pbp_unlabeled), median(cone_pbp_unlabeled))
-
     cone_ratio_mean = mean(fsub.cone_total ./ ft)
     cone_ratio_med  = median(fsub.cone_total ./ ft)
     full_total_mean = mean(ft)
@@ -166,7 +139,7 @@ end
 
 # ── Chart builder ────────────────────────────────────────────────────────────
 
-const ALL_SEGMENTS = vcat(ALL_LABELS, [(:unlabeled_opb, "unlabeled OPB"), (:unlabeled_pbp, "unlabeled PBP")])
+const ALL_SEGMENTS = ALL_LABELS
 
 function build_chart(id, present, fam_data, significant, mode::Symbol)
     # mode: :mean or :median
@@ -285,7 +258,8 @@ function main()
 
     sub = filter(row -> !ismissing(row.is_unsat) && row.is_unsat == true &&
                         !ismissing(row.grim_total_cone) && row.grim_total_cone > 0 &&
-                        !ismissing(row.grim_full_rup), df)
+                        !ismissing(row.grim_full_rup) &&
+                        (ismissing(row.skip_reason) || row.skip_reason == ""), df)
     println("Instances with full+cone data: $(nrow(sub))")
 
     sub.full_pbp_total = safecol(sub, "grim_full_rup") .+ safecol(sub, "grim_full_pol") .+
