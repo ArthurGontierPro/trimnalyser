@@ -306,7 +306,7 @@ function parse_out_file(filepath)
 
     for line in eachline(filepath)
         for (substr, key, T) in _SUFFIX_RULES
-            occursin(substr, line) && (data[key] = tryparse(T, split(line)[end]))
+            startswith(line, substr) && (data[key] = tryparse(T, split(line)[end]))
         end
         for (rx, key, T) in _REGEX_RULES
             let m = match(rx, line); m !== nothing && (data[key] = tryparse(T, m.captures[1])); end

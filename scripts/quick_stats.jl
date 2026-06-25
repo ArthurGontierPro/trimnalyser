@@ -85,7 +85,28 @@ function main()
 
     # proof-only row mask
     proof_idx = findall(has_proof)
-    pcol(name) = numcol(Dict(name => get(cols, name, String[])[proof_idx]), name)
+    function pcol(name)
+        vals = get(cols, name, String[])
+        result = Float64[]
+        for i in proof_idx
+            v = tryparse(Float64, vals[i])
+            v !== nothing && push!(result, v)
+        end
+        result
+    end
+    function pcol_indexed(name)
+        vals = get(cols, name, String[])
+        result_vals = Float64[]
+        result_idxs = Int[]
+        for i in proof_idx
+            v = tryparse(Float64, vals[i])
+            if v !== nothing
+                push!(result_vals, v)
+                push!(result_idxs, i)
+            end
+        end
+        result_vals, result_idxs
+    end
 
     open(out_file, "w") do f
         io = TeeIO(stdout, f)
@@ -231,29 +252,30 @@ function main()
         # ── Outliers ──────────────────────────────────────────────────────────
         sec(io, "OUTLIERS (>1.5 IQR above Q3)")
         for (label, col) in [("Total Time","grim_total_time"), ("Trim Time","grim_trim_time")]
-            data = pcol(col); isempty(data) && continue
+            data, didx = pcol_indexed(col); isempty(data) && continue
             q1, q3 = quantile(data, 0.25), quantile(data, 0.75)
             cutoff = q3 + 1.5*(q3 - q1)
-            out_idx = [proof_idx[i] for (i,v) in enumerate(data) if v > cutoff]
-            isempty(out_idx) && continue
-            println(io, "\n  $label outliers ($(length(out_idx))):")
-            order = sortperm([parse(Float64, get(cols, col, String[])[i]) for i in out_idx]; rev=true)
-            for i in out_idx[order[1:min(5,end)]]
-                t    = parse(Float64, cols[col][i])
-                inp  = something(tryparse(Int, cols["inp_total_nbeq"][i]),  0)
-                cone = something(tryparse(Int, cols["grim_total_cone"][i]), 0)
+            out_pos = [j for (j,v) in enumerate(data) if v > cutoff]
+            isempty(out_pos) && continue
+            println(io, "\n  $label outliers ($(length(out_pos))):")
+            order = sortperm([data[j] for j in out_pos]; rev=true)
+            for j in out_pos[order[1:min(5,end)]]
+                gi   = didx[j]
+                t    = data[j]
+                inp  = something(tryparse(Int, cols["inp_total_nbeq"][gi]),  0)
+                cone = something(tryparse(Int, cols["grim_total_cone"][gi]), 0)
                 println(io, @sprintf("    %-35s %8.1fs  inp=%8d  cone=%7d",
-                    cols["instance"][i], t, inp, cone))
+                    cols["instance"][gi], t, inp, cone))
             end
         end
 
         # ── Top 10 slowest ────────────────────────────────────────────────────
-        times = pcol("grim_total_time")
+        times, tidx = pcol_indexed("grim_total_time")
         if !isempty(times)
             sec(io, "TOP 10 SLOWEST")
             order = sortperm(times; rev=true)
             for i in order[1:min(10,end)]
-                gi = proof_idx[i]
+                gi = tidx[i]
                 inp  = something(tryparse(Int, cols["inp_total_nbeq"][gi]),  0)
                 cone = something(tryparse(Int, cols["grim_total_cone"][gi]), 0)
                 println(io, @sprintf("  %-35s %8.1fs  inp=%8d  cone=%7d",

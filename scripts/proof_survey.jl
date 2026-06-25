@@ -239,39 +239,43 @@ function main()
         nrow(sub) == 0 && continue
         push!(present, fam)
 
-        # Per-instance fraction vectors — used for mean/median/IQR
-        total_v  = nonnull(sub, "grim_total_cone")
-        full_v   = nonnull(sub, "inp_total_nbeq")
-        opb_in_v = nonnull(sub, "inp_opb_nbeq")
-        pbp_in_v = nonnull(sub, "inp_pbp_nbeq")
 
-        function frac_vec(num_col, denom_v)
-            num_v = nonnull(sub, num_col)
-            (isempty(num_v) || isempty(denom_v)) && return Float64[]
-            [n / d for (n, d) in zip(num_v, denom_v) if d > 0]
+        function frac_vec(num_col, denom_col)
+            (num_col ∉ names(sub) || denom_col ∉ names(sub)) && return Float64[]
+            v = Float64[]
+            for i in 1:nrow(sub)
+                n = sub[i, num_col]; d = sub[i, denom_col]
+                (ismissing(n) || ismissing(d) || d == 0) && continue
+                push!(v, Float64(n) / Float64(d))
+            end
+            v
         end
-        function frac_stats(num_col, denom_v)
-            v = frac_vec(num_col, denom_v)
+        function frac_stats(num_col, denom_col)
+            v = frac_vec(num_col, denom_col)
             isempty(v) && return (mean=NaN, med=NaN, q1=NaN, q3=NaN)
             qs = quantile(v, [0.25, 0.5, 0.75])
             (mean=avg(v), med=qs[2], q1=qs[1], q3=qs[3])
         end
-        function removed_frac(inp_col, cone_col)
-            inp_v  = nonnull(sub, inp_col)
-            cone_v = nonnull(sub, cone_col)
-            (isempty(inp_v) || isempty(cone_v) || isempty(full_v)) && return NaN
-            avg([max(0.0, i - c) / t for (i, c, t) in zip(inp_v, cone_v, full_v) if t > 0])
+        function removed_frac(inp_col, cone_col, full_col)
+            (inp_col ∉ names(sub) || cone_col ∉ names(sub) || full_col ∉ names(sub)) && return NaN
+            v = Float64[]
+            for i in 1:nrow(sub)
+                iv = sub[i, inp_col]; cv = sub[i, cone_col]; fv = sub[i, full_col]
+                (ismissing(iv) || ismissing(cv) || ismissing(fv) || fv == 0) && continue
+                push!(v, max(0.0, Float64(iv) - Float64(cv)) / Float64(fv))
+            end
+            isempty(v) ? NaN : avg(v)
         end
 
         # Step type fracs within cone
-        fs_opb = frac_stats("grim_opb_cone", total_v)
-        fs_rup = frac_stats("grim_cone_rup", total_v)
-        fs_pol = frac_stats("grim_cone_pol", total_v)
-        fs_ia  = frac_stats("grim_cone_ia",  total_v)
-        fs_red = frac_stats("grim_cone_red", total_v)
+        fs_opb = frac_stats("grim_opb_cone", "grim_total_cone")
+        fs_rup = frac_stats("grim_cone_rup", "grim_total_cone")
+        fs_pol = frac_stats("grim_cone_pol", "grim_total_cone")
+        fs_ia  = frac_stats("grim_cone_ia",  "grim_total_cone")
+        fs_red = frac_stats("grim_cone_red", "grim_total_cone")
         # OPB/PBP-specific survival rates (on their own denominator)
-        sv_opb = frac_stats("grim_opb_cone",  opb_in_v)
-        sv_pbp = frac_stats("grim_pbp_cone",  pbp_in_v)
+        sv_opb = frac_stats("grim_opb_cone",  "inp_opb_nbeq")
+        sv_pbp = frac_stats("grim_pbp_cone",  "inp_pbp_nbeq")
 
         fam_data[fam] = (
             n           = nrow(sub),
@@ -285,14 +289,14 @@ function main()
             mean_ia =fs_ia.mean,  med_ia =fs_ia.med,  q1_ia =fs_ia.q1,  q3_ia =fs_ia.q3,
             mean_red=fs_red.mean, med_red=fs_red.med, q1_red=fs_red.q1, q3_red=fs_red.q3,
             # survival fractions vs full proof (denominator = inp_total_nbeq)
-            surv_opb    = avg(frac_vec("grim_opb_cone", full_v)),
-            surv_rup    = avg(frac_vec("grim_cone_rup", full_v)),
-            surv_pol    = avg(frac_vec("grim_cone_pol", full_v)),
-            surv_ia     = avg(frac_vec("grim_cone_ia",  full_v)),
-            surv_red    = avg(frac_vec("grim_cone_red", full_v)),
-            surv_cone   = avg(frac_vec("grim_total_cone", full_v)),
-            rem_opb     = removed_frac("inp_opb_nbeq", "grim_opb_cone"),
-            rem_pbp     = removed_frac("inp_pbp_nbeq", "grim_pbp_cone"),
+            surv_opb    = avg(frac_vec("grim_opb_cone", "inp_total_nbeq")),
+            surv_rup    = avg(frac_vec("grim_cone_rup", "inp_total_nbeq")),
+            surv_pol    = avg(frac_vec("grim_cone_pol", "inp_total_nbeq")),
+            surv_ia     = avg(frac_vec("grim_cone_ia",  "inp_total_nbeq")),
+            surv_red    = avg(frac_vec("grim_cone_red", "inp_total_nbeq")),
+            surv_cone   = avg(frac_vec("grim_total_cone", "inp_total_nbeq")),
+            rem_opb     = removed_frac("inp_opb_nbeq", "grim_opb_cone", "inp_total_nbeq"),
+            rem_pbp     = removed_frac("inp_pbp_nbeq", "grim_pbp_cone", "inp_total_nbeq"),
             # OPB/PBP-specific survival rates (own denominator)
             sv_opb_mean=sv_opb.mean, sv_opb_med=sv_opb.med, sv_opb_q1=sv_opb.q1, sv_opb_q3=sv_opb.q3,
             sv_pbp_mean=sv_pbp.mean, sv_pbp_med=sv_pbp.med, sv_pbp_q1=sv_pbp.q1, sv_pbp_q3=sv_pbp.q3,
@@ -631,14 +635,19 @@ function main()
         no_search   = proof_jdf[ismissing.(proof_jdf.solver_nodes) .| (proof_jdf.solver_nodes .<= 1), :]
 
         function step_mix(sub)
-            total_v = nonnull(sub, "grim_pbp_cone")
-            function tf(col)
-                num_v = nonnull(sub, col)
-                isempty(num_v) || isempty(total_v) && return NaN
-                avg([n / t for (n, t) in zip(num_v, total_v) if t > 0])
+            function tf(num_col, denom_col)
+                (num_col ∉ names(sub) || denom_col ∉ names(sub)) && return NaN
+                v = Float64[]
+                for i in 1:nrow(sub)
+                    n = sub[i, num_col]; d = sub[i, denom_col]
+                    (ismissing(n) || ismissing(d) || d == 0) && continue
+                    push!(v, Float64(n) / Float64(d))
+                end
+                isempty(v) ? NaN : avg(v)
             end
-            (n=nrow(sub), opb=avg([r for r in skipmissing(sub.grim_opb_cone ./ sub.grim_total_cone)]),
-             rup=tf("grim_cone_rup"), pol=tf("grim_cone_pol"), ia=tf("grim_cone_ia"), red=tf("grim_cone_red"))
+            (n=nrow(sub), opb=tf("grim_opb_cone", "grim_total_cone"),
+             rup=tf("grim_cone_rup", "grim_pbp_cone"), pol=tf("grim_cone_pol", "grim_pbp_cone"),
+             ia=tf("grim_cone_ia", "grim_pbp_cone"), red=tf("grim_cone_red", "grim_pbp_cone"))
         end
 
         sm_search   = step_mix(has_search)
