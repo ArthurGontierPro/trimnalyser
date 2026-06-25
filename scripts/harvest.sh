@@ -21,8 +21,11 @@ julia scripts/aggregate_var_order.jl "$PROOFS" var_order
 echo "=== 4/5 Quick stats ==="
 julia scripts/quick_stats.jl cluster_results.csv
 
-echo "=== 5/5 HTML reports ==="
+echo "=== 5/6 HTML reports ==="
 julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html
 julia --project=scripts scripts/classify_supplementals.jl cluster_results.csv graph_features.csv classify_supplementals
 
-echo "=== Done — pull with: bash scripts/harvest_pull.sh ==="
+echo "=== 6/6 Cone vs full ==="
+julia --project=scripts scripts/cone_vs_full.jl cluster_results.csv cone_vs_full.html
+
+echo "=== Done (6/6) — pull with: bash scripts/harvest_pull.sh ==="
