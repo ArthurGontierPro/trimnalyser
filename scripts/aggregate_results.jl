@@ -1,8 +1,27 @@
 #!/usr/bin/env julia
-# Aggregate trimming results into a CSV file
+#
+# Aggregate per-instance .out/.err files into a single CSV.
+#
+# Input:  a proof directory containing <instance>.out files written by TrimAnalyser
+#         (and optionally <instance>.err, .coreN.out for resolv iterations, .smol.opb/.smol.pbp).
+#
+# Output: one CSV row per .out file, with ~147 columns covering input stats, cone stats
+#         (grim/gclt/gbfs), verification, solver stats, resolv iterations, label provenance,
+#         and derived fractions.
+#
+# .out line format conventions:
+#   - TrimAnalyser lines:  "<prefix> <TAG> <value>"       e.g. "grim TRIM TIME 5.3"
+#   - Fraction lines:      "<prefix> <TAG> cone/total"    e.g. "grim OPB 1516/7810"
+#   - Label lines:         "<prefix> LABEL <TAG> cone/total"
+#   - Glasgow solver lines (piped to .out): "key = value" e.g. "status = false"
+#
+# .coreN.out files are resolv iteration outputs — each is also a valid .out file and appears
+# as its own row (e.g. instance "LVg10g12.core1"). The base instance additionally aggregates
+# per-iteration metrics into JSON array columns.
+#
+# Usage: julia aggregate_results.jl <proofs_directory> [output.csv]
 
-using Printf
-
+# Map instance name prefix to benchmark family (newSIP naming conventions).
 function instance_family(instance)
     startswith(instance, "LV")     && return "LV"
     startswith(instance, "bio")    && return "bio"
@@ -79,9 +98,9 @@ const CSV_COLUMNS = [
     "grim_full_pol_depth_mean", "grim_full_pol_depth_cv",
     "grim_full_pol_ante_mean", "grim_full_pol_ante_max", "grim_full_pol_opb_frac",
     "grim_full_pol_before_rup_burst",
-    # M2: step-type fractions (derived from counts / pbp_cone)
+    # M2: step-type fractions (derived: count / total_cone)
     "grim_rup_frac", "grim_pol_frac", "grim_ia_frac", "grim_red_frac",
-    # M3.5.7: full step-type fractions
+    # M3.5.7: full step-type fractions (derived: count / total_nbeq)
     "grim_full_rup_frac", "grim_full_pol_frac", "grim_full_ia_frac", "grim_full_red_frac",
     # M2: literal compression
     "grim_literal_weakening_rate",
@@ -131,7 +150,7 @@ const CSV_COLUMNS = [
     "grim_full_mcspart", "grim_full_mcsfin",
     "grim_full_notconn", "grim_full_cliqedge",
     "grim_full_unlabeled",
-    # M3.5: CP constraint provenance (fractions of OPB cone)
+    # M3.5: CP constraint provenance (fractions of total cone)
     "grim_cone_frac_inj", "grim_cone_frac_g0adj",
     "grim_cone_frac_g1adj", "grim_cone_frac_g2adj", "grim_cone_frac_g3adj",
     "grim_cone_frac_forb", "grim_cone_frac_noedge",
@@ -152,27 +171,23 @@ function _parse_frac(s)
     (tryparse(Int, s[1:p-1]), tryparse(Int, s[p+1:end]))
 end
 
-function _parse_frac_label(line)
-    tok = split(line)[end]
-    _parse_frac(tok)
-end
+# CP constraint provenance label tags (shared by parser, cone row builder, full row builder).
+const _LABEL_TAGS = [
+    "al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj", "gadj_other",
+    "forb", "noedge", "elimdegpol", "elimdeg", "elimndspol", "elimndsconc", "elimnds",
+    "loop", "ptbig", "hall", "prop", "guess", "nogood",
+    "pathg1", "pathg2", "pathg3", "pathg_other",
+    "d2g1", "d2g2", "d2g3", "d2g_other",
+    "d3g1", "d3g2", "d3g3", "d3g_other",
+    "reelimdegpol", "reelimdeg", "reelimndspol", "reelimndsconc",
+    "unsatconc", "binback", "colpol",
+    "hombd", "hompol", "hominj", "homdom", "homfin", "homcross",
+    "mcspart", "mcsfin", "notconn", "cliqedge"
+]
 
 const _LABEL_REGEXES = Dict(
-    tag => Regex("^grim LABEL $tag (\\d+/\\d+)\$")
-    for tag in [
-        "AL1", "AM1", "INJ", "G0ADJ", "FORB", "NOEDGE",
-        "ELIMDEGPOL", "ELIMDEG", "ELIMNDS",
-        "G1ADJ", "G2ADJ", "G3ADJ",
-        "REELIMDEGPOL", "REELIMDEG", "REELIMNDSPOL", "REELIMNDSCONC",
-        "UNSATCONC", "GADJ_OTHER", "ELIMNDSPOL", "ELIMNDSCONC",
-        "LOOP", "PTBIG", "HALL", "PROP", "GUESS", "NOGOOD",
-        "PATHG1", "PATHG2", "PATHG3", "PATHG_OTHER",
-        "D2G1", "D2G2", "D2G3", "D2G_OTHER",
-        "D3G1", "D3G2", "D3G3", "D3G_OTHER",
-        "BINBACK", "COLPOL",
-        "HOMBD", "HOMPOL", "HOMINJ", "HOMDOM", "HOMFIN", "HOMCROSS",
-        "MCSPART", "MCSFIN", "NOTCONN", "CLIQEDGE"
-    ]
+    tag => Regex("^grim LABEL $(uppercase(tag)) (\\d+/\\d+)\$")
+    for tag in _LABEL_TAGS
 )
 
 function parse_out_file(filepath)
@@ -278,14 +293,13 @@ function parse_out_file(filepath)
             if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["grim_cone_variables"] = a; end
         end
 
-        # Label fractions: grim LABEL TAG cone/full
-        for (tag, rx) in _LABEL_REGEXES
-            let m = match(rx, line)
+        # Label fractions: "grim LABEL TAG cone/full"
+        for tag in _LABEL_TAGS
+            let m = match(_LABEL_REGEXES[tag], line)
                 if m !== nothing
                     a, b = _parse_frac(m.captures[1])
-                    lc = lowercase(tag)
-                    data["grim_cone_$lc"] = a
-                    data["grim_full_$lc"] = b
+                    data["grim_cone_$tag"] = a
+                    data["grim_full_$tag"] = b
                 end
             end
         end
@@ -358,7 +372,7 @@ function parse_out_file(filepath)
             m !== nothing && (data["resolv_stop_reason"] = m.captures[1])
         end
 
-        # Solver stats
+        # Solver stats (written by Glasgow solver, piped to .out by runsipsolver)
         let m = match(r"^pattern_vertices\s*=\s*(\d+)", line); m !== nothing && (data["pattern_vertices"] = tryparse(Int, m.captures[1])); end
         let m = match(r"^target_vertices\s*=\s*(\d+)", line); m !== nothing && (data["target_vertices"] = tryparse(Int, m.captures[1])); end
         let m = match(r"^runtime\s*=\s*(\d+)", line); m !== nothing && (data["runtime_ms"] = tryparse(Int, m.captures[1])); end
@@ -370,6 +384,8 @@ function parse_out_file(filepath)
     return data
 end
 
+# Classify error from .err file. Returns (has_error, type, details).
+# Types: "OOM", "Timeout", "Int32Overflow", "BoundsError", "Unknown".
 function parse_err_file(filepath)
     isfile(filepath) || return (false, "", "")
 
@@ -408,36 +424,19 @@ function count_resolv_iterations(proofdir, instance)
     return n
 end
 
-function get_iteration_sizes(proofdir, instance, n_iterations)
-    sizes_total = []; sizes_opb = []; sizes_pbp = []
+# Extract a list of keys from each .coreN.out file for the given instance.
+function get_iteration_fields(proofdir, instance, n_iterations, keys)
+    result = [[] for _ in keys]
     for i in 1:n_iterations
         out_file = joinpath(proofdir, instance * ".core$i" * ".out")
         if isfile(out_file)
             data = parse_out_file(out_file)
-            push!(sizes_total, get(data, "grim_total_size", nothing))
-            push!(sizes_opb, get(data, "grim_opb_size", nothing))
-            push!(sizes_pbp, get(data, "grim_pbp_size", nothing))
+            for (j, k) in enumerate(keys); push!(result[j], get(data, k, nothing)); end
         else
-            push!(sizes_total, nothing); push!(sizes_opb, nothing); push!(sizes_pbp, nothing)
+            for j in eachindex(keys); push!(result[j], nothing); end
         end
     end
-    return (sizes_total, sizes_opb, sizes_pbp)
-end
-
-function get_iteration_metrics(proofdir, instance, n_iterations)
-    nbeq_list = []; var_list = []; lit_list = []
-    for i in 1:n_iterations
-        out_file = joinpath(proofdir, instance * ".core$i" * ".out")
-        if isfile(out_file)
-            data = parse_out_file(out_file)
-            push!(nbeq_list, get(data, "inp_total_nbeq", nothing))
-            push!(var_list, get(data, "inp_variables", nothing))
-            push!(lit_list, get(data, "inp_literals", nothing))
-        else
-            push!(nbeq_list, nothing); push!(var_list, nothing); push!(lit_list, nothing)
-        end
-    end
-    return (nbeq_list, var_list, lit_list)
+    return Tuple(result)
 end
 
 function parse_lad_node_count(filepath)
@@ -455,6 +454,8 @@ function get_core_stats(proofdir, instance)
     return (core_pat_nodes, core_tar_nodes, pat_total, tar_total)
 end
 
+# Why this instance has no trimmed proof. "SAT" = solver found a mapping (no proof to trim),
+# "truncated_*" = solver wrote a partial proof, "no_proof_generated" = UNSAT but no .pbp.
 function detect_skip_reason(err_filepath, has_proof, status_val)
     if status_val == "true"; return "SAT"; end
     if isfile(err_filepath)
@@ -482,7 +483,7 @@ csv_quote(s) = "\"" * replace(string(s), "\"" => "\"\"") * "\""
 function format_array(arr)
     isempty(arr) && return ""
     vals = [v !== nothing ? string(v) : "null" for v in arr]
-    return "\"[" * join(vals, ",") * "]\""
+    return csv_quote("[" * join(vals, ",") * "]")
 end
 
 function aggregate_results(proofdir::String, output_csv::String)
@@ -509,8 +510,10 @@ function aggregate_results(proofdir::String, output_csv::String)
             has_error, error_type, error_details = parse_err_file(err_file)
 
             resolv_iters = count_resolv_iterations(proofdir, instance)
-            iter_sizes_total, iter_sizes_opb, iter_sizes_pbp = get_iteration_sizes(proofdir, instance, resolv_iters)
-            iter_nbeq, iter_var, iter_lit = get_iteration_metrics(proofdir, instance, resolv_iters)
+            iter_sizes_total, iter_sizes_opb, iter_sizes_pbp = get_iteration_fields(
+                proofdir, instance, resolv_iters, ["grim_total_size", "grim_opb_size", "grim_pbp_size"])
+            iter_nbeq, iter_var, iter_lit = get_iteration_fields(
+                proofdir, instance, resolv_iters, ["inp_total_nbeq", "inp_variables", "inp_literals"])
 
             row = []
             push!(row, csv_quote(instance))
@@ -712,34 +715,10 @@ function aggregate_results(proofdir::String, output_csv::String)
                     round((tar0 - last(iter_tar)) / tar0; digits=4) : "")
             end
 
-            # Label counts — cone
-            for lc in ["al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj", "gadj_other",
-                        "forb", "noedge", "elimdegpol", "elimdeg", "elimndspol", "elimndsconc", "elimnds",
-                        "loop", "ptbig", "hall", "prop", "guess", "nogood",
-                        "pathg1", "pathg2", "pathg3", "pathg_other",
-                        "d2g1", "d2g2", "d2g3", "d2g_other",
-                        "d3g1", "d3g2", "d3g3", "d3g_other",
-                        "reelimdegpol", "reelimdeg", "reelimndspol", "reelimndsconc",
-                        "unsatconc", "binback", "colpol",
-                        "hombd", "hompol", "hominj", "homdom", "homfin", "homcross",
-                        "mcspart", "mcsfin", "notconn", "cliqedge"]
-                push!(row, get(data, "grim_cone_$lc", ""))
-            end
+            # Label counts — cone and full
+            for lc in _LABEL_TAGS; push!(row, get(data, "grim_cone_$lc", "")); end
             push!(row, get(data, "grim_cone_unlabeled", ""))
-
-            # Label counts — full
-            for lc in ["al1", "am1", "inj", "g0adj", "g1adj", "g2adj", "g3adj", "gadj_other",
-                        "forb", "noedge", "elimdegpol", "elimdeg", "elimndspol", "elimndsconc", "elimnds",
-                        "loop", "ptbig", "hall", "prop", "guess", "nogood",
-                        "pathg1", "pathg2", "pathg3", "pathg_other",
-                        "d2g1", "d2g2", "d2g3", "d2g_other",
-                        "d3g1", "d3g2", "d3g3", "d3g_other",
-                        "reelimdegpol", "reelimdeg", "reelimndspol", "reelimndsconc",
-                        "unsatconc", "binback", "colpol",
-                        "hombd", "hompol", "hominj", "homdom", "homfin", "homcross",
-                        "mcspart", "mcsfin", "notconn", "cliqedge"]
-                push!(row, get(data, "grim_full_$lc", ""))
-            end
+            for lc in _LABEL_TAGS; push!(row, get(data, "grim_full_$lc", "")); end
             push!(row, get(data, "grim_full_unlabeled", ""))
 
             # Label fractions of total cone (derived)
