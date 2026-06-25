@@ -190,109 +190,136 @@ const _LABEL_REGEXES = Dict(
     for tag in _LABEL_TAGS
 )
 
+# ── Table-driven .out parser ─────────────────────────────────────────────────
+# Each table is a Vector of tuples, precompiled once.  parse_out_file iterates
+# all three tables per line, then falls through to the handful of special cases.
+
+# Suffix rules: line contains `substr` → data[key] = tryparse(T, last_token)
+const _SUFFIX_RULES = [
+    # Input stats
+    ("inp OPB SIZE ",     "inp_opb_size",    Int),
+    ("inp PBP SIZE ",     "inp_pbp_size",    Int),
+    ("inp SIZE ",         "inp_total_size",  Int),
+    ("inp LIT ",          "inp_literals",    Int),
+    ("inp VAR ",          "inp_variables",   Int),
+    # Grim timing & output sizes
+    ("grim PARSE TIME ",  "grim_parse_time", Float64),
+    ("grim TRIM TIME ",   "grim_trim_time",  Float64),
+    ("grim WRITE TIME ",  "grim_write_time", Float64),
+    ("grim TIME ",        "grim_total_time", Float64),
+    ("grim OPB SIZE ",    "grim_opb_size",   Int),
+    ("grim PBP SIZE ",    "grim_pbp_size",   Int),
+    ("grim SIZE ",        "grim_total_size", Int),
+    # Alt trim modes
+    ("gclt TRIM TIME ",   "gclt_trim_time",  Float64),
+    ("gbfs TRIM TIME ",   "gbfs_trim_time",  Float64),
+    # Verification
+    ("veri smol TIME ",   "veri_smol_time",  Float64),
+    ("veri TIME ",        "veri_total_time", Float64),
+]
+
+# Regex rules: match(rx, line) → data[key] = tryparse(T, capture[1])
+const _REGEX_RULES = [
+    # Depth — cone
+    (r"^grim CONE DEPTH MAX (\d+)",               "grim_cone_depth_max",           Int),
+    (r"^grim CONE DEPTH MEAN ([\d.]+)",            "grim_cone_depth_mean",          Float64),
+    (r"^grim CONE DEPTH P50 (\d+)",                "grim_cone_depth_p50",           Int),
+    (r"^grim CONE DEPTH P90 (\d+)",                "grim_cone_depth_p90",           Int),
+    (r"^grim CONE DEPTH ENTROPY ([\d.]+)",         "grim_cone_depth_entropy",       Float64),
+    (r"^grim CONE BOTTOM FRAC ([\d.]+)",           "grim_cone_bottom_frac",         Float64),
+    (r"^grim CONE BOTTLENECK DEPTH (-?\d+)",       "grim_cone_bottleneck_depth",    Int),
+    (r"^grim CONE WIDTH MAX (\d+)",                "grim_cone_width_max",           Int),
+    (r"^grim CONE WIDTH CV ([\d.]+)",              "grim_cone_width_cv",            Float64),
+    (r"^grim CONE RUP DEPTH CV ([\d.]+)",          "grim_cone_rup_depth_cv",        Float64),
+    (r"^grim CONE POL DEPTH MEAN ([\d.]+)",        "grim_cone_pol_depth_mean",      Float64),
+    (r"^grim CONE POL DEPTH CV ([\d.]+)",          "grim_cone_pol_depth_cv",        Float64),
+    (r"^grim CONE POL DEPTH FRAC BOT ([\d.]+)",   "grim_cone_pol_depth_frac_bot",  Float64),
+    (r"^grim CONE POL DEPTH FRAC TOP ([\d.]+)",   "grim_cone_pol_depth_frac_top",  Float64),
+    (r"^grim CONE POL ANTE MEAN ([\d.]+)",         "grim_cone_pol_ante_mean",       Float64),
+    (r"^grim CONE POL ANTE MAX (\d+)",             "grim_cone_pol_ante_max",        Int),
+    (r"^grim CONE POL OPB FRAC ([\d.]+)",          "grim_cone_pol_opb_frac",        Float64),
+    (r"^grim CONE POL BURST ([01])",               "grim_cone_pol_before_rup_burst",Int),
+    # Depth — full
+    (r"^grim FULL DEPTH MAX (\d+)",                "grim_full_depth_max",           Int),
+    (r"^grim FULL DEPTH MEAN ([\d.]+)",            "grim_full_depth_mean",          Float64),
+    (r"^grim FULL DEPTH P50 (\d+)",                "grim_full_depth_p50",           Int),
+    (r"^grim FULL DEPTH P90 (\d+)",                "grim_full_depth_p90",           Int),
+    (r"^grim FULL DEPTH ENTROPY ([\d.]+)",         "grim_full_depth_entropy",       Float64),
+    (r"^grim FULL BOTTOM FRAC ([\d.]+)",           "grim_full_bottom_frac",         Float64),
+    (r"^grim FULL WIDTH MAX (\d+)",                "grim_full_width_max",           Int),
+    (r"^grim FULL WIDTH CV ([\d.]+)",              "grim_full_width_cv",            Float64),
+    (r"^grim FULL RUP DEPTH CV ([\d.]+)",          "grim_full_rup_depth_cv",        Float64),
+    (r"^grim FULL POL DEPTH MEAN ([\d.]+)",        "grim_full_pol_depth_mean",      Float64),
+    (r"^grim FULL POL DEPTH CV ([\d.]+)",          "grim_full_pol_depth_cv",        Float64),
+    (r"^grim FULL POL ANTE MEAN ([\d.]+)",         "grim_full_pol_ante_mean",       Float64),
+    (r"^grim FULL POL ANTE MAX (\d+)",             "grim_full_pol_ante_max",        Int),
+    (r"^grim FULL POL OPB FRAC ([\d.]+)",          "grim_full_pol_opb_frac",        Float64),
+    (r"^grim FULL POL BURST ([01])",               "grim_full_pol_before_rup_burst",Int),
+    # SMOL LIT (single value, not a fraction)
+    (r"^grim SMOL LIT (\d+)",                      "grim_smol_literals",            Int),
+    (r"^gclt SMOL LIT (\d+)",                      "gclt_smol_literals",            Int),
+    (r"^gbfs SMOL LIT (\d+)",                      "gbfs_smol_literals",            Int),
+    # Solver stats (written by Glasgow solver, piped to .out by runsipsolver)
+    (r"^pattern_vertices\s*=\s*(\d+)",             "pattern_vertices",              Int),
+    (r"^target_vertices\s*=\s*(\d+)",              "target_vertices",               Int),
+    (r"^runtime\s*=\s*(\d+)",                      "runtime_ms",                    Int),
+    (r"^nodes\s*=\s*(\d+)",                        "solver_nodes",                  Int),
+    (r"^propagations\s*=\s*(\d+)",                 "solver_propagations",           Int),
+]
+
+# Fraction rules: match(rx, line) → _parse_frac → data[key_a] = numerator
+# If key_b is not nothing, data[key_b] = denominator.
+const _FRAC_RULES = [
+    # Grim cone/inp fractions
+    (r"^grim OPB (\d+/\d+)$",   "grim_opb_cone",       "inp_opb_nbeq"),
+    (r"^grim PBP (\d+/\d+)$",   "grim_pbp_cone",       "inp_pbp_nbeq"),
+    (r"^grim NBEQ (\d+/\d+)$",  "grim_total_cone",     "inp_total_nbeq"),
+    # Grim step type cone/full fractions
+    (r"^grim RUP (\d+/\d+)$",   "grim_cone_rup",       "grim_full_rup"),
+    (r"^grim POL (\d+/\d+)$",   "grim_cone_pol",       "grim_full_pol"),
+    (r"^grim RED (\d+/\d+)$",   "grim_cone_red",       "grim_full_red"),
+    (r"^grim IA (\d+/\d+)$",    "grim_cone_ia",        "grim_full_ia"),
+    # Grim literal/variable cone fractions (denominator discarded)
+    (r"^grim LIT (\d+/\d+)$",   "grim_cone_literals",  nothing),
+    (r"^grim VAR (\d+/\d+)$",   "grim_cone_variables", nothing),
+    # Grim unlabeled + variable order (cone/full)
+    (r"^grim UNLABELED (\d+/\d+)$", "grim_cone_unlabeled", "grim_full_unlabeled"),
+    (r"^grim UNIQ PAT (\d+/\d+)$",  "grim_cone_uniq_pat",  "grim_full_uniq_pat"),
+    (r"^grim UNIQ TAR (\d+/\d+)$",  "grim_cone_uniq_tar",  "grim_full_uniq_tar"),
+    # Gclt fractions (cone only)
+    (r"^gclt OPB (\d+/\d+)$",   "gclt_opb_cone",       nothing),
+    (r"^gclt PBP (\d+/\d+)$",   "gclt_pbp_cone",       nothing),
+    (r"^gclt NBEQ (\d+/\d+)$",  "gclt_total_cone",     nothing),
+    (r"^gclt LIT (\d+/\d+)$",   "gclt_cone_literals",  nothing),
+    (r"^gclt VAR (\d+/\d+)$",   "gclt_cone_variables", nothing),
+    # Gbfs fractions (cone only)
+    (r"^gbfs OPB (\d+/\d+)$",   "gbfs_opb_cone",       nothing),
+    (r"^gbfs PBP (\d+/\d+)$",   "gbfs_pbp_cone",       nothing),
+    (r"^gbfs NBEQ (\d+/\d+)$",  "gbfs_total_cone",     nothing),
+    (r"^gbfs LIT (\d+/\d+)$",   "gbfs_cone_literals",  nothing),
+    (r"^gbfs VAR (\d+/\d+)$",   "gbfs_cone_variables", nothing),
+]
+
 function parse_out_file(filepath)
     data = Dict{String, Any}()
     isfile(filepath) || return data
 
     for line in eachline(filepath)
-        # Input stats
-        occursin("inp OPB SIZE ", line)      && (data["inp_opb_size"] = tryparse(Int, split(line)[end]))
-        occursin("inp PBP SIZE ", line)      && (data["inp_pbp_size"] = tryparse(Int, split(line)[end]))
-        occursin("inp SIZE ", line)          && (data["inp_total_size"] = tryparse(Int, split(line)[end]))
-        occursin("inp LIT ", line)           && (data["inp_literals"] = tryparse(Int, split(line)[end]))
-        occursin("inp VAR ", line)           && (data["inp_variables"] = tryparse(Int, split(line)[end]))
-
-        # Grim timing
-        occursin("grim PARSE TIME ", line)   && (data["grim_parse_time"] = tryparse(Float64, split(line)[end]))
-        occursin("grim TRIM TIME ", line)    && (data["grim_trim_time"] = tryparse(Float64, split(line)[end]))
-        occursin("grim WRITE TIME ", line)   && (data["grim_write_time"] = tryparse(Float64, split(line)[end]))
-        occursin("grim TIME ", line)         && (data["grim_total_time"] = tryparse(Float64, split(line)[end]))
-        occursin("grim OPB SIZE ", line)     && (data["grim_opb_size"] = tryparse(Int, split(line)[end]))
-        occursin("grim PBP SIZE ", line)     && (data["grim_pbp_size"] = tryparse(Int, split(line)[end]))
-        occursin("grim SIZE ", line)         && (data["grim_total_size"] = tryparse(Int, split(line)[end]))
-
-        # M3.5.7 fraction format: grim OPB cone/total, grim PBP cone/total, grim NBEQ cone/total
-        let m = match(r"^grim OPB (\d+/\d+)$", line)
-            if m !== nothing
-                a, b = _parse_frac(m.captures[1])
-                data["grim_opb_cone"] = a; data["inp_opb_nbeq"] = b
+        for (substr, key, T) in _SUFFIX_RULES
+            occursin(substr, line) && (data[key] = tryparse(T, split(line)[end]))
+        end
+        for (rx, key, T) in _REGEX_RULES
+            let m = match(rx, line); m !== nothing && (data[key] = tryparse(T, m.captures[1])); end
+        end
+        for (rx, key_a, key_b) in _FRAC_RULES
+            let m = match(rx, line)
+                if m !== nothing
+                    a, b = _parse_frac(m.captures[1])
+                    data[key_a] = a
+                    key_b !== nothing && (data[key_b] = b)
+                end
             end
         end
-        let m = match(r"^grim PBP (\d+/\d+)$", line)
-            if m !== nothing
-                a, b = _parse_frac(m.captures[1])
-                data["grim_pbp_cone"] = a; data["inp_pbp_nbeq"] = b
-            end
-        end
-        let m = match(r"^grim NBEQ (\d+/\d+)$", line)
-            if m !== nothing
-                a, b = _parse_frac(m.captures[1])
-                data["grim_total_cone"] = a; data["inp_total_nbeq"] = b
-            end
-        end
-
-        # Step type fractions: grim RUP cone/full, etc.
-        let m = match(r"^grim RUP (\d+/\d+)$", line)
-            if m !== nothing; a, b = _parse_frac(m.captures[1]); data["grim_cone_rup"] = a; data["grim_full_rup"] = b; end
-        end
-        let m = match(r"^grim POL (\d+/\d+)$", line)
-            if m !== nothing; a, b = _parse_frac(m.captures[1]); data["grim_cone_pol"] = a; data["grim_full_pol"] = b; end
-        end
-        let m = match(r"^grim RED (\d+/\d+)$", line)
-            if m !== nothing; a, b = _parse_frac(m.captures[1]); data["grim_cone_red"] = a; data["grim_full_red"] = b; end
-        end
-        let m = match(r"^grim IA (\d+/\d+)$", line)
-            if m !== nothing; a, b = _parse_frac(m.captures[1]); data["grim_cone_ia"] = a; data["grim_full_ia"] = b; end
-        end
-
-        # Depth — cone and full (parallel lines)
-        let m = match(r"^grim CONE DEPTH MAX (\d+)", line); m !== nothing && (data["grim_cone_depth_max"] = parse(Int, m.captures[1])); end
-        let m = match(r"^grim FULL DEPTH MAX (\d+)", line); m !== nothing && (data["grim_full_depth_max"] = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE DEPTH MEAN ([\d.]+)", line); m !== nothing && (data["grim_cone_depth_mean"] = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL DEPTH MEAN ([\d.]+)", line); m !== nothing && (data["grim_full_depth_mean"] = parse(Float64, m.captures[1])); end
-
-        # Cone depth distribution
-        let m = match(r"^grim CONE DEPTH P50 (\d+)", line);         m !== nothing && (data["grim_cone_depth_p50"]         = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE DEPTH P90 (\d+)", line);         m !== nothing && (data["grim_cone_depth_p90"]         = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE DEPTH ENTROPY ([\d.]+)", line);  m !== nothing && (data["grim_cone_depth_entropy"]     = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE BOTTOM FRAC ([\d.]+)", line);    m !== nothing && (data["grim_cone_bottom_frac"]       = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE BOTTLENECK DEPTH (-?\d+)", line);m !== nothing && (data["grim_cone_bottleneck_depth"]  = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE WIDTH MAX (\d+)", line);         m !== nothing && (data["grim_cone_width_max"]         = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE WIDTH CV ([\d.]+)", line);       m !== nothing && (data["grim_cone_width_cv"]          = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE RUP DEPTH CV ([\d.]+)", line);   m !== nothing && (data["grim_cone_rup_depth_cv"]      = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE POL DEPTH MEAN ([\d.]+)", line); m !== nothing && (data["grim_cone_pol_depth_mean"]    = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE POL DEPTH CV ([\d.]+)", line);   m !== nothing && (data["grim_cone_pol_depth_cv"]      = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE POL DEPTH FRAC BOT ([\d.]+)", line); m !== nothing && (data["grim_cone_pol_depth_frac_bot"] = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE POL DEPTH FRAC TOP ([\d.]+)", line); m !== nothing && (data["grim_cone_pol_depth_frac_top"] = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE POL ANTE MEAN ([\d.]+)", line);  m !== nothing && (data["grim_cone_pol_ante_mean"]     = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE POL ANTE MAX (\d+)", line);      m !== nothing && (data["grim_cone_pol_ante_max"]      = parse(Int, m.captures[1])); end
-        let m = match(r"^grim CONE POL OPB FRAC ([\d.]+)", line);   m !== nothing && (data["grim_cone_pol_opb_frac"]      = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim CONE POL BURST ([01])", line);        m !== nothing && (data["grim_cone_pol_before_rup_burst"] = parse(Int, m.captures[1])); end
-
-        # Full depth distribution
-        let m = match(r"^grim FULL DEPTH P50 (\d+)", line);         m !== nothing && (data["grim_full_depth_p50"]         = parse(Int, m.captures[1])); end
-        let m = match(r"^grim FULL DEPTH P90 (\d+)", line);         m !== nothing && (data["grim_full_depth_p90"]         = parse(Int, m.captures[1])); end
-        let m = match(r"^grim FULL DEPTH ENTROPY ([\d.]+)", line);  m !== nothing && (data["grim_full_depth_entropy"]     = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL BOTTOM FRAC ([\d.]+)", line);    m !== nothing && (data["grim_full_bottom_frac"]       = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL WIDTH MAX (\d+)", line);         m !== nothing && (data["grim_full_width_max"]         = parse(Int, m.captures[1])); end
-        let m = match(r"^grim FULL WIDTH CV ([\d.]+)", line);       m !== nothing && (data["grim_full_width_cv"]          = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL RUP DEPTH CV ([\d.]+)", line);   m !== nothing && (data["grim_full_rup_depth_cv"]      = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL POL DEPTH MEAN ([\d.]+)", line); m !== nothing && (data["grim_full_pol_depth_mean"]    = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL POL DEPTH CV ([\d.]+)", line);   m !== nothing && (data["grim_full_pol_depth_cv"]      = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL POL ANTE MEAN ([\d.]+)", line);  m !== nothing && (data["grim_full_pol_ante_mean"]     = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL POL ANTE MAX (\d+)", line);      m !== nothing && (data["grim_full_pol_ante_max"]      = parse(Int, m.captures[1])); end
-        let m = match(r"^grim FULL POL OPB FRAC ([\d.]+)", line);   m !== nothing && (data["grim_full_pol_opb_frac"]      = parse(Float64, m.captures[1])); end
-        let m = match(r"^grim FULL POL BURST ([01])", line);        m !== nothing && (data["grim_full_pol_before_rup_burst"] = parse(Int, m.captures[1])); end
-
-        # Literal/variable fractions
-        let m = match(r"^grim LIT (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["grim_cone_literals"] = a; end
-        end
-        let m = match(r"^grim SMOL LIT (\d+)", line); m !== nothing && (data["grim_smol_literals"] = tryparse(Int, m.captures[1])); end
-        let m = match(r"^grim VAR (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["grim_cone_variables"] = a; end
-        end
-
         # Label fractions: "grim LABEL TAG cone/full"
         for tag in _LABEL_TAGS
             let m = match(_LABEL_REGEXES[tag], line)
@@ -303,65 +330,10 @@ function parse_out_file(filepath)
                 end
             end
         end
-        let m = match(r"^grim UNLABELED (\d+/\d+)$", line)
-            if m !== nothing
-                a, b = _parse_frac(m.captures[1])
-                data["grim_cone_unlabeled"] = a; data["grim_full_unlabeled"] = b
-            end
-        end
-
-        # Variable order fractions
-        let m = match(r"^grim UNIQ PAT (\d+/\d+)$", line)
-            if m !== nothing; a, b = _parse_frac(m.captures[1]); data["grim_cone_uniq_pat"] = a; data["grim_full_uniq_pat"] = b; end
-        end
-        let m = match(r"^grim UNIQ TAR (\d+/\d+)$", line)
-            if m !== nothing; a, b = _parse_frac(m.captures[1]); data["grim_cone_uniq_tar"] = a; data["grim_full_uniq_tar"] = b; end
-        end
-
-        # Gclt fractions
-        let m = match(r"^gclt OPB (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gclt_opb_cone"] = a; end
-        end
-        let m = match(r"^gclt PBP (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gclt_pbp_cone"] = a; end
-        end
-        let m = match(r"^gclt NBEQ (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gclt_total_cone"] = a; end
-        end
-        occursin("gclt TRIM TIME ", line) && (data["gclt_trim_time"] = tryparse(Float64, split(line)[end]))
-        let m = match(r"^gclt LIT (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gclt_cone_literals"] = a; end
-        end
-        let m = match(r"^gclt SMOL LIT (\d+)", line); m !== nothing && (data["gclt_smol_literals"] = tryparse(Int, m.captures[1])); end
-        let m = match(r"^gclt VAR (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gclt_cone_variables"] = a; end
-        end
-
-        # Gbfs fractions
-        let m = match(r"^gbfs OPB (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gbfs_opb_cone"] = a; end
-        end
-        let m = match(r"^gbfs PBP (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gbfs_pbp_cone"] = a; end
-        end
-        let m = match(r"^gbfs NBEQ (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gbfs_total_cone"] = a; end
-        end
-        occursin("gbfs TRIM TIME ", line) && (data["gbfs_trim_time"] = tryparse(Float64, split(line)[end]))
-        let m = match(r"^gbfs LIT (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gbfs_cone_literals"] = a; end
-        end
-        let m = match(r"^gbfs SMOL LIT (\d+)", line); m !== nothing && (data["gbfs_smol_literals"] = tryparse(Int, m.captures[1])); end
-        let m = match(r"^gbfs VAR (\d+/\d+)$", line)
-            if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gbfs_cone_variables"] = a; end
-        end
-
-        # Verification
-        occursin("veri smol TIME ", line)        && (data["veri_smol_time"] = tryparse(Float64, split(line)[end]))
-        occursin("veri TIME ", line)             && (data["veri_total_time"] = tryparse(Float64, split(line)[end]))
-        line == "veri smol VERIFIED"             && (data["veri_smol_verified"] = 1)
-        line == "veri smol NOT VERIFIED"         && (data["veri_smol_verified"] = 0)
-        # Resolv shrinkage curve
+        # Special cases that don't fit a table pattern
+        line == "veri smol VERIFIED"     && (data["veri_smol_verified"] = 1)
+        line == "veri smol NOT VERIFIED" && (data["veri_smol_verified"] = 0)
+        let m = match(r"^status\s*=\s*(\w+)", line); m !== nothing && (data["status"] = m.captures[1]); end
         let m = match(r"^resolv ITER \d+ PAT (\d+) TAR (\d+)$", line)
             if m !== nothing
                 push!(get!(data, "resolv_iter_pat") do; Int[] end, parse(Int, m.captures[1]))
@@ -371,14 +343,6 @@ function parse_out_file(filepath)
         let m = match(r"^resolv STOP (\w+)", line)
             m !== nothing && (data["resolv_stop_reason"] = m.captures[1])
         end
-
-        # Solver stats (written by Glasgow solver, piped to .out by runsipsolver)
-        let m = match(r"^pattern_vertices\s*=\s*(\d+)", line); m !== nothing && (data["pattern_vertices"] = tryparse(Int, m.captures[1])); end
-        let m = match(r"^target_vertices\s*=\s*(\d+)", line); m !== nothing && (data["target_vertices"] = tryparse(Int, m.captures[1])); end
-        let m = match(r"^runtime\s*=\s*(\d+)", line); m !== nothing && (data["runtime_ms"] = tryparse(Int, m.captures[1])); end
-        let m = match(r"^status\s*=\s*(\w+)", line); m !== nothing && (data["status"] = m.captures[1]); end
-        let m = match(r"^nodes\s*=\s*(\d+)", line); m !== nothing && (data["solver_nodes"] = tryparse(Int, m.captures[1])); end
-        let m = match(r"^propagations\s*=\s*(\d+)", line); m !== nothing && (data["solver_propagations"] = tryparse(Int, m.captures[1])); end
     end
 
     return data
