@@ -157,20 +157,23 @@ function _parse_frac_label(line)
     _parse_frac(tok)
 end
 
-const _LABEL_NAMES = [
-    "AL1", "AM1", "INJ", "G0ADJ", "FORB", "NOEDGE",
-    "ELIMDEGPOL", "ELIMDEG", "ELIMNDS",
-    "G1ADJ", "G2ADJ", "G3ADJ",
-    "REELIMDEGPOL", "REELIMDEG", "REELIMNDSPOL", "REELIMNDSCONC",
-    "UNSATCONC", "GADJ_OTHER", "ELIMNDSPOL", "ELIMNDSCONC",
-    "LOOP", "PTBIG", "HALL", "PROP", "GUESS", "NOGOOD",
-    "PATHG1", "PATHG2", "PATHG3", "PATHG_OTHER",
-    "D2G1", "D2G2", "D2G3", "D2G_OTHER",
-    "D3G1", "D3G2", "D3G3", "D3G_OTHER",
-    "BINBACK", "COLPOL",
-    "HOMBD", "HOMPOL", "HOMINJ", "HOMDOM", "HOMFIN", "HOMCROSS",
-    "MCSPART", "MCSFIN", "NOTCONN", "CLIQEDGE"
-]
+const _LABEL_REGEXES = Dict(
+    tag => Regex("^grim LABEL $tag (\\d+/\\d+)\$")
+    for tag in [
+        "AL1", "AM1", "INJ", "G0ADJ", "FORB", "NOEDGE",
+        "ELIMDEGPOL", "ELIMDEG", "ELIMNDS",
+        "G1ADJ", "G2ADJ", "G3ADJ",
+        "REELIMDEGPOL", "REELIMDEG", "REELIMNDSPOL", "REELIMNDSCONC",
+        "UNSATCONC", "GADJ_OTHER", "ELIMNDSPOL", "ELIMNDSCONC",
+        "LOOP", "PTBIG", "HALL", "PROP", "GUESS", "NOGOOD",
+        "PATHG1", "PATHG2", "PATHG3", "PATHG_OTHER",
+        "D2G1", "D2G2", "D2G3", "D2G_OTHER",
+        "D3G1", "D3G2", "D3G3", "D3G_OTHER",
+        "BINBACK", "COLPOL",
+        "HOMBD", "HOMPOL", "HOMINJ", "HOMDOM", "HOMFIN", "HOMCROSS",
+        "MCSPART", "MCSFIN", "NOTCONN", "CLIQEDGE"
+    ]
+)
 
 function parse_out_file(filepath)
     data = Dict{String, Any}()
@@ -270,14 +273,14 @@ function parse_out_file(filepath)
         let m = match(r"^grim LIT (\d+/\d+)$", line)
             if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["grim_cone_literals"] = a; end
         end
-        match(r"^grim SMOL LIT (\d+)", line) !== nothing && (data["grim_smol_literals"] = tryparse(Int, match(r"^grim SMOL LIT (\d+)", line).captures[1]))
+        let m = match(r"^grim SMOL LIT (\d+)", line); m !== nothing && (data["grim_smol_literals"] = tryparse(Int, m.captures[1])); end
         let m = match(r"^grim VAR (\d+/\d+)$", line)
             if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["grim_cone_variables"] = a; end
         end
 
         # Label fractions: grim LABEL TAG cone/full
-        for tag in _LABEL_NAMES
-            let m = match(Regex("^grim LABEL $tag (\\d+/\\d+)\$"), line)
+        for (tag, rx) in _LABEL_REGEXES
+            let m = match(rx, line)
                 if m !== nothing
                     a, b = _parse_frac(m.captures[1])
                     lc = lowercase(tag)
@@ -315,7 +318,7 @@ function parse_out_file(filepath)
         let m = match(r"^gclt LIT (\d+/\d+)$", line)
             if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gclt_cone_literals"] = a; end
         end
-        match(r"^gclt SMOL LIT (\d+)", line) !== nothing && (data["gclt_smol_literals"] = tryparse(Int, match(r"^gclt SMOL LIT (\d+)", line).captures[1]))
+        let m = match(r"^gclt SMOL LIT (\d+)", line); m !== nothing && (data["gclt_smol_literals"] = tryparse(Int, m.captures[1])); end
         let m = match(r"^gclt VAR (\d+/\d+)$", line)
             if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gclt_cone_variables"] = a; end
         end
@@ -334,7 +337,7 @@ function parse_out_file(filepath)
         let m = match(r"^gbfs LIT (\d+/\d+)$", line)
             if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gbfs_cone_literals"] = a; end
         end
-        match(r"^gbfs SMOL LIT (\d+)", line) !== nothing && (data["gbfs_smol_literals"] = tryparse(Int, match(r"^gbfs SMOL LIT (\d+)", line).captures[1]))
+        let m = match(r"^gbfs SMOL LIT (\d+)", line); m !== nothing && (data["gbfs_smol_literals"] = tryparse(Int, m.captures[1])); end
         let m = match(r"^gbfs VAR (\d+/\d+)$", line)
             if m !== nothing; a, _ = _parse_frac(m.captures[1]); data["gbfs_cone_variables"] = a; end
         end
@@ -344,10 +347,6 @@ function parse_out_file(filepath)
         occursin("veri TIME ", line)             && (data["veri_total_time"] = tryparse(Float64, split(line)[end]))
         line == "veri smol VERIFIED"             && (data["veri_smol_verified"] = 1)
         line == "veri smol NOT VERIFIED"         && (data["veri_smol_verified"] = 0)
-        occursin("veri OPB SIZE ", line)     && (data["veri_opb_size"] = tryparse(Int, split(line)[end]))
-        occursin("veri PBP SIZE ", line)     && (data["veri_pbp_size"] = tryparse(Int, split(line)[end]))
-        occursin("veri SIZE ", line)         && (data["veri_total_size"] = tryparse(Int, split(line)[end]))
-
         # Resolv shrinkage curve
         let m = match(r"^resolv ITER \d+ PAT (\d+) TAR (\d+)$", line)
             if m !== nothing
@@ -359,19 +358,13 @@ function parse_out_file(filepath)
             m !== nothing && (data["resolv_stop_reason"] = m.captures[1])
         end
 
-        # Brim
-        occursin("brim TIME ", line)         && (data["brim_time"] = tryparse(Float64, split(line)[end]))
-        occursin("brim OPB SIZE ", line)     && (data["brim_opb_size"] = tryparse(Int, split(line)[end]))
-        occursin("brim PBP SIZE ", line)     && (data["brim_pbp_size"] = tryparse(Int, split(line)[end]))
-        occursin("brim SIZE ", line)         && (data["brim_total_size"] = tryparse(Int, split(line)[end]))
-
         # Solver stats
-        occursin("pattern_vertices", line)   && (data["pattern_vertices"] = tryparse(Int, match(r"=\s*(\d+)", line).captures[1]))
-        occursin("target_vertices", line)    && (data["target_vertices"] = tryparse(Int, match(r"=\s*(\d+)", line).captures[1]))
-        occursin("runtime", line)            && (data["runtime_ms"] = tryparse(Int, match(r"=\s*(\d+)", line).captures[1]))
-        occursin("status", line)             && (data["status"] = match(r"=\s*(\w+)", line).captures[1])
-        match(r"^nodes = (\d+)", line) !== nothing && (data["solver_nodes"] = tryparse(Int, match(r"^nodes = (\d+)", line).captures[1]))
-        match(r"^propagations = (\d+)", line) !== nothing && (data["solver_propagations"] = tryparse(Int, match(r"^propagations = (\d+)", line).captures[1]))
+        let m = match(r"^pattern_vertices\s*=\s*(\d+)", line); m !== nothing && (data["pattern_vertices"] = tryparse(Int, m.captures[1])); end
+        let m = match(r"^target_vertices\s*=\s*(\d+)", line); m !== nothing && (data["target_vertices"] = tryparse(Int, m.captures[1])); end
+        let m = match(r"^runtime\s*=\s*(\d+)", line); m !== nothing && (data["runtime_ms"] = tryparse(Int, m.captures[1])); end
+        let m = match(r"^status\s*=\s*(\w+)", line); m !== nothing && (data["status"] = m.captures[1]); end
+        let m = match(r"^nodes\s*=\s*(\d+)", line); m !== nothing && (data["solver_nodes"] = tryparse(Int, m.captures[1])); end
+        let m = match(r"^propagations\s*=\s*(\d+)", line); m !== nothing && (data["solver_propagations"] = tryparse(Int, m.captures[1])); end
     end
 
     return data
@@ -475,14 +468,16 @@ function detect_skip_reason(err_filepath, has_proof, status_val)
 end
 
 function get_verification_sizes(proofdir, instance)
-    opb_smol = joinpath(proofdir, instance * ".opb.smol")
-    pbp_smol = joinpath(proofdir, instance * ".pbp.smol")
+    opb_smol = joinpath(proofdir, instance * ".smol.opb")
+    pbp_smol = joinpath(proofdir, instance * ".smol.pbp")
     if isfile(opb_smol) && isfile(pbp_smol)
         veri_opb = filesize(opb_smol); veri_pbp = filesize(pbp_smol)
         return (veri_opb, veri_pbp, veri_opb + veri_pbp)
     end
     return (nothing, nothing, nothing)
 end
+
+csv_quote(s) = "\"" * replace(string(s), "\"" => "\"\"") * "\""
 
 function format_array(arr)
     isempty(arr) && return ""
@@ -518,8 +513,8 @@ function aggregate_results(proofdir::String, output_csv::String)
             iter_nbeq, iter_var, iter_lit = get_iteration_metrics(proofdir, instance, resolv_iters)
 
             row = []
-            push!(row, "\"$instance\"")
-            push!(row, "\"$(instance_family(instance))\"")
+            push!(row, csv_quote(instance))
+            push!(row, csv_quote(instance_family(instance)))
 
             # Input stats
             push!(row, get(data, "inp_opb_size", ""))
@@ -578,7 +573,7 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "target_vertices", ""))
             push!(row, get(data, "runtime_ms", ""))
             status_val = get(data, "status", "")
-            push!(row, status_val == "" ? "" : "\"$status_val\"")
+            push!(row, status_val == "" ? "" : csv_quote(status_val))
             push!(row, get(data, "solver_nodes", ""))
             push!(row, get(data, "solver_propagations", ""))
 
@@ -600,14 +595,14 @@ function aggregate_results(proofdir::String, output_csv::String)
             skip_reason = detect_skip_reason(err_file, has_proof, status_val)
             proof_truncated = startswith(skip_reason, "truncated")
             truncation_reason = proof_truncated ? skip_reason : ""
-            push!(row, skip_reason == "" ? "" : "\"$skip_reason\"")
+            push!(row, skip_reason == "" ? "" : csv_quote(skip_reason))
             push!(row, proof_truncated ? "true" : "false")
-            push!(row, truncation_reason == "" ? "" : "\"$truncation_reason\"")
+            push!(row, truncation_reason == "" ? "" : csv_quote(truncation_reason))
 
             # Error tracking
             push!(row, has_error ? "true" : "false")
-            push!(row, has_error ? "\"$error_type\"" : "")
-            push!(row, has_error && !isempty(error_details) ? "\"$error_details\"" : "")
+            push!(row, has_error ? csv_quote(error_type) : "")
+            push!(row, has_error && !isempty(error_details) ? csv_quote(error_details) : "")
 
             # Resolv iterations
             push!(row, resolv_iters)
@@ -669,11 +664,11 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "grim_full_pol_opb_frac",     ""))
             push!(row, get(data, "grim_full_pol_before_rup_burst", ""))
 
-            # Step-type fractions — cone (derived)
-            let pbp = get(data, "grim_pbp_cone", nothing)
+            # Step-type fractions — cone (derived, denominator = total cone)
+            let tot = get(data, "grim_total_cone", nothing)
                 function stepfrac(key)
                     v = get(data, key, nothing)
-                    (v !== nothing && pbp !== nothing && pbp > 0) ? round(v / pbp; digits=4) : ""
+                    (v !== nothing && tot !== nothing && tot > 0) ? round(v / tot; digits=4) : ""
                 end
                 push!(row, stepfrac("grim_cone_rup"))
                 push!(row, stepfrac("grim_cone_pol"))
@@ -681,11 +676,11 @@ function aggregate_results(proofdir::String, output_csv::String)
                 push!(row, stepfrac("grim_cone_red"))
             end
 
-            # Step-type fractions — full (derived)
-            let pbp_full = get(data, "inp_pbp_nbeq", nothing)
+            # Step-type fractions — full (derived, denominator = total nbeq)
+            let tot_full = get(data, "inp_total_nbeq", nothing)
                 function fullstepfrac(key)
                     v = get(data, key, nothing)
-                    (v !== nothing && pbp_full !== nothing && pbp_full > 0) ? round(v / pbp_full; digits=4) : ""
+                    (v !== nothing && tot_full !== nothing && tot_full > 0) ? round(v / tot_full; digits=4) : ""
                 end
                 push!(row, fullstepfrac("grim_full_rup"))
                 push!(row, fullstepfrac("grim_full_pol"))
@@ -706,7 +701,7 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, format_array(iter_pat))
             push!(row, format_array(iter_tar))
             stop = get(data, "resolv_stop_reason", "")
-            push!(row, stop == "" ? "" : "\"$stop\"")
+            push!(row, stop == "" ? "" : csv_quote(stop))
 
             # Resolv shrinkage totals (derived)
             let pat0 = get(data, "pattern_vertices", nothing),
@@ -747,11 +742,11 @@ function aggregate_results(proofdir::String, output_csv::String)
             end
             push!(row, get(data, "grim_full_unlabeled", ""))
 
-            # Label fractions of OPB cone (derived)
-            let opb_cone = get(data, "grim_opb_cone", nothing)
+            # Label fractions of total cone (derived)
+            let tot_cone = get(data, "grim_total_cone", nothing)
                 function labelfrac(key)
                     v = get(data, key, nothing)
-                    (v !== nothing && opb_cone !== nothing && opb_cone > 0) ? round(v / opb_cone; digits=4) : ""
+                    (v !== nothing && tot_cone !== nothing && tot_cone > 0) ? round(v / tot_cone; digits=4) : ""
                 end
                 push!(row, labelfrac("grim_cone_inj"))
                 push!(row, labelfrac("grim_cone_g0adj"))
@@ -788,6 +783,10 @@ function aggregate_results(proofdir::String, output_csv::String)
             push!(row, get(data, "grim_full_uniq_tar", ""))
 
             # Write row
+            if length(row) != length(CSV_COLUMNS)
+                println(stderr, "WARNING: $instance has $(length(row)) fields, expected $(length(CSV_COLUMNS)) — skipping")
+                continue
+            end
             println(io, join(row, ","))
         end
     end
