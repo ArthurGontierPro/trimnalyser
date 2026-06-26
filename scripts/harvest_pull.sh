@@ -14,4 +14,7 @@ for f in cluster_results.csv graph_features.csv var_order_stats.csv var_order_fa
     scp "${CLUSTER}:${REMOTE}/$f" . && echo "  ok" || echo "  FAILED (file may not exist)"
 done
 
+echo "pulling output.log as cluster_output.log ..."
+scp "${CLUSTER}:/users/grad/arthur/output.log" cluster_output.log && echo "  ok" || echo "  FAILED (file may not exist)"
+
 echo "=== Done ==="

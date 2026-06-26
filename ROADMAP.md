@@ -4,7 +4,7 @@ TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via 
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-23:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6 complete. M3.5.7 (trimmed vs full proof comparison) in progress — output format refactor + full-proof stats. M3.5.4 still open.
+**Status as of 2026-06-25:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6, M3.5.7 complete. M3.5.4 still open. Next: M3.5.4 supplemental classifier, then M4.
 
 ---
 
@@ -159,11 +159,43 @@ Glasgow modified (`labels-for-analysis` branch `a87b8ab`): `--pattern-order-file
 
 **Decision: Phase 2/3 cancelled.** Cross-instance transfer and feature-predicted ordering would perform worse than this oracle ceiling, which is already marginal. Tiebreaker integration is a low-cost experiment for M4. Focus shifts to M4 preprocessing heuristics.
 
-### M3.5.7 — Trimmed vs full proof comparison 🔜 CURRENT
+### M3.5.7 — Trimmed vs full proof comparison ✅
 
 **Goal:** Compute the same statistics on the full (untrimmed) proof as on the trimmed cone. Test whether trimming biases our understanding of which Glasgow components are proof-critical. The cone shows what is *logically necessary* for the UNSAT certificate — but it also potentially shows what the solver *could have used directly*. Comparing cone vs full proof statistics lets us quantify this.
 
 **Hypothesis:** If cone label/vertex distributions are a proportional subsample of the full proof, trimming introduces no bias and our M3.5 conclusions hold as-is. If they diverge (e.g., supplementals are heavily used during search but rare in the cone), the full-proof view is more relevant for heuristic guidance (M4).
+
+**Findings (from `cone_vs_full.html`, 2026-06-25):** Hypothesis REJECTED — trimming is massively non-proportional.
+
+Compression rates (cone/full, all UNSAT instances with full data):
+
+| Family | n | mean | median | full total (mean) |
+|---|---|---|---|---|
+| LV | 3,361 | 15.4% | 9.9% | 971K |
+| bio | 5,185 | 24.2% | 22.9% | 67K |
+| images-CVIU11 | 1,508 | 9.5% | 7.1% | 2.4M |
+| meshes-CVIU11 | 2,428 | 20.9% | 18.2% | 741K |
+| scalefree | 14 | 33.3% | 33.3% | 1.6M |
+
+Label survival rates (mean cone count / mean full count) reveal three categories:
+
+**Dead wood** (generated during search, nearly absent from UNSAT certificate):
+- `pathg1`: 0.7% (LV), 1.4% (bio), 1.7% (images) — path-consistency propagation scaffolding
+- `pathg2`: 7.6% (LV), 2.1% (bio), 6.4% (images)
+- `g1adj`, `g2adj`: 0.6%, 1.7% (LV) — supplemental edges almost entirely evicted
+- `elimdeg`: 0.05% (LV) — degree-elimination steps nearly completely pruned
+
+**Proof-critical** (survive trimming far above the average compression rate):
+- `inj`: 20% (LV overall), 62% (LV search instances), 88% (bio), 73% (images)
+- `loop`: ~80% (LV) — loop-consistency steps are tightly coupled to the UNSAT certificate
+- `guess`: ~58% (LV search) — branching decisions that lead to contradiction remain needed
+
+**Dominant in both** but still compressed:
+- `g0adj`: 14.6% (LV), 27.7% (bio), 17.3% (images) — base adjacency constraints are the bulk of both proof and cone, but ~85% are trimmed away
+
+**Key conclusion for M4:** Full-proof label fractions measure *search load* (what the solver did). Cone label fractions measure *certificate structure* (what was logically required). Features for heuristic learning should use cone labels. The ratio `cone/full` per label is itself a new candidate feature for M4.
+
+**Implementation note:** The planned `.out` fraction format was superseded by separate `grim_full_<label>` columns in the CSV (256 columns total, positions 176–226 for per-label full counts). The cluster re-run (2026-06-22) already produced these columns. The `.full.var_order` files were not written — oracle replay comparison (cone-order vs full-proof-order) remains possible as a future M4 sub-experiment but is not required for M4 main track.
 
 **Output format refactor — fraction `cone/total`:**
 

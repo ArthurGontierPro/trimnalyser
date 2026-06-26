@@ -426,6 +426,111 @@ A small ratio means the conflict is spread across many candidate mappings, makin
 hard for the resolv loop to isolate a compact UNSAT core.
 
 % ─────────────────────────────────────────────
+\section{Full Proof vs UNSAT Cone: Label Composition and Trimming Bias}
+\label{sec:cone-vs-full}
+
+The preceding analysis characterises the \emph{trimmed cone} — the minimal subset of proof steps
+logically sufficient to certify UNSAT.
+A natural question is whether the cone is a proportional subsample of the full proof, or whether
+trimming systematically discards certain CP constructs while retaining others.
+If trimming is biased, full-proof label fractions and cone label fractions measure different things:
+search load versus certificate structure.
+
+\paragraph{Compression rates.}
+Table~\ref{tab:cone-vs-full-compression} shows how much of the full proof survives into the cone.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Family & $n$ & cone/full (mean) & cone/full (median) & Full total (mean) \\
+\midrule
+LV            & 3,361 & 15.4\% &  9.9\% &   971K \\
+bio           & 5,185 & 24.2\% & 22.9\% &    67K \\
+images-CVIU11 & 1,508 &  9.5\% &  7.1\% & 2,400K \\
+meshes-CVIU11 & 2,428 & 20.9\% & 18.2\% &   741K \\
+scalefree     &    14 & 33.3\% & 33.3\% & 1,600K \\
+\bottomrule
+\end{tabular}
+\caption{Cone-to-full proof compression by family.
+Instances with valid full proof data from the 2026-06-22 cluster run.
+The median is substantially lower than the mean in most families, indicating a heavy-tailed
+distribution — a few large instances dominate the mean.}
+\label{tab:cone-vs-full-compression}
+\end{table}
+
+\paragraph{Label survival rates.}
+The per-label survival rate (mean cone count / mean full count) is not uniform.
+Labels fall into three qualitatively distinct categories.
+
+\textbf{Dead wood} --- labels that dominate the full proof but nearly vanish in the cone.
+These represent \emph{search scaffolding}: proof steps produced during the solver's propagation
+and branching that are not logically required by the final UNSAT certificate.
+
+\begin{itemize}
+  \item \textbf{pathg1}: 0.7\% survival (LV), 1.4\% (bio), 1.7\% (images).
+    Path-consistency propagation generates by far the most steps in families with supplemental
+    path graphs, yet almost none are needed for the certificate.
+  \item \textbf{pathg2}: 7.6\% (LV), 2.1\% (bio), 6.4\% (images).
+  \item \textbf{g1adj, g2adj}: 0.6\%, 1.7\% (LV) --- supplemental adjacency steps are nearly
+    entirely evicted by trimming.
+  \item \textbf{elimdeg}: 0.05\% (LV) --- degree-elimination steps are almost completely pruned.
+\end{itemize}
+
+For search instances (those with propagation or branching in the cone), the effect is even more
+pronounced.
+In LV search instances, \texttt{pathg1} + \texttt{pathg2} account for 18.8\% of the full proof
+but only 0.85\% of the cone --- more than a $20{\times}$ relative eviction rate.
+
+\textbf{Proof-critical} --- labels whose survival rate greatly exceeds the family-level
+compression rate.
+These steps are tightly coupled to the logical structure of the UNSAT certificate.
+
+\begin{itemize}
+  \item \textbf{inj} (injectivity): 20\% (LV overall), 62\% (LV search), 88\% (bio), 73\%
+    (images).
+    Injectivity constraints are the backbone of the SIP UNSAT certificate: once a mapping is
+    committed, the injectivity constraint propagates and the contradiction follows directly.
+  \item \textbf{loop}: $\approx$80\% survival (LV) --- loop-consistency steps are almost entirely
+    retained.
+  \item \textbf{guess}: $\approx$58\% (LV search) --- branching decisions that directly lead to
+    contradiction remain in the cone.
+\end{itemize}
+
+\textbf{Dominant in both, but still compressed.}
+\texttt{g0adj} (base adjacency) is the largest label in both the full proof and the cone, but
+$85\%$ of its steps are still evicted (LV: 14.6\% survival, bio: 27.7\%, images: 17.3\%).
+The surviving \texttt{g0adj} steps are the adjacency constraints that participate directly in
+the contradiction; the rest encode edges that were never the binding constraint.
+
+\paragraph{Interpretation.}
+Trimming reveals a structural separation within the Glasgow proof:
+\begin{enumerate}
+  \item The \emph{path-consistency layer} (\texttt{pathg1}, \texttt{pathg2}, \texttt{g1adj},
+    \texttt{g2adj}) is a search-phase accelerator.
+    It prunes domains aggressively during search but rarely generates steps that are part of the
+    minimal UNSAT certificate.
+    From a proof-complexity standpoint, this work is wasted relative to the certificate.
+  \item The \emph{injectivity--adjacency layer} (\texttt{inj}, \texttt{g0adj}) is the skeleton
+    of the UNSAT certificate: the contradiction invariably arises when injective assignment
+    exhausts valid adjacency-compatible mappings.
+  \item The \emph{search branching layer} (\texttt{prop}, \texttt{guess}, \texttt{nogood})
+    contributes a small but non-negligible fraction to the cone for hard search instances,
+    reflecting the depth of the branching tree required before contradiction is detected.
+\end{enumerate}
+
+\paragraph{Implication for M4 feature engineering.}
+Full-proof label fractions are \emph{load metrics}: they characterise how much work the solver
+performs per construct.
+Cone label fractions are \emph{certificate metrics}: they characterise what the proof actually
+requires.
+Heuristic learning (M4) should target cone label fractions as the primary signal.
+The per-label utilisation rate (cone/full ratio) is itself a new candidate feature:
+a low utilisation rate for \texttt{pathg1} signals that supplemental path reasoning is expensive
+but proof-irrelevant for that instance, suggesting a flag like \texttt{--no-supplementals} would
+not affect UNSAT certificate quality.
+
+% ─────────────────────────────────────────────
 \section{Implications for Solver Heuristics}
 \label{sec:solver-heuristics}
 
