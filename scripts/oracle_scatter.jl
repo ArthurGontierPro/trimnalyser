@@ -198,7 +198,7 @@ html = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <title>Oracle replay scatter</title>
-<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
   body { font-family: sans-serif; max-width: 1100px; margin: 0 auto; padding: 20px; }
   h1 { font-size: 20px; }
