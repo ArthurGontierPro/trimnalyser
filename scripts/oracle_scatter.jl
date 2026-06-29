@@ -155,37 +155,57 @@ df1t = filter(r -> r.baseline_ms > 0 && r.cone_ms > 0, df)
 df2t = filter(r -> r.full_ms > 0     && r.cone_ms > 0, df)
 df3t = filter(r -> r.baseline_ms > 0 && r.full_ms > 0, df)
 
-s1 = stats(df1,  :baseline_nodes, :cone_nodes)
-s2 = stats(df2,  :full_nodes,     :cone_nodes)
-s3 = stats(df3,  :baseline_nodes, :full_nodes)
+sn1 = stats(df1,  :baseline_nodes, :cone_nodes)
+sn2 = stats(df2,  :full_nodes,     :cone_nodes)
+sn3 = stats(df3,  :baseline_nodes, :full_nodes)
+st1 = stats(df1t, :baseline_ms,    :cone_ms)
+st2 = stats(df2t, :full_ms,        :cone_ms)
+st3 = stats(df3t, :baseline_ms,    :full_ms)
 
-trow(label, s) = """
-<tr>
-  <td>$label</td><td>$(s.n)</td>
-  <td style="color:green">$(s.wins)</td><td>$(s.ties)</td>
-  <td style="color:red">$(s.losses)</td>
-  <td>$(s.med)</td><td>$(s.mn)</td><td>$(s.sgm)</td>
+th(t; kw="") = "<th style=\"padding:5px 10px;border:1px solid #ccc;$kw\">$t</th>"
+td(t; kw="") = "<td style=\"padding:5px 10px;border:1px solid #ccc;$kw\">$t</td>"
+
+function trow(label, sn, st)
+    g1 = "background:#f0f8ff;"  # nodes group tint
+    g2 = "background:#fff8f0;"  # ms group tint
+    """<tr>
+  $(td(label))
+  $(td(sn.n; kw=g1))$(td(sn.wins; kw="color:green;$g1"))$(td(sn.ties; kw=g1))$(td(sn.losses; kw="color:red;$g1"))$(td(sn.med; kw=g1))$(td(sn.sgm; kw=g1))
+  $(td(st.n; kw=g2))$(td(st.wins; kw="color:green;$g2"))$(td(st.ties; kw=g2))$(td(st.losses; kw="color:red;$g2"))$(td(st.med; kw=g2))$(td(st.sgm; kw=g2))
 </tr>"""
+end
 
+hdr_style = "padding:5px 10px;border:1px solid #ccc;text-align:center;"
 table = """
-<table style="border-collapse:collapse;font-size:14px;margin:16px auto;">
-<thead><tr style="background:#f0f0f0;">
-  <th style="padding:6px 14px;border:1px solid #ccc;">Comparison</th>
-  <th style="padding:6px 14px;border:1px solid #ccc;">n</th>
-  <th style="padding:6px 14px;border:1px solid #ccc;">Wins (Y&lt;X)</th>
-  <th style="padding:6px 14px;border:1px solid #ccc;">Ties</th>
-  <th style="padding:6px 14px;border:1px solid #ccc;">Losses</th>
-  <th style="padding:6px 14px;border:1px solid #ccc;">Median ratio</th>
-  <th style="padding:6px 14px;border:1px solid #ccc;">Mean ratio</th>
-  <th style="padding:6px 14px;border:1px solid #ccc;" title="SGM(cone+1)/SGM(ref+1), shift s=1">SGM ratio</th>
-</tr></thead>
+<table style="border-collapse:collapse;font-size:13px;margin:16px auto;">
+<thead>
+<tr style="background:#e8e8e8;">
+  <th rowspan="2" style="$hdr_style">Comparison</th>
+  <th colspan="6" style="$hdr_style background:#dceeff;">Nodes</th>
+  <th colspan="6" style="$hdr_style background:#ffeedd;">Time (ms) — instances ≥ 1 ms only</th>
+</tr>
+<tr style="background:#f0f0f0;">
+  <th style="$hdr_style background:#dceeff;">n</th>
+  <th style="$hdr_style background:#dceeff;">Wins</th>
+  <th style="$hdr_style background:#dceeff;">Ties</th>
+  <th style="$hdr_style background:#dceeff;">Losses</th>
+  <th style="$hdr_style background:#dceeff;">Median</th>
+  <th style="$hdr_style background:#dceeff;" title="SGM(Y+1)/SGM(X+1), s=1">SGM</th>
+  <th style="$hdr_style background:#ffeedd;">n</th>
+  <th style="$hdr_style background:#ffeedd;">Wins</th>
+  <th style="$hdr_style background:#ffeedd;">Ties</th>
+  <th style="$hdr_style background:#ffeedd;">Losses</th>
+  <th style="$hdr_style background:#ffeedd;">Median</th>
+  <th style="$hdr_style background:#ffeedd;" title="SGM(Y+1)/SGM(X+1), s=1">SGM</th>
+</tr>
+</thead>
 <tbody>
-$(trow("cone vs baseline", s1))
-$(trow("cone vs full", s2))
-$(trow("full vs baseline", s3))
+$(trow("cone vs baseline", sn1, st1))
+$(trow("cone vs full",     sn2, st2))
+$(trow("full vs baseline", sn3, st3))
 </tbody></table>
 <p style="font-size:12px;color:#777;text-align:center;">
-  SGM ratio = SGM(Y+1)/SGM(X+1) with shift s=1. Values &lt;1 mean Y wins on average (log-scale).
+  Wins/Losses: Y &lt; X / Y &gt; X. SGM = SGM(Y+1)/SGM(X+1) with shift s=1, values &lt;1 mean Y wins.
 </p>"""
 
 # ── Timing charts ────────────────────────────────────────────────────────────
@@ -245,5 +265,9 @@ $c4
 
 write(html_path, html)
 println("Written: $html_path")
-println(@sprintf("cone vs base: %d wins / %d losses / %d ties  median=%.3f", s1.wins, s1.losses, s1.ties, s1.med))
-println(@sprintf("cone vs full: %d wins / %d losses / %d ties  median=%.3f", s2.wins, s2.losses, s2.ties, s2.med))
+println(@sprintf("cone vs base  nodes: %d wins / %d losses / %d ties  SGM=%.3f", sn1.wins, sn1.losses, sn1.ties, sn1.sgm))
+println(@sprintf("cone vs full  nodes: %d wins / %d losses / %d ties  SGM=%.3f", sn2.wins, sn2.losses, sn2.ties, sn2.sgm))
+println(@sprintf("full vs base  nodes: %d wins / %d losses / %d ties  SGM=%.3f", sn3.wins, sn3.losses, sn3.ties, sn3.sgm))
+println(@sprintf("cone vs base  ms:    %d wins / %d losses / %d ties  SGM=%.3f", st1.wins, st1.losses, st1.ties, st1.sgm))
+println(@sprintf("cone vs full  ms:    %d wins / %d losses / %d ties  SGM=%.3f", st2.wins, st2.losses, st2.ties, st2.sgm))
+println(@sprintf("full vs base  ms:    %d wins / %d losses / %d ties  SGM=%.3f", st3.wins, st3.losses, st3.ties, st3.sgm))
