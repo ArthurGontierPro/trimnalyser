@@ -135,10 +135,19 @@ c2       = chart_block("c2", "Cone order vs full-proof order — search nodes (l
 
 # ── Stats table ──────────────────────────────────────────────────────────────
 
+sgm(x, y; s=1) = exp(mean(log.(y .+ s) .- log.(x .+ s)))
+
 function stats(df_f, xcol, ycol)
-    r = df_f[!, ycol] ./ df_f[!, xcol]
-    (n=length(r), wins=count(<(1.0), r), ties=count(==(1.0), r),
-     losses=count(>(1.0), r), med=round(median(r); digits=3), mn=round(mean(r); digits=3))
+    x = df_f[!, xcol]
+    y = df_f[!, ycol]
+    r = y ./ x
+    (n      = length(r),
+     wins   = count(<(1.0), r),
+     ties   = count(==(1.0), r),
+     losses = count(>(1.0), r),
+     med    = round(median(r);    digits=3),
+     mn     = round(mean(r);      digits=3),
+     sgm    = round(sgm(x, y);    digits=3))
 end
 
 s1 = stats(df1, :baseline_nodes, :cone_nodes)
@@ -149,7 +158,7 @@ trow(label, s) = """
   <td>$label</td><td>$(s.n)</td>
   <td style="color:green">$(s.wins)</td><td>$(s.ties)</td>
   <td style="color:red">$(s.losses)</td>
-  <td>$(s.med)</td><td>$(s.mn)</td>
+  <td>$(s.med)</td><td>$(s.mn)</td><td>$(s.sgm)</td>
 </tr>"""
 
 table = """
@@ -162,11 +171,15 @@ table = """
   <th style="padding:6px 14px;border:1px solid #ccc;">Losses</th>
   <th style="padding:6px 14px;border:1px solid #ccc;">Median ratio</th>
   <th style="padding:6px 14px;border:1px solid #ccc;">Mean ratio</th>
+  <th style="padding:6px 14px;border:1px solid #ccc;" title="SGM(cone+1)/SGM(ref+1), shift s=1">SGM ratio</th>
 </tr></thead>
 <tbody>
 $(trow("cone vs baseline", s1))
 $(trow("cone vs full", s2))
-</tbody></table>"""
+</tbody></table>
+<p style="font-size:12px;color:#777;text-align:center;">
+  SGM ratio = SGM(Y+1)/SGM(X+1) with shift s=1. Values &lt;1 mean Y wins on average (log-scale).
+</p>"""
 
 # ── Write HTML ───────────────────────────────────────────────────────────────
 
