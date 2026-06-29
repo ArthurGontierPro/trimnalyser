@@ -85,7 +85,7 @@ function chart_block(canvas_id, title, datasets, all_x, all_y, xlab, ylab, n_tot
     hi = max(maximum(all_x), maximum(all_y))
     subtitle = "n=$n_shown ($(n_total-n_shown) trivial/missing excluded) — below diagonal = $ylab wins"
     """
-<canvas id="$canvas_id" height="500"></canvas>
+<canvas id="$canvas_id"></canvas>
 <p style="text-align:center;font-size:12px;color:#555;">$subtitle</p>
 <script>
 new Chart(document.getElementById('$canvas_id'), {
@@ -93,6 +93,7 @@ new Chart(document.getElementById('$canvas_id'), {
   data: { datasets: [$ds_js] },
   options: {
     responsive: true,
+    aspectRatio: 1,
     plugins: {
       title: { display: true, text: '$(js_str(title))', font: { size: 14 } },
       tooltip: {
