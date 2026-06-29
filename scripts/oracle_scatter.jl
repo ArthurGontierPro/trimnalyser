@@ -150,11 +150,14 @@ function stats(df_f, xcol, ycol)
      sgm    = round(sgm(x, y);    digits=3))
 end
 
-df3 = filter(r -> r.baseline_nodes > 0 && r.full_nodes > 0, df)
+df3  = filter(r -> r.baseline_nodes > 0 && r.full_nodes > 0, df)
+df1t = filter(r -> r.baseline_ms > 0 && r.cone_ms > 0, df)
+df2t = filter(r -> r.full_ms > 0     && r.cone_ms > 0, df)
+df3t = filter(r -> r.baseline_ms > 0 && r.full_ms > 0, df)
 
-s1 = stats(df1, :baseline_nodes, :cone_nodes)
-s2 = stats(df2, :full_nodes,     :cone_nodes)
-s3 = stats(df3, :baseline_nodes, :full_nodes)
+s1 = stats(df1,  :baseline_nodes, :cone_nodes)
+s2 = stats(df2,  :full_nodes,     :cone_nodes)
+s3 = stats(df3,  :baseline_nodes, :full_nodes)
 
 trow(label, s) = """
 <tr>
@@ -185,6 +188,18 @@ $(trow("full vs baseline", s3))
   SGM ratio = SGM(Y+1)/SGM(X+1) with shift s=1. Values &lt;1 mean Y wins on average (log-scale).
 </p>"""
 
+# ── Timing charts ────────────────────────────────────────────────────────────
+
+c3 = chart_block("c3", "Cone order vs baseline — solve time ms (log-log)",
+                 make_datasets(df1t, :baseline_ms, :cone_ms),
+                 df1t.baseline_ms, df1t.cone_ms,
+                 "baseline ms", "cone ms", nrow(df), nrow(df1t))
+
+c4 = chart_block("c4", "Cone order vs full-proof order — solve time ms (log-log)",
+                 make_datasets(df2t, :full_ms, :cone_ms),
+                 df2t.full_ms, df2t.cone_ms,
+                 "full-proof ms", "cone ms", nrow(df), nrow(df2t))
+
 # ── Write HTML ───────────────────────────────────────────────────────────────
 
 html = """<!DOCTYPE html>
@@ -212,11 +227,17 @@ html = """<!DOCTYPE html>
 
 $table
 
-<h2>Chart 1 — cone vs baseline</h2>
+<h2>Chart 1 — cone vs baseline (nodes)</h2>
 $c1
 
-<h2>Chart 2 — cone vs full-proof order</h2>
+<h2>Chart 2 — cone vs full-proof order (nodes)</h2>
 $c2
+
+<h2>Chart 3 — cone vs baseline (ms) <span style="font-weight:normal;font-size:13px;color:#888;">— only instances with both runtimes ≥ 1 ms</span></h2>
+$c3
+
+<h2>Chart 4 — cone vs full-proof order (ms) <span style="font-weight:normal;font-size:13px;color:#888;">— only instances with both runtimes ≥ 1 ms</span></h2>
+$c4
 
 </body>
 </html>
