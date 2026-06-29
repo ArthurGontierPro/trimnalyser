@@ -1,16 +1,23 @@
 #!/usr/bin/env julia
-# Oracle replay experiment: re-solve instances with cone-derived branching order.
-# Compares baseline (default Glasgow heuristic) vs oracle (--pattern-order-file).
-# No proof logging — measures raw search performance.
+# Oracle replay experiment: re-solve instances with cone- or full-proof-derived branching order.
+# Three comparisons per instance:
+#   baseline  — Glasgow default heuristic (no order file)
+#   cone      — --pattern-order-file <instance>.var_order      (cone-derived order)
+#   full      — --pattern-order-file <instance>.full.var_order (full-proof-derived order)
 #
-# Discovers all .var_order files in proofs_dir, derives instance names and LAD
-# paths, runs baseline + oracle on each. Skips .coreN iterations (resolv cores
-# use reduced LAD files that may not exist).
+# Ratios (<1 = order file is better than reference):
+#   cone_vs_base : cone / baseline
+#   full_vs_base : full / baseline
+#   cone_vs_full : cone / full  (does cone trimming improve the oracle?)
+#
+# Skips .coreN iterations (resolv cores use reduced LAD files that may not exist).
+# If only one of .var_order / .full.var_order exists, that run still proceeds; the
+# missing run's columns are left as -1 and its ratios as -1.
 #
 # Usage:
 #   julia --threads=N scripts/oracle_replay.jl <proofs_dir> [output_csv] [solver_timeout]
 #
-# proofs_dir:     directory containing .var_order files
+# proofs_dir:     directory containing .var_order / .full.var_order files
 # output_csv:     defaults to oracle_replay_results.csv
 # solver_timeout: seconds, defaults to 60
 
@@ -89,18 +96,26 @@ function run_solver(solver, pat, tar, timeout; order_file=nothing)
         e isa ProcessFailedException ? e.procs[1].exitcode : -1
     end
     output = String(take!(out))
-    nodes = let m = match(r"nodes = (\d+)", output); m !== nothing ? parse(Int, m[1]) : -1 end
+    nodes   = let m = match(r"nodes = (\d+)", output);   m !== nothing ? parse(Int, m[1]) : -1 end
     runtime = let m = match(r"runtime = (\d+)", output); m !== nothing ? parse(Int, m[1]) : -1 end
-    status = let m = match(r"status = (\w+)", output); m !== nothing ? m[1] : "error" end
+    status  = let m = match(r"status = (\w+)", output);  m !== nothing ? m[1] : "error" end
     timed_out = exitcode in (124, 137)
     (nodes=nodes, runtime=runtime, status=status, timed_out=timed_out)
 end
 
+# Sentinel result used when an order file is absent.
+const MISSING_RUN = (nodes=-1, runtime=-1, status="missing", timed_out=false)
+
+ratio(a, b) = (a > 0 && b > 0) ? round(a / b; digits=4) : -1.0
+
 const CSV_COLUMNS = [
     "instance", "family",
     "baseline_nodes", "baseline_ms", "baseline_status",
-    "oracle_nodes", "oracle_ms", "oracle_status",
-    "node_ratio", "time_ratio"
+    "cone_nodes",     "cone_ms",     "cone_status",
+    "full_nodes",     "full_ms",     "full_status",
+    "cone_vs_base_nodes", "cone_vs_base_ms",
+    "full_vs_base_nodes", "full_vs_base_ms",
+    "cone_vs_full_nodes", "cone_vs_full_ms",
 ]
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -121,27 +136,42 @@ struct InstanceEntry
     name::String
     pat::String
     tar::String
-    vo::String
+    cone_vo::Union{String,Nothing}   # path to .var_order, or nothing
+    full_vo::Union{String,Nothing}   # path to .full.var_order, or nothing
 end
 
-vo_files = filter(f -> endswith(f, ".var_order") && !contains(f, ".core"), readdir(proofs_dir))
+# Discover instances from .var_order files (exclude .full.var_order and .coreN).
+cone_suffix = ".var_order"
+cone_files  = filter(readdir(proofs_dir)) do f
+    endswith(f, cone_suffix) && !contains(f, ".full.") && !contains(f, ".core")
+end
+
 entries, n_unresolved = let entries = InstanceEntry[], nr = 0
-    for f in vo_files
-        ins = f[1:end-length(".var_order")]
+    for f in cone_files
+        ins = f[1:end-length(cone_suffix)]
         pat, tar = parsegraphfiles(ins, GRAPHS)
         if pat === nothing || !isfile(pat) || !isfile(tar)
             nr += 1
             continue
         end
-        push!(entries, InstanceEntry(ins, pat, tar, joinpath(proofs_dir, f)))
+        cone_path = joinpath(proofs_dir, ins * ".var_order")
+        full_path = joinpath(proofs_dir, ins * ".full.var_order")
+        push!(entries, InstanceEntry(
+            ins, pat, tar,
+            isfile(cone_path) ? cone_path : nothing,
+            isfile(full_path) ? full_path : nothing,
+        ))
     end
     sort!(entries, by=e -> e.name)
     entries, nr
 end
 
-n = length(entries)
+n        = length(entries)
 nthreads = Threads.nthreads()
-println("Oracle replay: $n instances from $(length(vo_files)) .var_order files, timeout=$(solver_timeout)s, threads=$nthreads")
+n_cone   = count(e -> e.cone_vo !== nothing, entries)
+n_full   = count(e -> e.full_vo !== nothing, entries)
+println("Oracle replay: $n instances from $(length(cone_files)) .var_order files, timeout=$(solver_timeout)s, threads=$nthreads")
+println("  cone orders: $n_cone / $n  |  full orders: $n_full / $n")
 n_unresolved > 0 && println("  $n_unresolved instances skipped (LAD files not found)")
 println("Solver: $SOLVER")
 println("Graphs: $GRAPHS")
@@ -158,18 +188,21 @@ Threads.@threads :greedy for i in 1:n
     family = instance_family(entry.name)
 
     baseline = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout)
-    oracle   = run_solver(SOLVER, entry.pat, entry.tar, solver_timeout; order_file=entry.vo)
-
-    node_ratio = (baseline.nodes > 0 && oracle.nodes > 0) ?
-        round(oracle.nodes / baseline.nodes; digits=4) : -1.0
-    time_ratio = (baseline.runtime > 0 && oracle.runtime > 0) ?
-        round(oracle.runtime / baseline.runtime; digits=4) : -1.0
+    cone     = entry.cone_vo !== nothing ?
+               run_solver(SOLVER, entry.pat, entry.tar, solver_timeout; order_file=entry.cone_vo) :
+               MISSING_RUN
+    full     = entry.full_vo !== nothing ?
+               run_solver(SOLVER, entry.pat, entry.tar, solver_timeout; order_file=entry.full_vo) :
+               MISSING_RUN
 
     results[i] = ResultRow(join([
         entry.name, family,
         baseline.nodes, baseline.runtime, baseline.status,
-        oracle.nodes, oracle.runtime, oracle.status,
-        node_ratio, time_ratio
+        cone.nodes,     cone.runtime,     cone.status,
+        full.nodes,     full.runtime,     full.status,
+        ratio(cone.nodes,     baseline.nodes),   ratio(cone.runtime,     baseline.runtime),
+        ratio(full.nodes,     baseline.nodes),   ratio(full.runtime,     baseline.runtime),
+        ratio(cone.nodes,     full.nodes),        ratio(cone.runtime,     full.runtime),
     ], ","))
 
     d = Threads.atomic_add!(done, 1) + 1
