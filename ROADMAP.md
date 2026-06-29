@@ -4,7 +4,7 @@ TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via 
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-06-25:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6, M3.5.7 complete. M3.5.4 still open. Next: M3.5.4 supplemental classifier, then M4.
+**Status as of 2026-06-29:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6, M3.5.7 complete. M3.5.4 still open. Next: M3.5.4 supplemental classifier, then M4 (including M4.1 lazy supplemental generation experiment).
 
 ---
 
@@ -54,6 +54,10 @@ Mesh shape = "single-wave algebraic certificate" (depth ≈ 1, pure POL, OPB-hea
 ### Cluster run — 2026-06-22 (harvested)
 
 15,431 instances, 15,394 with graph features, 6,920 `.coreN` resolv iterations. Full innerjoin coverage (was 1,708/3,590 before). Reports in `6-22-fullrun/`: `proof_survey.html`, `classify_supplementals.html/.txt`, `cluster_results.csv`, `graph_features.csv`. Before/after merge comparison in `6-22-median-run-{before,after}-merge/`.
+
+### Cluster run — 2026-06-29 (harvested)
+
+31,417 instances (LV 8,277 / bio 11,914 / images-CVIU11 6,226 / meshes-CVIU11 4,718 / images-PR15 16 / phase 165 / scalefree 101). Reports in `6-29-fullrun/`: `proof_survey.html`, `classify_supplementals.html/.txt`, `cluster_results.csv`, `graph_features.csv`, `cone_vs_full.html`, `oracle_scatter.html`.
 
 **Supplemental usage findings (from classify_supplementals):**
 
@@ -165,35 +169,46 @@ Glasgow modified (`labels-for-analysis` branch `a87b8ab`): `--pattern-order-file
 
 **Hypothesis:** If cone label/vertex distributions are a proportional subsample of the full proof, trimming introduces no bias and our M3.5 conclusions hold as-is. If they diverge (e.g., supplementals are heavily used during search but rare in the cone), the full-proof view is more relevant for heuristic guidance (M4).
 
-**Findings (from `cone_vs_full.html`, 2026-06-25):** Hypothesis REJECTED — trimming is massively non-proportional.
+**Findings (from `cone_vs_full.html`, 2026-06-25, confirmed and extended by 6-29-fullrun):** Hypothesis REJECTED — trimming is massively non-proportional.
 
-Compression rates (cone/full, all UNSAT instances with full data):
+Compression rates (cone/full, all UNSAT instances with full data) — 6-29-fullrun:
 
-| Family | n | mean | median | full total (mean) |
-|---|---|---|---|---|
-| LV | 3,361 | 15.4% | 9.9% | 971K |
-| bio | 5,185 | 24.2% | 22.9% | 67K |
-| images-CVIU11 | 1,508 | 9.5% | 7.1% | 2.4M |
-| meshes-CVIU11 | 2,428 | 20.9% | 18.2% | 741K |
-| scalefree | 14 | 33.3% | 33.3% | 1.6M |
+| Family | n | mean | median |
+|---|---|---|---|
+| LV | 5,793 | 15.3% | 9.7% |
+| bio | 9,736 | 24.2% | 23.0% |
+| images-CVIU11 | 2,857 | 9.6% | 7.4% |
+| meshes-CVIU11 | 4,546 | 21.3% | 18.3% |
+| scalefree | 32 | 33.3% | 33.3% |
 
-Label survival rates (mean cone count / mean full count) reveal three categories:
+Label survival rates (mean cone count / mean full count) — 6-29-fullrun:
+
+| Label | LV | bio | images-CVIU11 |
+|---|---|---|---|
+| g0adj | 18.2% | 30.2% | 23.7% |
+| g1adj | **0.6%** | **1.4%** | **1.5%** |
+| g2adj | **1.8%** | **1.2%** | **0.2%** |
+| g3adj | **0.9%** | **0.9%** | — |
+| pathg1 | **0.5%** | **1.2%** | **1.5%** |
+| pathg2 | 4.5% | 2.0% | 7.2% |
+| pathg3 | 3.4% | 4.7% | — |
+
+Full proof volume (share of total OPB proof steps, as shown in `cone_vs_full.html` stacked barplots) — images-CVIU11: gNadj+pathN = **50%** of all OPB steps (pathg1 = 32%, pathg2 = 9%, g1adj = 8%), at <2% survival. Bio: **13%** (pathg2 = 5.6%, pathg1 = 4.7%). LV: **3.2%**. Meshes: **0%**. Images is the dominant case where dead-wood volume is structurally significant.
 
 **Dead wood** (generated during search, nearly absent from UNSAT certificate):
-- `pathg1`: 0.7% (LV), 1.4% (bio), 1.7% (images) — path-consistency propagation scaffolding
-- `pathg2`: 7.6% (LV), 2.1% (bio), 6.4% (images)
-- `g1adj`, `g2adj`: 0.6%, 1.7% (LV) — supplemental edges almost entirely evicted
-- `elimdeg`: 0.05% (LV) — degree-elimination steps nearly completely pruned
+- `pathg1`, `pathg2`, `pathg3` — path-consistency propagation scaffolding; pathg1+pathg2 alone account for 65% of bio proof steps and 66% of images steps
+- `g1adj`, `g2adj`, `g3adj` — supplemental edges almost entirely evicted (<2% survival everywhere)
+- `elimdeg` — degree-elimination steps nearly completely pruned
 
 **Proof-critical** (survive trimming far above the average compression rate):
-- `inj`: 20% (LV overall), 62% (LV search instances), 88% (bio), 73% (images)
-- `loop`: ~80% (LV) — loop-consistency steps are tightly coupled to the UNSAT certificate
+- `inj`: 20% (LV overall), 62% (LV search), 88% (bio), 73% (images)
+- `loop`: ~80% (LV) — loop-consistency steps tightly coupled to the UNSAT certificate
 - `guess`: ~58% (LV search) — branching decisions that lead to contradiction remain needed
 
 **Dominant in both** but still compressed:
-- `g0adj`: 14.6% (LV), 27.7% (bio), 17.3% (images) — base adjacency constraints are the bulk of both proof and cone, but ~85% are trimmed away
+- `g0adj`: 18–30% survival — base adjacency is the bulk of both proof and cone, but ~75–80% is trimmed away
 
-**Key conclusion for M4:** Full-proof label fractions measure *search load* (what the solver did). Cone label fractions measure *certificate structure* (what was logically required). Features for heuristic learning should use cone labels. The ratio `cone/full` per label is itself a new candidate feature for M4.
+**Key conclusion for M4:** Full-proof label fractions measure *search load* (what the solver did). Cone label fractions measure *certificate structure* (what was logically required). Features for heuristic learning should use cone labels. The ratio `cone/full` per label is itself a new candidate feature for M4. The extreme dead-wood volume of gNadj/pathN motivates M4.1.
 
 **Implementation note:** The planned `.out` fraction format was superseded by separate `grim_full_<label>` columns in the CSV (256 columns total, positions 176–226 for per-label full counts). The cluster re-run (2026-06-22) already produced these columns. The `.full.var_order` files were not written — oracle replay comparison (cone-order vs full-proof-order) remains possible as a future M4 sub-experiment but is not required for M4 main track.
 
@@ -264,6 +279,38 @@ Alongside the existing `.var_order` (cone vertex frequencies), write `.full.var_
 
 ---
 
+### M4.1 — Lazy/demand-driven supplemental and path constraint generation 🔜
+
+**Motivation:** The 6-29-fullrun cone_vs_full data shows that gNadj and pathgN constraints are near-pure dead wood: survival rates of 0.5–5%, yet for images-CVIU11 they represent **50% of all OPB proof steps** (pathg1 alone = 32%), and 13% for bio. These are generated en masse during preprocessing for all pattern nodes, almost entirely discarded by trimming. Glasgow currently generates all supplemental edges (g1adj/g2adj/g3adj) and all path-consistency constraints (pathg1/pathg2/pathg3) upfront during preprocessing, for every pattern node. Almost none of these are logically necessary for the UNSAT certificate.
+
+**Proposal:** Modify Glasgow to generate supplemental and path constraints *lazily* — only when the corresponding pattern node is first touched during search (e.g., when its domain is reduced or it is selected for branching). Nodes that preprocessing eliminates without search never trigger supplemental generation.
+
+**Expected gain:** For images-CVIU11 (pathg1 = 51.6% of proof, 1.5% survival) and bio (pathg1+pathg2 = 66% of proof, ~1–2% survival), lazy generation could reduce proof writing and propagation work by an order of magnitude for instances that reach deep search. The 61% "0 search nodes" instances would be unaffected (preprocessing still runs as-is).
+
+**Open questions and risks:**
+
+1. **Preprocessing power loss.** Path-consistency propagation during preprocessing is what makes many instances solvable without search. If pathgN generation is deferred, preprocessing loses filtering power, potentially converting "0-search-node" instances into full search instances. Need to measure: does preprocessing actually *use* pathgN for domain reduction, or does it generate them speculatively?
+
+2. **Proof sequencing.** `pathg1`/`g1adj` are already PBP-derived constraints (not OPB axioms): Glasgow currently introduces them with a `pol` justification during preprocessing. Lazy generation just defers that introduction to later in the PBP sequence. VeriPB is sequential — as long as `@pathg1_X` is introduced before any step that uses it as an antecedent, the proof is valid, and lazy generation guarantees this by construction. The real constraint is architectural: Glasgow's current preprocessing is a batch pass over all nodes; making it lazy requires restructuring into on-demand callbacks triggered by the search.
+
+3. **Volume ≠ time.** High pathg1 proof volume does not directly imply high CPU time. These constraints may be generated by a cheap linear sweep. Need Glasgow profiling (e.g., `perf` or instrumented timing per generation phase) to confirm that generation time scales with proof volume before investing in lazy generation.
+
+4. **Definition of "touched".** "Node touched by search" needs a precise operational definition in Glasgow's internals. Candidates: (a) branching selects the node, (b) the node's domain is first reduced below a threshold, (c) a propagation step reads a constraint on the node. The choice affects both completeness and proof structure.
+
+5. **Simpler baseline first (M3.5.4 path).** The simple version of this idea is a static `--no-supplementals` / `--no-path-consistency` flag: for families where M3.5.4 classifier predicts near-zero gNadj cone usage, disable these entirely. This requires no lazy infrastructure and should be benchmarked before implementing the lazy variant.
+
+**Steps:**
+
+1. **Profile Glasgow** — instrument generation time for supplemental and path phases; correlate with proof volume. Determines if lazy generation is worth implementing.
+2. **Static ablation** — run Glasgow with `--supplementals=0` and without path-consistency on LV/bio/images subsets. Measure PAR-2 delta. This is the "worst case" of lazy generation (never generate) and establishes the lower bound on speedup.
+3. **Lazy generation prototype** — modify Glasgow `labels-for-analysis` branch to defer gNadj/pathN generation to first domain-reduction event per node. Write proof introduction steps at deferral point.
+4. **Benchmark** — compare lazy vs eager vs disabled on 6-29-fullrun instances. Primary metric: PAR-2 (solved instances × runtime). Secondary: proof size.
+5. **Decision** — adopt lazy if PAR-2 improves on net across families, or if static disable suffices and avoids implementation complexity.
+
+**Deliverable:** Benchmarked Glasgow variant (lazy or static-disable) + decision document for M4 main track flag recommendations.
+
+---
+
 ## M5 — Cross-solver comparison
 
 Glasgow (default vs heuristic-selected) vs RI vs VF2/McSplit. Fixed 180s timeout; PAR-2 score; stratified by family and cluster. Key question: do heuristics learned on LV transfer to phase/scalefree/si?
@@ -281,11 +328,12 @@ Lightweight graph-feature probe at Glasgow startup selects heuristic config. Sub
 ```
 M1 → M2 → M2.5 → M3 (taxonomy) ✅
                     └─ M3.5.1–3 (CP provenance) ✅
-                          ├─ M3.5.4 (supplemental classifier)
+                          ├─ M3.5.4 (supplemental classifier) 🔜 CURRENT
                           ├─ M3.5.5 (branching order variance) ✅
                           │     └─ M3.5.6 (oracle replay) ✅ — static override marginal, tiebreaker for M4
-                          └─ M3.5.7 (trimmed vs full proof) 🔜 — output refactor + full-proof stats
-                                └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7)
-                                      └─ M5 (cross-solver)
-                                            └─ M6 (integration)
+                          └─ M3.5.7 (trimmed vs full proof) ✅ — cone_vs_full data in 6-22 + 6-29 runs
+                                └─ M4.1 (lazy supplemental generation) 🔜 — Glasgow modification, feeds M4 flags
+                                      └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7 + M4.1)
+                                            └─ M5 (cross-solver)
+                                                  └─ M6 (integration)
 ```
