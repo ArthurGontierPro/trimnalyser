@@ -150,8 +150,11 @@ function stats(df_f, xcol, ycol)
      sgm    = round(sgm(x, y);    digits=3))
 end
 
+df3 = filter(r -> r.baseline_nodes > 0 && r.full_nodes > 0, df)
+
 s1 = stats(df1, :baseline_nodes, :cone_nodes)
 s2 = stats(df2, :full_nodes,     :cone_nodes)
+s3 = stats(df3, :baseline_nodes, :full_nodes)
 
 trow(label, s) = """
 <tr>
@@ -176,6 +179,7 @@ table = """
 <tbody>
 $(trow("cone vs baseline", s1))
 $(trow("cone vs full", s2))
+$(trow("full vs baseline", s3))
 </tbody></table>
 <p style="font-size:12px;color:#777;text-align:center;">
   SGM ratio = SGM(Y+1)/SGM(X+1) with shift s=1. Values &lt;1 mean Y wins on average (log-scale).
