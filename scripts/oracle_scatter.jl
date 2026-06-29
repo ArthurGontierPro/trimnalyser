@@ -10,7 +10,7 @@
 # Usage:
 #   julia --project=scripts scripts/oracle_scatter.jl <oracle_replay_results.csv> [output.html]
 
-using CSV, DataFrames, Printf
+using CSV, DataFrames, Printf, Statistics
 
 if length(ARGS) < 1
     println("Usage: julia --project=scripts scripts/oracle_scatter.jl <oracle_replay_results.csv> [output.html]")
