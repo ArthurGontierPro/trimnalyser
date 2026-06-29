@@ -86,12 +86,17 @@ hasproperty(gf, :instance) && (gf[!, :instance] = replace.(gf[!, :instance], "\"
 filter!(r -> r.has_proof == true || r.has_proof == "true", df)
 filter!(r -> !contains(r.instance, ".core"), df)
 
-# Exclude instances with corrupted fraction data (rup+pol+ia+red fracs should sum to ~1)
-df[!, :_frac_sum] = coalesce.(df.grim_rup_frac, 0.0) .+ coalesce.(df.grim_pol_frac, 0.0) .+
-                    coalesce.(df.grim_ia_frac, 0.0)  .+ coalesce.(df.grim_red_frac, 0.0)
-n_before = nrow(df)
-filter!(r -> 0.99 < r._frac_sum < 1.01, df)
-println("  $(nrow(df)) clean base UNSAT instances (dropped $(n_before - nrow(df)) with corrupt fracs)")
+# Exclude instances with corrupted fraction data.
+# grim_{rule}_frac uses grim_total_cone (opb+pbp) as denominator, so they do NOT sum to 1 when
+# OPB constraints appear in the cone.  Use raw counts / grim_pbp_cone instead.
+let pbp = coalesce.(df.grim_pbp_cone, 0)
+    df[!, :_rule_sum] = coalesce.(df.grim_cone_rup, 0) .+ coalesce.(df.grim_cone_pol, 0) .+
+                        coalesce.(df.grim_cone_ia, 0)  .+ coalesce.(df.grim_cone_red, 0)
+    n_before = nrow(df)
+    filter!(r -> coalesce(r.grim_pbp_cone, 0) > 0 &&
+                 0.99 < r._rule_sum / r.grim_pbp_cone < 1.01, df)
+    println("  $(nrow(df)) clean base UNSAT instances (dropped $(n_before - nrow(df)) with corrupt fracs)")
+end
 
 df = leftjoin(df, gf; on=:instance)
 println("  $(count(!ismissing, df.node_ratio)) with graph features")
@@ -106,13 +111,15 @@ df[!, :size_bin] = map(cone_vals) do v
     v <= cone_qs[1] ? "small" : v <= cone_qs[2] ? "medium" : v <= cone_qs[3] ? "large" : "huge"
 end
 
-# ── Axis 3: rule archetype (from grim_rup_frac / grim_pol_frac / grim_ia_frac) ──
+# ── Axis 3: rule archetype (from counts normalised by grim_pbp_cone) ──────────
+# Use raw counts / pbp_cone so OPB constraints in the cone don't dilute the fracs.
 
 function rule_archetype(row)
-    rf = coalesce(row.grim_rup_frac, 0.0)
-    pf = coalesce(row.grim_pol_frac, 0.0)
-    iaf = coalesce(row.grim_ia_frac, 0.0)
-    # Dominant rule: >50% of cone
+    pbp = coalesce(row.grim_pbp_cone, 0)
+    pbp == 0 && return "pol_only"
+    rf  = coalesce(row.grim_cone_rup, 0) / pbp
+    pf  = coalesce(row.grim_cone_pol, 0) / pbp
+    iaf = coalesce(row.grim_cone_ia,  0) / pbp
     pf > 0.8  ? "pol_heavy" :
     iaf > 0.3 ? (pf > 0.3 ? "pol_ia_mix" : "ia_heavy") :
     rf > 0.05 ? "has_rup" :
