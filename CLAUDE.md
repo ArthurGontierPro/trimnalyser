@@ -44,11 +44,35 @@ bash scripts/harvest_pull.sh
 ./trimnalyser LVg10g12 overwrite solve resolv nosys
 
 # verify labels are in .out
-grep 'CONE LABEL' /scratch/arthur/proofs/LVg10g12.out
+grep 'LABEL' /scratch/arthur/proofs/LVg10g12.out   # lines are "<mode> LABEL <TAG> <cone>/<full>", e.g. "grim LABEL INJ 37/48"
 
 # rebuild sysimage on cluster
 julia --project=. build_sysimage.jl
 ```
+
+**`/scratch` is volatile** — it was recreated 2026-07-06, destroying `/scratch/arthur/` (proofs, benchmarks, both binaries). Three paths are hardcoded to it: `src/config.jl:41` (proofs), `src/TrimAnalyser.jl:24` (benchmarks), `src/TrimAnalyser.jl:26` (solver). Rebuild before any run:
+
+```bash
+mkdir -p /scratch/arthur/proofs
+cp -r ~/newSIPbenchmarks /scratch/arthur/                                    # 102 MB
+cp ~/glasgow-subgraph-solver/build/glasgow_subgraph_solver /scratch/arthur/
+cp ~/veripb-dev/target/release/veripb /scratch/arthur/veripb                 # else verif silently no-ops
+```
+
+`verif` with no `veripb` at `/scratch/arthur/veripb` prints one yellow "veripb not found — skipping verif" line and completes the whole run unverified. Override the location with the `VERIPB` env var (`src/output.jl:522`).
+
+**Building Glasgow after the 2026-07-08 reimage.** GMP dev headers are no longer installed system-wide and `sudo` isn't available; they live in `~/local`, unpacked from `.deb`s (`apt-get download` needs no privileges). Boost is *not* required — `gss/CMakeLists.txt` only looks for GMP/GMPXX.
+
+```bash
+cmake -S . -B build \
+  -DGMP_INCLUDE_DIR=$HOME/local/include \
+  -DGMP_LIBRARY=$HOME/local/lib/libgmp.so \
+  -DGMPXX_LIBRARY=$HOME/local/lib/libgmpxx.so \
+  -DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath,$HOME/local/lib   # rpath: finds libgmpxx at run time
+cmake --build build -j 48    # ~40s
+```
+
+**SSH is non-interactive and does not source `.bashrc`**, so `julia` isn't on `PATH`. Wrap remote commands: `ssh fataepyc-07 'bash -lc "..."'`. Long runs need `tmux`/`nohup` — each SSH is a fresh shell.
 
 ## Architecture
 
@@ -99,7 +123,7 @@ Files read via `Mmap.mmap` → byte array. `tokenize!` produces `ByteSpan` token
 
 **RUP — two-queue heuristic.** `ruptrail` routes each equation to `pq_prio` if `cone[eid]` is already true, `pq_nonprio` otherwise, and drains `pq_prio` completely before taking one step from `pq_nonprio`. This steers conflict toward already-needed constraints, minimising cone growth. `cone` is read by `activate!` but never written inside `ruptrail` — only the outer loop writes it via `push_frontier!`.
 
-**Conflict analysis — `conflicttrail`.** PB-specific (not CDCL): slack value determines minimum coefficient-sum of falsified literals to explain. `Grim` sorts by proof index; `Clit` filters to essential/already-cone literals first.
+**Conflict analysis — `conflicttrail`.** PB-specific (not CDCL): slack value determines minimum coefficient-sum of falsified literals to explain. `Grim` sorts by proof index; `Clit` filters to essential/already-cone literals first. `to_explain` (the trail-position work list) is a `BinaryMaxHeap{Int}` (`types.jl`) — a genuine priority queue keyed on trail position, not a stack. Its `push!`/`pop!` calls in `trimmer.jl` use `DataStructures.jl`'s heap API, which shares method names with `Vector` stack usage but has heap (highest-trail-position-first) pop semantics — check the field's declared type in `types.jl` before assuming which one it is.
 
 **Full heuristic chain (do not break any link):**
 outer traversal → `cone` accumulation → `activate!` routing → `pq_prio`/`pq_nonprio` ordering → first conflict found → `conflicttrail(mode)` → antecedents added to cone
@@ -131,5 +155,7 @@ See [`docs/startup-callchain.md`](docs/startup-callchain.md) for the full call c
 **Internal stdout tee pipe.** `main()` redirects stdout into a Julia pipe with a tee task writing to `output.log`. Fragile: tee task crash (e.g. disk full) breaks the pipe, which propagates to worker threads. Shell-level `tee` would be simpler and more robust.
 
 **Progress `printstyled` outside `@threads` try-catch** (`orchestrator.jl:609–616`). An IO error there escapes the thread loop and crashes the orchestrator while subprocesses are still running.
+
+**Custom proofs dir is not forwarded to trim subprocesses.** `orchestrator.jl:614` builds `subargs` from a whitelist (`resolv`, `clit`, `render`, `profile`, `no-supplementals`, `keepraw`, `overwrite`, `tt=`, `maxmem=`, `minmem=`). The proofs-dir positional arg isn't in it, so the subprocess falls back to `defaultproofs` (`config.jl:41`), finds no `.pbp`, and reports `no conclusion (truncated proof)` for every UNSAT instance. Deterministic, and misleading: the real `.pbp` is complete, and the `tryrm` cleanup plus the `.err` file both land in the *default* dir, so the custom dir looks untouched with no `.err` explaining it. Single-instance mode spawns no subprocess and is unaffected — so it works when tested one instance at a time. Harmless for normal runs (they use the default dir); only bites when isolating a test into a scratch directory.
 
 **OOM monitor matching logic.** Now branches on two process types (trimmer vs solver) with different instance-name extraction. Needs a registered table of `(binary_name, extractor)` pairs if more process types are added.
