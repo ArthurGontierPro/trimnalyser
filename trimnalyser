@@ -34,4 +34,28 @@ if [[ $NOSYS -eq 0 ]]; then
     [ -f "$SO" ] && JULIA_FLAGS+=(--sysimage "$SO" --project="$PROJ") && export TRIMNALYSER_SYSIMAGE=1
 fi
 
-exec julia +1.12.2 "${JULIA_FLAGS[@]}" "$PROJ/bin/trimnalyser.jl" "${APP_ARGS[@]}"
+# Resolve the log directory here and export it, so TrimAnalyser.jl's abspath_base
+# (which reads TRIMNALYSER_BASE first) cannot diverge from the path used below.
+if [[ -z "${TRIMNALYSER_BASE:-}" ]]; then
+    case "$(hostname)" in
+        fataepyc*|*dcs.gla.ac.uk*) TRIMNALYSER_BASE="/users/grad/arthur/" ;;
+        *)                         TRIMNALYSER_BASE="/home/arthur_gla/veriPB/subgraphsolver/" ;;
+    esac
+fi
+export TRIMNALYSER_BASE
+
+# Tee at the shell, not inside Julia. The old internal tee was a Julia task reading a
+# 64 KB pipe: when the scheduler stopped dispatching it, the pipe filled, a blocking
+# write(2) on fd 1 stalled while holding the iolock, no thread could run the libuv
+# event loop, SIGCHLD went unprocessed and every wait(proc) hung forever. `tee` as a
+# separate process is always drained by the OS, so that cycle cannot form.
+# TRIMNALYSER_EXTERNAL_TEE tells main() to skip its internal redirect.
+export TRIMNALYSER_EXTERNAL_TEE=1
+# stdout is a pipe now, so Julia would auto-disable colour; force it to keep the
+# terminal and output.log byte-identical to the previous behaviour.
+JULIA_FLAGS+=(--color=yes)
+
+set -o pipefail
+julia +1.12.2 "${JULIA_FLAGS[@]}" "$PROJ/bin/trimnalyser.jl" "${APP_ARGS[@]}" 2>&1 \
+    | tee -a "${TRIMNALYSER_BASE%/}/output.log"
+exit "${PIPESTATUS[0]}"

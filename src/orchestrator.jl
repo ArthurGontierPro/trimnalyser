@@ -674,6 +674,14 @@
             # Subprocess mode: spawned by the orchestrator batch loop for trim-only work.
             # Output goes directly to the inherited stdout (parent's pipe → parent's tee → terminal + logfile).
             _run_main(args)
+        elseif haskey(ENV, "TRIMNALYSER_EXTERNAL_TEE")
+            # The ./trimnalyser wrapper already pipes stdout+stderr through `tee -a output.log`.
+            # Keep fd 1 untouched: the internal pipe below is a deadlock source (a Julia-task
+            # tee can be starved by the scheduler, the 64 KB pipe then fills and a blocking
+            # write on fd 1 wedges the libuv event loop, leaving every wait(proc) hung).
+            println("\n% run started ", Base.Libc.strftime("%Y-%m-%d %H:%M:%S", time()))
+            flush(stdout)
+            _run_main(args)
         else
             logfile = open(joinpath(abspath_base, "output.log"), "a")
             println(logfile, "\n% run started ", Base.Libc.strftime("%Y-%m-%d %H:%M:%S", time()))
