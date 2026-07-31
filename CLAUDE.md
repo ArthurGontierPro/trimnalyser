@@ -152,7 +152,13 @@ See [`docs/startup-callchain.md`](docs/startup-callchain.md) for the full call c
 
 **Global `_cfg[]`.** Every function reads global mutable config implicitly. Makes the call graph opaque and prevents unit-testing of individual stages.
 
-**Internal stdout tee pipe.** `main()` redirects stdout into a Julia pipe with a tee task writing to `output.log`. Fragile: tee task crash (e.g. disk full) breaks the pipe, which propagates to worker threads. Shell-level `tee` would be simpler and more robust.
+**Internal stdout tee pipe — FIXED 2026-07-31, do not reintroduce.** `main()` used to redirect stdout into a Julia pipe drained by a tee *task*. This deadlocked two full cluster runs (2026-07-27 wedged at 4%, 2026-07-30 at 23%). Cycle: a blocking `write(2)` on fd 1 stalls on the full 64 KB pipe while holding the iolock → no thread can run the libuv event loop → the tee task is never rescheduled → the pipe is never drained → the write never completes. Knock-on: no libuv means no SIGCHLD, so children stay `<defunct>` and every `wait(proc)` (`orchestrator.jl:222`) hangs forever.
+
+Spawning the tee on `:interactive` (the mitigation the old comment describes) is **not** sufficient: `--threads 75,1` gives exactly one interactive thread, and any Julia task still depends on the scheduler that is wedged. The tee must be a separate *process*, which the OS always drains.
+
+Now: the `./trimnalyser` wrapper pipes `2>&1 | tee -a "$TRIMNALYSER_BASE/output.log"` and exports `TRIMNALYSER_EXTERNAL_TEE=1`; `main()` skips the internal redirect when that variable is set. The wrapper also resolves and exports `TRIMNALYSER_BASE` so its log path cannot diverge from `abspath_base` (`src/TrimAnalyser.jl:21`), and forces `--color=yes` because stdout is a pipe at startup. The internal path is kept for direct `julia bin/trimnalyser.jl` invocation only.
+
+**Deadlock signature, if it ever returns:** among the orchestrator's threads, zero in `epoll_wait` and at least one in `anon_pipe_write` (`cat /proc/PID/task/*/wchan | sort | uniq -c`), plus unreaped zombies with PPID = orchestrator and orphan `.subout`/`.suberr` in the proofs dir. Note the thread-1 CPU pattern is *not* reliable: it spun in userspace in the first wedge and slept in `futex_do_wait` in the second. `~/runcheck.sh` on the cluster checks all of these.
 
 **Progress `printstyled` outside `@threads` try-catch** (`orchestrator.jl:609–616`). An IO error there escapes the thread loop and crashes the orchestrator while subprocesses are still running.
 
