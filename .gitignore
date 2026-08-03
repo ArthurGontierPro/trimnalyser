@@ -19,3 +19,8 @@ statprof/
 # Zone Identifier (Windows metadata)
 *.Zone.Identifier
 *:Zone.Identifier
+
+# Generated reports (regenerate with scripts/compare_runs.py)
+comparaison-*.html
+comparaison-*-instances.csv
+__pycache__/
