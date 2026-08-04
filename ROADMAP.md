@@ -330,6 +330,104 @@ So `lazy-adjacency-relabelled` never contained the M3.5/M3.5.2/M3.5.3 label comm
 
 ---
 
+### M4.2 — Solver-side supplemental optimisations 🔜
+
+Two independent Glasgow patches identified 2026-08-04 while analysing why `lazy-adjacency-relabelled`
+OOMs on dense targets (see the M4.1 A/B: 169 truncated vs 0 on `labels-for-analysis`). Both are
+local, neither changes the proof format, and **M4.2b is the one that unblocks M4.1**.
+
+Reference facts, recomputed from `gss/innards/supplemental_graphs.cc` and verified on `LV/g77`
+(`n=610`, 82 562 edges, density 0.44, **bipartite 360/250**):
+
+- `exact_path_p` = edge (v,w) iff `|N(v) ∩ N(w)| ≥ p`, self-loop on v iff `deg(v) ≥ p`. Our runs
+  build `exact_path_1..4` and nothing else (`--n-exact-path-graphs` default 4; `distance2`/`distance3`/`k4`
+  are never enabled by `runsipsolver`).
+- On g77 the four are **byte-identical**: `exact_path_1 = … = exact_path_4 = K360 ⊎ K250`, i.e. the
+  "same part" equivalence relation. The minimum common-neighbourhood over same-part pairs is **67**,
+  so they would only start to differ at `--n-exact-path-graphs 68`.
+
+#### M4.2a — Detect identical supplemental graphs and skip the redundant propagators
+
+**Claim.** If `T_g == T_{g-1}` (target side only), slot `g` is entirely redundant: `P_g ⊆ P_{g-1}` holds
+by construction (≥g implies ≥g-1), so every constraint, degree check and NDS check of slot `g` is
+dominated by slot `g-1`.
+
+**What is wasted today.** No data-driven guard exists — the `supports_*` guards
+(`homomorphism_traits.cc`) are static, on `params` only. Three hot loops pay 4× on g77:
+
+| Site | Cost |
+|---|---|
+| `homomorphism_searcher.cc:448` | `d.values &= target_graph_row(g,t)` — 3 no-op bitset ANDs per unassigned vertex per assignment |
+| `homomorphism_model.cc:344` | `deg_g(p) ≤ deg_g(t)` re-checked per slot |
+| `homomorphism_model.cc:460–596` | `patterns_ndss`/`targets_ndss` — 4 identical neighbourhood-degree sequences computed and sorted |
+
+**Implementation.** After the plan loop in `build_supplemental_graphs` (`homomorphism_model.cc:821`),
+compare target rows slot-by-slot and record an `_active_graphs` list; the three loops iterate it
+instead of `1..max_graphs`. `max_graphs` is the bitset stride and stays fixed, so the defensive
+invariant at `:825` is untouched. `SVOBitset` has no `operator==` — needs a word-compare helper.
+
+**Cost in the general (non-degenerate) case: negligible, and asymmetric in the right direction.**
+It is an early-exit memcmp: when the graphs differ it stops at the first differing word. Full cost when
+they match is `n·⌈n/64⌉` words per slot pair — ~1 ms on the largest target in the suite (images-PR15,
+4838 nodes) — against an `O(n·d²)` build that just ran (45 M ops on g77). Three orders of magnitude below
+what it guards.
+
+**Expected win.** Search-time only, ~4× on the supplemental filtering for the bipartite dense targets
+(g77, g84). **Not** an OOM fix: on g77 supplemental *emission* is 191 s of the 202 s runtime and the
+search is 102 nodes. The win shows up on long searches and on runs without proof logging.
+
+#### M4.2b — Stop the lazy pending closures from copying per-target data (the real 60 GB)
+
+**Root cause, `homomorphism_proofs.cc:319–322`.** The pending closure captures **by value**:
+
+```cpp
+register_supplemental({slot,p,q,t}, p, t,
+    [this, slot, p, q, t, between_p_and_q, n_t, two_away_from_t, d_n_t]() { … });
+```
+
+`n_t`, `d_n_t` and `two_away_from_t` depend only on `(t, slot)` — **not** on `(p,q)` — yet they are
+rebuilt and copied inside the `for p / for q / for t` nest. On g77, `two_away_from_t` alone is
+~359 pairs `(w, N(t)∩N(w))` with `|N(t)∩N(w)| ≈ 200`, i.e. **~290 KB retained per closure**. For
+`LVg8g77` (pattern 30 nodes): ≤ 870 ordered pairs × 610 targets ≈ 5·10⁵ closures ≈ **150 GB** of
+intended retention; the process is killed at 60 GB, ~40 % in — matching the measured "crosses 50 GB
+at t≈166 s, before model build finishes". The `.pbp` line for the same constraint is ~5 KB, so the
+290 KB / 5 KB ratio *is* the measured ~21× eager-disk-to-lazy-RAM exchange rate. Eager builds the
+same vectors and discards them each iteration — hence flat 1 GB RSS at +3.3 MB/s.
+
+**Fix.** The closure only needs `(slot, p, q, t)`. `ProcessedGraphsData` is alive for the whole search,
+so recompute `n_t`/`d_n_t`/`two_away_from_t` at materialisation time (rare, `O(deg)` each), or share one
+struct per `(t, slot)` via `shared_ptr` (610 structs instead of 5·10⁵ copies). ~290 KB → ~32 bytes per
+entry. Bonus: also removes the `O(pattern²)` rebuild of those vectors during model build. **No proof
+output changes** — same derivations, same order.
+
+**Superseded hypothesis.** The earlier lead "lazy registers one closure per exact-path graph, so
+`ep_distinct = 1` means a free 4×" is **closed, negative**: `register_supplemental` is keyed on
+`(slot,p,q,t)` and dedups, and subsumption elision (`prove_supplemental_subsumption`, default true,
+`homomorphism.hh:113`) reduces `emit_for` to the single highest slot *before* registration. Proof size
+has no 4× left either — on top of the elision, `emit_exact_path_graph` consults a text-keyed dedup cache
+(`homomorphism_proofs.cc:118–127`, `proof.cc:710–721`) that collapses identical slots across `g`.
+
+**Steps:**
+
+1. M4.2b first — hoist the per-`(t, slot)` data out of the `p,q` loops, capture by pointer. Validate with
+   `./trimnalyser LVg10g12 overwrite resolv nosys` (byte-identical `.pbp` expected) then re-run the
+   `scripts/ab_dense_targets.sh` arms on the 405 dense-target instances; success = truncated count back
+   to ~0 while keeping lazy's 1.7 GB → 0.5 GB median proof gain.
+2. M4.2a — `_active_graphs`, same local validation, then measure search-node throughput (not proof size)
+   on the bipartite targets.
+3. If both land, re-open the M4.1 adoption decision: lazy would then be strictly better than eager.
+
+**Longer-term, not scheduled.** The degenerate case says `N_g(t)` takes only *two* distinct values over
+all 610 targets — an equivalence relation. An extension variable `y[q,P] ≡ ⋁_{u∈P} x[q,u]` (VeriPB `red`)
+would turn each width-360 adjacency constraint into width 2 (~2.85 GB → ~100 MB on g77). That is the
+clean form of the "complement encoding" idea, and detecting a disjoint-union-of-cliques supplemental is
+exactly its trigger. Changes the proof format, so it is the invasive one.
+
+**Deliverable:** two Glasgow patches on `lazy-adjacency-relabelled`, dense-target A/B showing the
+truncated count collapse, and a proof-identity check on LVg10g12.
+
+---
+
 ## Paper scope decision (2026-07-23)
 
 **Decision:** scope the paper as a characterisation-only contribution — cone-vs-full label composition (M3.5.7) + per-family resolv/pattern-shrinkage statistics (already in `paper/notes.tex` §Proof Fingerprints) — with M4/M4.1 heuristic work explicitly left as future work, not a required result.
@@ -368,6 +466,8 @@ M1 → M2 → M2.5 → M3 (taxonomy) ✅
                           │     └─ M3.5.6 (oracle replay) ✅ — static override marginal, tiebreaker for M4
                           └─ M3.5.7 (trimmed vs full proof) ✅ — cone_vs_full data in 6-22 + 6-29 runs
                                 └─ M4.1 (lazy supplemental generation) 🔜 — Glasgow modification, feeds M4 flags
+                                      ├─ M4.2a (identical-supplemental memcmp → skip propagators) 🔜
+                                      ├─ M4.2b (lazy closure capture-by-value → RAM fix) 🔜 — unblocks M4.1
                                       └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7 + M4.1)
                                             └─ M5 (cross-solver)
                                                   └─ M6 (integration)
