@@ -1,0 +1,22 @@
+dense       seed=1 old_verified=0 opts=--n-exact-path-graphs 3 --shape /tmp/shape_tri.csv
+   err: 
+dense       seed=2 old_verified=0 opts=--n-exact-path-graphs 3 --shape /tmp/shape_tri.csv
+   err: 
+dense       seed=3 old_verified=0 opts=--n-exact-path-graphs 3 --shape /tmp/shape_tri.csv
+   err: 
+equalind    seed=2 old_verified=0 opts=--n-exact-path-graphs 6 --induced
+   err: Error: Verification error at /tmp/claude-1000/-home-arthur-gla-trimnalyser/ea2d27f2-bf2d-4f49-b344-8f790bbb9333/scratchpad/work2/new_92.pbp:253 	The c
+equalind    seed=2 old_verified=0 opts=--n-exact-path-graphs 3 --shape /tmp/shape_tri.csv
+   err: 
+equalind    seed=4 old_verified=0 opts=--n-exact-path-graphs 6 --induced
+   err: Error: Verification error at /tmp/claude-1000/-home-arthur-gla-trimnalyser/ea2d27f2-bf2d-4f49-b344-8f790bbb9333/scratchpad/work2/new_122.pbp:245 	The 
+equalind    seed=4 old_verified=0 opts=--n-exact-path-graphs 6 --induced --staged --staged-first-round-backtracks 2
+   err: Error: Verification error at /tmp/claude-1000/-home-arthur-gla-trimnalyser/ea2d27f2-bf2d-4f49-b344-8f790bbb9333/scratchpad/work2/new_129.pbp:265 	The 
+equalind    seed=4 old_verified=0 opts=--n-exact-path-graphs 3 --shape /tmp/shape_tri.csv
+   err: 
+cliques     seed=5 old_verified=0 opts=--n-exact-path-graphs 3 --shape /tmp/shape_tri.csv
+   err: 
+bigdense    seed=1 old_verified=0 opts=--n-exact-path-graphs 6 --count-solutions
+   err: 
+bigdense    seed=1 old_verified=0 opts=--n-exact-path-graphs 3 --shape /tmp/shape_tri.csv
+   err: 
