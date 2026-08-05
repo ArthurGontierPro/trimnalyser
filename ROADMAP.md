@@ -330,7 +330,7 @@ So `lazy-adjacency-relabelled` never contained the M3.5/M3.5.2/M3.5.3 label comm
 
 ---
 
-### M4.2 — Solver-side supplemental optimisations 🔜
+### M4.2 — Solver-side supplemental optimisations ✅ (implemented 2026-08-05; cluster A/B pending)
 
 Two independent Glasgow patches identified 2026-08-04 while analysing why `lazy-adjacency-relabelled`
 OOMs on dense targets (see the M4.1 A/B: 169 truncated vs 0 on `labels-for-analysis`). Both are
@@ -407,15 +407,69 @@ output changes** — same derivations, same order.
 has no 4× left either — on top of the elision, `emit_exact_path_graph` consults a text-keyed dedup cache
 (`homomorphism_proofs.cc:118–127`, `proof.cc:710–721`) that collapses identical slots across `g`.
 
-**Steps:**
+#### Both implemented 2026-08-05 — local validation done, cluster A/B outstanding
 
-1. M4.2b first — hoist the per-`(t, slot)` data out of the `p,q` loops, capture by pointer. Validate with
-   `./trimnalyser LVg10g12 overwrite resolv nosys` (byte-identical `.pbp` expected) then re-run the
-   `scripts/ab_dense_targets.sh` arms on the 405 dense-target instances; success = truncated count back
-   to ~0 while keeping lazy's 1.7 GB → 0.5 GB median proof gain.
-2. M4.2a — `_active_graphs`, same local validation, then measure search-node throughput (not proof size)
-   on the bipartite targets.
+Two commits on `lazy-adjacency-relabelled` (local, not pushed — `origin` is `ciaranm/…`):
+
+| | commit | files |
+|---|---|---|
+| M4.2b | `68b1c9b` stop the lazy pending closures copying their per-target data | `homomorphism_proofs.{cc,hh}` |
+| M4.2a | `f75a30e` skip supplemental graph slots an earlier slot already subsumes | `homomorphism_model.{cc,hh}`, `homomorphism_searcher.cc`, `svo_bitset.hh` |
+
+**M4.2b as built.** Closure keeps `(slot,p,q,t)` + a `shared_ptr` to `between_p_and_q`; the per-target
+vectors are rebuilt at materialisation time from the `ProcessedGraphsData`, with a **single-entry memo on
+`t`** — one materialisation batch is one `(p,t)` antecedent, so the memo hits for the whole batch while
+retaining one target's data. One subtlety the plan did not anticipate: `build_supplemental_graphs` strips
+the `g=0` self-loops for the duration of the build and restores them afterwards, so the rebuild has to
+re-strip them (`loop_stripped_target_row`) or it would not reproduce what the eager path saw.
+
+**M4.2a as built.** `active_graphs` on the model (all slots until `build_supplemental_graphs` narrows it),
+iterated by the searcher's `g`-loop and by the three degree/NDS loops. Guarded to exact-path runs, where
+the nesting `P_g ⊆ P_{g-1}` holds by construction; under `degree_and_nds_are_exact` (induced isomorphism)
+the pattern sides must match too, since an equality test can fail on the smaller side while passing on the
+larger. `SVOBitset` gained `operator==`, comparing `n_words` words (not the whole short buffer the `&=`
+loops run over, whose padding a default-constructed bitset never initialises).
+
+**Local validation (WSL, 4 GB `ulimit -v`, LV g77 = the smallest instances on that target).**
+
+- Proof identity: `LVg10g12` `.opb`/`.pbp` byte-identical to the pre-patch binary, both `--staged` (as
+  `runsipsolver` invokes it) and unstaged. The unstaged run is the one that matters — staged concludes in
+  Stage 1 on this instance and never builds a supplemental, while unstaged emits 6088 `pathg` lines.
+- `LVg3g77` byte-identical between the M4.2b-only and M4.2a+b binaries, at identical `nodes = 715` and
+  `propagations = 180382` — the skipped slots really were dead code.
+- Full `ctest` suite: 42/42, including the VeriPB-checked `proof_supplementals` / `proof_distance3` /
+  `proof_nds` / `proof_random_sweep`. (These need `VERIPB_EXECUTABLE=~/veripb-dev/target/release/veripb`;
+  the `veripb` 2.2.2 on `PATH` fails every proof test on this branch's 3.0 syntax.)
+- `./trimnalyser LVg10g12 overwrite resolv nosys` reproduces 890 KB / 188 KB / 80 KB / 12 KB and fixpoint
+  after 0 iterations.
+
+**M4.2b measured, LV instances on target g77, 4 GB cap, before → after:**
+
+| instance | before | after |
+|---|---|---|
+| LVg3g77 | died at 4.19 GB after 32 s | UNSAT, **218 MB** peak, 31 s |
+| LVg4g77 | died at 4.19 GB | UNSAT, 320 MB, 19 s |
+| LVg5g77 | died at 4.18 GB | UNSAT, 183 MB, 12 s |
+| LVg6g77 | died at 4.16 GB | UNSAT, 486 MB, 64 s |
+| LVg8g77 | died at 4.12 GB | UNSAT, 573 MB, 44 s |
+
+Every one of these was a truncated-proof instance; all five now conclude. `LVg10g12` unstaged also drops
+48 MB → 13 MB and 0.43 s → 0.13 s, from the removed `O(pattern²)` rebuild at registration.
+
+**M4.2a measured:** the degeneracy is confirmed — `subsumed_supplemental_graphs = exact_path_2 exact_path_3
+exact_path_4` on every g77 instance, and the line is absent on `LVg10g12` (sparse 48-node target, all four
+distinct), which is the right general-case behaviour. The **search-time win is not measurable locally**:
+these g77 instances search 102–715 nodes and their runtime is dominated by building the supplementals
+(which M4.2a does not skip) and writing the proof. No-proof runs give ~0.90 s → ~0.85 s, RSS 23 → 20 MB —
+inside noise. The 4× claim is unverified and needs a long search.
+
+**Still to do:**
+
+1. Cluster: re-run the `scripts/ab_dense_targets.sh` arms on the 405 dense-target instances; success =
+   truncated count back to ~0 while keeping lazy's 1.7 GB → 0.5 GB median proof gain.
+2. Cluster: measure search-node throughput for M4.2a on a long search (not proof size, not these instances).
 3. If both land, re-open the M4.1 adoption decision: lazy would then be strictly better than eager.
+4. Decide whether to push to `ciaranm/glasgow-subgraph-solver` or keep the two commits local.
 
 **Longer-term, not scheduled.** The degenerate case says `N_g(t)` takes only *two* distinct values over
 all 610 targets — an equivalence relation. An extension variable `y[q,P] ≡ ⋁_{u∈P} x[q,u]` (VeriPB `red`)
@@ -466,8 +520,8 @@ M1 → M2 → M2.5 → M3 (taxonomy) ✅
                           │     └─ M3.5.6 (oracle replay) ✅ — static override marginal, tiebreaker for M4
                           └─ M3.5.7 (trimmed vs full proof) ✅ — cone_vs_full data in 6-22 + 6-29 runs
                                 └─ M4.1 (lazy supplemental generation) 🔜 — Glasgow modification, feeds M4 flags
-                                      ├─ M4.2a (identical-supplemental memcmp → skip propagators) 🔜
-                                      ├─ M4.2b (lazy closure capture-by-value → RAM fix) 🔜 — unblocks M4.1
+                                      ├─ M4.2a (identical-supplemental memcmp → skip propagators) ✅ — no measured search win yet
+                                      ├─ M4.2b (lazy closure capture-by-value → RAM fix) ✅ — 4.2G OOM → 218M on LVg3g77
                                       └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7 + M4.1)
                                             └─ M5 (cross-solver)
                                                   └─ M6 (integration)
