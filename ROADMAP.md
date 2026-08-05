@@ -414,7 +414,7 @@ Two commits on `lazy-adjacency-relabelled` (local, not pushed — `origin` is `c
 | | commit | files |
 |---|---|---|
 | M4.2b | `68b1c9b` stop the lazy pending closures copying their per-target data | `homomorphism_proofs.{cc,hh}` |
-| M4.2a | `f75a30e` skip supplemental graph slots an earlier slot already subsumes | `homomorphism_model.{cc,hh}`, `homomorphism_searcher.cc`, `svo_bitset.hh` |
+| M4.2a | `f75a30e` skip supplemental graph slots an earlier slot already subsumes, + `a1c412b` read them from a flat array in the hot loop | `homomorphism_model.{cc,hh}`, `homomorphism_searcher.cc`, `svo_bitset.hh` |
 
 **M4.2b as built.** Closure keeps `(slot,p,q,t)` + a `shared_ptr` to `between_p_and_q`; the per-target
 vectors are rebuilt at materialisation time from the `ProcessedGraphsData`, with a **single-entry memo on
@@ -456,18 +456,52 @@ loops run over, whose padding a default-constructed bitset never initialises).
 Every one of these was a truncated-proof instance; all five now conclude. `LVg10g12` unstaged also drops
 48 MB → 13 MB and 0.43 s → 0.13 s, from the removed `O(pattern²)` rebuild at registration.
 
-**M4.2a measured:** the degeneracy is confirmed — `subsumed_supplemental_graphs = exact_path_2 exact_path_3
-exact_path_4` on every g77 instance, and the line is absent on `LVg10g12` (sparse 48-node target, all four
-distinct), which is the right general-case behaviour. The **search-time win is not measurable locally**:
-these g77 instances search 102–715 nodes and their runtime is dominated by building the supplementals
-(which M4.2a does not skip) and writing the proof. No-proof runs give ~0.90 s → ~0.85 s, RSS 23 → 20 MB —
-inside noise. The 4× claim is unverified and needs a long search.
+**M4.2a measured — the win is real, ~+20 %, and it needed a long search to see.** First attempt failed to
+find one: the *natural* g77 instances search 102–715 nodes and their runtime is dominated by building the
+supplementals (which M4.2a does not skip) and writing the proof, so no-proof runs gave 0.90 s → 0.85 s,
+inside noise. Sweeping all LV patterns against the dense targets with `--timeout 15` found the searches
+that are long enough. Where the slots collapse:
+
+| target | collapses | instance |
+|---|---|---|
+| g77, g84 | `exact_path_2/3/4` (3 of 4) | LVg12g84, LVg38g84, LVg67g77 |
+| g93 | `exact_path_4` only (1 of 4) | LVg8g93, LVg24g93 |
+| g76, g64, g12 | none — **controls** | LVg67g76, LVg24g64 |
+
+Throughput A/B, no proof logging, 5 interleaved reps per arm, nodes reached in a 20 s budget (a sound
+metric because both binaries walk the identical deterministic tree — verified: same `nodes` and
+`propagations` when they run to completion):
+
+| instance | subsumed | metric | baseline | M4.2a | Δ | ranges disjoint |
+|---|---|---|---:|---:|---:|---|
+| LVg38g84 | 3 | nodes@20 s | 111 743 | 134 390 | **+20.3 %** | yes |
+| LVg12g84 | 3 | nodes@20 s | 557 222 | 666 218 | **+19.6 %** | yes |
+| LVg67g77 | 3 | nodes@20 s | 2 637 | 2 813 | **+6.7 %** | yes |
+| LVg24g93 | 1 | nodes@20 s | 63 742 | 64 986 | +2.0 % | no |
+| LVg8g93 | 1 | nodes@20 s | 571 594 | 571 198 | −0.1 % | no |
+| LVg67g76 | none (ctrl) | nodes@20 s | 8 946 | 9 340 | +4.4 % | no (14 % own spread) |
+| LVg24g64 | none (ctrl) | wall ms | 1 559 | 1 527 | +2.1 % | no |
+
+**The gain tracks the number of collapsed slots and vanishes on the controls** — that dose–response, not
+the raw percentage, is what rules out noise and binary-layout luck. One collapsed slot buys nothing,
+because it is `exact_path_4`, the sparsest on the *pattern* side: few pattern pairs have that bit set, so
+there is almost nothing to skip. This also bounds the original "4×" claim correctly — 4× applies to the
+supplemental filtering alone, which is ~20 % of total search work here, not to the search.
+
+**A regression found and fixed on the way (commit `a1c412b`).** The first version had the searcher iterate
+`model.active_graphs()` — an out-of-line call plus two dependent loads (`unique_ptr<Imp>`, then the
+vector's heap buffer) per `propagate_adjacency_constraints`. On LVg24g64, which subsumes nothing and runs
+65k nodes/s, that cost **5.9 %** (1523 → 1613 ms, 4 of 5 runs slower than every baseline run). That is the
+dangerous case: 92 of 115 LV targets subsume nothing, so it would have been a silent global slowdown for a
+win on five targets. Reading a flat `std::array` member on the model instead removed the regression *and*
+roughly doubled the win (g84 +11.9 % → +19.6 %). **Lesson: this benchmark needs its zero-subsumption
+controls; the win cases alone would have shipped the regression.**
 
 **Still to do:**
 
 1. Cluster: re-run the `scripts/ab_dense_targets.sh` arms on the 405 dense-target instances; success =
    truncated count back to ~0 while keeping lazy's 1.7 GB → 0.5 GB median proof gain.
-2. Cluster: measure search-node throughput for M4.2a on a long search (not proof size, not these instances).
+2. ~~Cluster: measure search-node throughput for M4.2a~~ — done locally, +20 % on g84 (see above). Cluster would only add breadth.
 3. If both land, re-open the M4.1 adoption decision: lazy would then be strictly better than eager.
 4. Decide whether to push to `ciaranm/glasgow-subgraph-solver` or keep the two commits local.
 
@@ -520,7 +554,7 @@ M1 → M2 → M2.5 → M3 (taxonomy) ✅
                           │     └─ M3.5.6 (oracle replay) ✅ — static override marginal, tiebreaker for M4
                           └─ M3.5.7 (trimmed vs full proof) ✅ — cone_vs_full data in 6-22 + 6-29 runs
                                 └─ M4.1 (lazy supplemental generation) 🔜 — Glasgow modification, feeds M4 flags
-                                      ├─ M4.2a (identical-supplemental memcmp → skip propagators) ✅ — no measured search win yet
+                                      ├─ M4.2a (identical-supplemental memcmp → skip propagators) ✅ — +20% node throughput on g84
                                       ├─ M4.2b (lazy closure capture-by-value → RAM fix) ✅ — 4.2G OOM → 218M on LVg3g77
                                       └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7 + M4.1)
                                             └─ M5 (cross-solver)
