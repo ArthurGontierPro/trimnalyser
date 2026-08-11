@@ -24,10 +24,14 @@ GSS_BIN=/scratch/arthur/glasgow_subgraph_solver
 SCRATCH=/scratch/arthur
 PROOFS="$SCRATCH/proofs"
 # Overridable so the harness itself can be smoke-tested on a handful of instances
-# before the real multi-hour run:
-#   INSTFILE=~/smoke.txt SUFFIX=-smoke bash ~/ab_propagate_unify.sh
+# before the real multi-hour run. ST/TT matter as much as INSTFILE: at the production
+# tt=6000 a single cviu11 trim can run 100 minutes, so a smoke that inherits it has no
+# bounded runtime at all.
+#   INSTFILE=~/smoke.txt SUFFIX=-smoke ST=60 TT=300 bash ~/ab_propagate_unify.sh
 INSTFILE="${INSTFILE:-$HOME/instances_stratified.txt}"  # outside $REPO: a tracked file would vanish on checkout
 SUFFIX="${SUFFIX:-}"
+ST="${ST:-600}"      # solver timeout, seconds
+TT="${TT:-6000}"     # trim timeout, seconds (vt= defaults to tt=)
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 BASE_SHA=5e31074   # arm A: propagate!
@@ -36,7 +40,13 @@ ARM_A="$REPO/ab-propagate$SUFFIX"
 ARM_B="$REPO/ab-ruptrail$SUFFIX"
 SMOL_STASH="$SCRATCH/smol-armA$SUFFIX"
 
-RUNFLAGS=(--threads 75,1 solve resolv verif keepraw "instfile=$INSTFILE" st=600 tt=6000 rand)
+RUNFLAGS=(--threads 75,1 solve resolv verif keepraw "instfile=$INSTFILE" "st=$ST" "tt=$TT" rand)
+
+# Completion is detected by reading the log, not by pgrep: `pgrep -f <script>` also matches
+# the launching shell and any polling shell whose own command line contains the pattern, so
+# it never reaches zero. AB-HARNESS-EXIT is emitted from the EXIT trap and so appears on
+# success AND failure; AB-HARNESS-COMPLETE only on success.
+DONE_MARKER="=== AB-HARNESS-COMPLETE ==="
 
 HARVEST_FILES=(cluster_results.csv graph_features.csv quick_stats.txt
                proof_survey.html classify_supplementals.html classify_supplementals.txt
@@ -69,7 +79,13 @@ FREE_GB=$(df -BG --output=avail "$SCRATCH" | tail -1 | tr -dc '0-9')
 
 # Both arms detach HEAD; put the repo back where it was however we exit.
 ORIG_REF="$(git -C "$REPO" symbolic-ref --quiet --short HEAD || git -C "$REPO" rev-parse HEAD)"
-trap 'echo "restoring $REPO to $ORIG_REF"; git -C "$REPO" checkout --quiet "$ORIG_REF"' EXIT
+on_exit() {
+    local rc=$?
+    echo "restoring $REPO to $ORIG_REF"
+    git -C "$REPO" checkout --quiet "$ORIG_REF" || true
+    echo "=== AB-HARNESS-EXIT $rc ==="
+}
+trap on_exit EXIT
 
 mkdir -p "$PROOFS"
 if [[ -n "$(ls -A "$PROOFS")" ]]; then
@@ -212,4 +228,5 @@ echo "  raw proofs: $SCRATCH/proofs.ab-propagate-unify$SUFFIX"
 echo
 echo "next:"
 echo "  cd $REPO && git checkout $NEW_SHA"
-echo "  python3 scripts/compare_runs.py ab-propagate ab-ruptrail -o ab-propagate-unify.html --csv"
+echo "  python3 scripts/compare_runs.py ab-propagate$SUFFIX ab-ruptrail$SUFFIX -o ab-propagate-unify$SUFFIX.html --csv"
+echo "$DONE_MARKER"
