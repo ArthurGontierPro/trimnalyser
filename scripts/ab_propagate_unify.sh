@@ -34,6 +34,7 @@ BASE_SHA=5e31074   # arm A: propagate!
 NEW_SHA=d30f849    # arm B: unified ruptrail
 ARM_A="$REPO/ab-propagate$SUFFIX"
 ARM_B="$REPO/ab-ruptrail$SUFFIX"
+SMOL_STASH="$SCRATCH/smol-armA$SUFFIX"
 
 RUNFLAGS=(--threads 75,1 solve resolv verif keepraw "instfile=$INSTFILE" st=600 tt=6000 rand)
 
@@ -54,6 +55,7 @@ SELF="$(cd "$(dirname "$0")" && pwd -P)"; REPO_P="$(cd "$REPO" && pwd -P)"
 [[ -x "$GSS_BIN" ]]                  || { echo "solver missing at $GSS_BIN" >&2; exit 1; }
 [[ -x "$SCRATCH/veripb" ]]           || { echo "veripb missing — verif would silently no-op" >&2; exit 1; }
 [[ -e "$ARM_A" || -e "$ARM_B" ]]     && { echo "$ARM_A / $ARM_B exist — move them aside" >&2; exit 1; }
+[[ -e "$SMOL_STASH" ]]               && { echo "$SMOL_STASH exists — move it aside" >&2; exit 1; }
 if [[ -n "$(git -C "$REPO" status --porcelain --untracked-files=no)" ]]; then
     echo "repo has tracked modifications — commit or stash (both arms checkout a commit)" >&2
     git -C "$REPO" status --short --untracked-files=no >&2; exit 1
@@ -134,13 +136,19 @@ EOF
 
 # Strip every arm-A output but keep the inputs, so arm B re-trims the same bytes.
 # Keep: <ins>.opb/.pbp (non-core), .sat, .timeoutNNN   — .sat/.timeout keep the skip
-# set identical across arms.  Drop: .done (else the instance is skipped outright),
-# .smol.* (else trimnalyseandcie:42 smol_complete() skips the trim), .out/.err,
-# and every .coreN.* + vis/ so resolv restarts from iteration 0.
+# set identical across arms.  Drop: .out/.err and every .coreN.* + vis/ so resolv
+# restarts from iteration 0.  (.done is never written under keepraw — orchestrator:415.)
+# Arm A's .smol.* MUST go, or smol_complete() (pipeline:42) skips the trim outright —
+# but they are moved aside, not deleted: byte-comparing them against arm B's is the
+# actual result this A/B is after, and it is far stronger than any CSV metric.
 reset_between_arms() {
     echo "=== resetting $PROOFS for arm B ==="
     local before; before=$(find "$PROOFS" -type f | wc -l)
     rm -rf "$PROOFS/vis"
+    mkdir -p "$SMOL_STASH"
+    find "$PROOFS" -maxdepth 1 -type f \( -name '*.smol.opb' -o -name '*.smol.pbp' \) \
+         ! -name '*.core*' -exec mv -t "$SMOL_STASH" {} +
+    echo "stashed $(find "$SMOL_STASH" -type f | wc -l) arm-A .smol.* files in $SMOL_STASH"
     find "$PROOFS" -type f \
          ! \( \( -name '*.opb' -o -name '*.pbp' \) ! -name '*.core*' ! -name '*.smol.*' \) \
          ! -name '*.sat' ! -name '*.timeout*' \
@@ -150,10 +158,48 @@ reset_between_arms() {
     echo "  skip sentinels kept: $(find "$PROOFS" -name '*.sat' | wc -l) .sat, $(find "$PROOFS" -name '*.timeout*' | wc -l) .timeout"
 }
 
+# The headline result: for every instance both arms trimmed, are the trimmed proofs
+# identical byte for byte? Anything in DIFFER is a real behavioural change to explain.
+compare_smol() {
+    local report="$ARM_B/smol-bytecompare.txt"
+    local same=0 differ=0 missing_b=0 extra_b=0
+    : > "$report"
+    local f base
+    while IFS= read -r f; do
+        base="$(basename "$f")"
+        if [[ ! -f "$PROOFS/$base" ]]; then
+            missing_b=$((missing_b+1)); echo "MISSING_IN_B $base" >> "$report"
+        elif cmp -s "$f" "$PROOFS/$base"; then
+            same=$((same+1))
+        else
+            differ=$((differ+1))
+            echo "DIFFER $base  A=$(stat -c%s "$f") B=$(stat -c%s "$PROOFS/$base") bytes" >> "$report"
+        fi
+    done < <(find "$SMOL_STASH" -maxdepth 1 -type f | sort)
+    while IFS= read -r f; do
+        base="$(basename "$f")"
+        [[ -f "$SMOL_STASH/$base" ]] || { extra_b=$((extra_b+1)); echo "ONLY_IN_B $base" >> "$report"; }
+    done < <(find "$PROOFS" -maxdepth 1 -type f \( -name '*.smol.opb' -o -name '*.smol.pbp' \) ! -name '*.core*' | sort)
+
+    {   echo "# byte comparison of trimmed proofs, arm A ($BASE_SHA) vs arm B ($NEW_SHA)"
+        echo "identical:      $same"
+        echo "differ:         $differ"
+        echo "missing in B:   $missing_b"
+        echo "only in B:      $extra_b"
+    } | tee "$ARM_B/smol-bytecompare.summary"
+    cat "$ARM_B/smol-bytecompare.summary" "$report" > "$report.tmp" && mv "$report.tmp" "$report"
+    if (( differ == 0 && missing_b == 0 && extra_b == 0 )); then
+        echo "RESULT: every trimmed proof is byte-identical across the two arms."
+    else
+        echo "RESULT: $differ differ / $missing_b missing / $extra_b extra — see $report"
+    fi
+}
+
 # ── run ──────────────────────────────────────────────────────────────────────
 run_arm "$BASE_SHA" A "$ARM_A"
 reset_between_arms
 run_arm "$NEW_SHA"  B "$ARM_B"
+compare_smol
 
 mv "$PROOFS" "$SCRATCH/proofs.ab-propagate-unify$SUFFIX"
 mkdir -p "$PROOFS"
