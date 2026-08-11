@@ -90,7 +90,7 @@ cmake --build build -j 48    # ~40s
 | `src/types.jl` | Core structs: `FlatEqStore`, `SystemLink`, `PBSystem`, `Trail`, `Ante`, `PolScratch` |
 | `src/parser.jl` | `readopb`, `readproof`, `tokenize!` |
 | `src/pol.jl` | `PolScratch`, `solvepol_flat!` |
-| `src/trimmer.jl` | `getcone!`, `propagate_level0!`, `conflicttrail`, `ruptrail` |
+| `src/trimmer.jl` | `getcone!`, `ruptrail`, `process_eq!`, `conflicttrail` |
 | `src/writer.jl` | `writeconedel`, `writeeq`, `writered`, `writepol` |
 | `src/solver.jl` | `runsipsolver`, `resolvecore`, `writecoreladfile` |
 | `src/output.jl` | `writeout_*`, `verify`, `printconestat`, statistics |
@@ -128,7 +128,7 @@ Files read via `Mmap.mmap` → byte array. `tokenize!` produces `ByteSpan` token
 **Full heuristic chain (do not break any link):**
 outer traversal → `cone` accumulation → `activate!` routing → `pq_prio`/`pq_nonprio` ordering → first conflict found → `conflicttrail(mode)` → antecedents added to cone
 
-**`propagate!` vs `ruptrail`.** Initial UNSAT contradiction found once by `propagate!` (simpler linear scan, hardcodes `Grim`). Correct because cone is nearly empty at that point. If ever called with non-empty cone, unify with `ruptrail`.
+**One propagation engine — `ruptrail`.** The initial contradiction used to be handled by a separate `propagate!` (index scan with a rewind pointer, hardcoded `Grim`, no `rev` handling); it was removed 2026-08-11 in favour of `do_rup!(firstcontradiction, 0:0)`, the call the BOUNDS branch already used. Safe because for UNSAT the contradiction is the empty `>= 1` constraint, so reversing it in `process_eq!` is a no-op (`slack_rev = rhs-1 = 0`, no literals to propagate) and the min-heaps pop in index order with an empty cone — i.e. exactly the old scan order. Verified byte-identical `.smol.*` on `LVg10g12`. Gains: `mode` (`clit`) now respected in the contradiction's own conflict analysis; a non-RUP final step fails loudly instead of silently yielding a size-1 cone; `rs.que` reused instead of a fresh `trues(n)` per call. Do not reintroduce a second propagation path.
 
 ### Resolv loop
 

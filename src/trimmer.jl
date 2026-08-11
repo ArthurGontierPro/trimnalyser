@@ -207,38 +207,6 @@
             end
         end end
 
-            # Trail-based unit propagation.
-    function propagate!(sys::PBSystem, t::Trail, prism, ante::Ante, conelits, rs::RupState, cone::BitVector)
-        init_slack_cache!(t, sys)
-        i = 1; n = length(sys.rhs)
-        que = trues(n)                                # all constraints initially pending
-        while i <= n
-            if !inprism(i, prism) && que[i]
-                s = slack_cached(t, i)
-                if s < 0                               # falsified: record conflict and stop
-                    conflicttrail(i, sys, t, ante, conelits, rs, Grim(), cone)
-                    return
-                end
-                que[i] = false
-                rewind = i + 1                         # will jump back to earliest newly-triggered eq
-                @inbounds for k in eqrange(sys, i)
-                    v = Int(sys.vars[k])
-                    t.assi[v] != 0 && continue         # already assigned
-                    sys.coefs[k] > s || continue       # coef too small to force propagation
-                    pushtrail!(t, sys, Int32(v), Int32(i), sys.signs[k] ? Int8(1) : Int8(2))
-                    for j in varrange(sys, v)
-                        eid = Int(sys.var_eqs[j])
-                        que[eid] = true
-                        rewind = min(rewind, eid)      # re-scan from earliest affected constraint
-                    end
-                end
-                i = rewind
-            else
-                i += 1
-            end
-        end
-        printstyled("  [error] propagate! found no conflict\n"; color=:red) end
-
         # Push eid into the right heap if not already queued.
     @inline function activate!(eid, rs::RupState, cone, on_frontier)
         rs.que[eid] && return              # already in a heap, skip
@@ -351,12 +319,14 @@
             for j in systemlink[firstcontradiction - nbopb]
                 j > 0 && push_frontier!(frontier, on_frontier, cone, j)
             end
-        else                                           # contradiction is rup/ia: run propagation to find antecedents
-            if conclusion == "UNSAT" || conclusion == "NONE"
-                propagate!(sys, trail, prism_bv, ante, conelits, rs, cone)
-            elseif occursin("BOUNDS", conclusion)
-                if !do_rup!(firstcontradiction, 0:0) printstyled("  [error] initial rup for bound contradiction failed\n"; color=:red) end
+        else                                           # contradiction is rup/ia: RUP-check it to find antecedents
+            # Same path for UNSAT and BOUNDS. For UNSAT the contradiction is the empty ">= 1"
+            # constraint, so reversing it in process_eq! is a no-op (slack_rev = rhs-1 = 0, no
+            # literals to propagate) and the scan proceeds exactly as a plain propagation would.
+            if !do_rup!(firstcontradiction, 0:0)
+                printstyled("  [error] initial rup for contradiction $firstcontradiction failed\n"; color=:red)
             end
+            ante_remove!(ante, firstcontradiction)     # never its own antecedent (cf. the rup case below)
             ante_into_frontier!(ante, frontier, on_frontier, cone, systemlink, firstcontradiction - nbopb)
         end
         red     = Red([], 0:0, [])                     # current red block being processed
