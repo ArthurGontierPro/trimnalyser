@@ -269,6 +269,16 @@ end
 
 function stratified_analysis(df, label="ALL")
     n     = nrow(df)
+    # The no-search / with-search strata are pushed unconditionally (unlike the per-family
+    # ones, which are guarded by >= 50), so either can be empty when every instance falls on
+    # one side of the split. n == 0 made the rate below 0/0 = NaN and round(Int, NaN) threw,
+    # killing the whole report. An empty stratum simply contributes nothing: consumers skip
+    # it via haskey(res, feat).
+    if n == 0
+        tprintln()
+        tprintln("── Stratified g1adj: $(rpad(label, 20)) (n=    0) — empty stratum, skipped ──")
+        return Dict{Symbol, NamedTuple}()
+    end
     rate  = round(Int, 100 * sum(df.g1adj_used) / n)
     tprintln()
     tprintln("── Stratified g1adj: $(rpad(label, 20)) (n=$(lpad(n,5)), overall=$(lpad(rate,2))%) ──")

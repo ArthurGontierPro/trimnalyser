@@ -120,7 +120,18 @@ run_arm() {                                     # $1=sha  $2=label  $3=outdir
     done
     [[ -d "$stale" ]] && echo "quarantined pre-existing harvest outputs in $stale"
 
-    ( cd "$REPO" && bash scripts/harvest.sh ) 2>&1 | tee "$outdir/harvest.log"
+    # Report generation must never cost us a finished arm: classify_supplementals.jl and the
+    # HTML survey are downstream of the only output this A/B actually needs
+    # (cluster_results.csv, written by step 1). So harvest failure is logged, not fatal —
+    # but a missing cluster_results.csv still is.
+    if ( cd "$REPO" && bash scripts/harvest.sh ) > "$outdir/harvest.log" 2>&1; then
+        echo "harvest ok"
+    else
+        echo "WARNING: harvest.sh failed for arm $label (rc=$?) — see $outdir/harvest.log" >&2
+        tail -5 "$outdir/harvest.log" >&2
+    fi
+    [[ -f "$REPO/cluster_results.csv" ]] || {
+        echo "FATAL: arm $label produced no cluster_results.csv" >&2; exit 1; }
     for f in "${HARVEST_FILES[@]}"; do
         [[ -f "$REPO/$f" ]] && mv "$REPO/$f" "$outdir/"
     done
