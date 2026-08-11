@@ -36,6 +36,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 
 BASE_SHA=5e31074   # arm A: propagate!
 NEW_SHA=d30f849    # arm B: unified ruptrail
+ANALYSIS_REF="${ANALYSIS_REF:-main}"   # harvest/report scripts, identical in both arms
 ARM_A="$REPO/ab-propagate$SUFFIX"
 ARM_B="$REPO/ab-ruptrail$SUFFIX"
 SMOL_STASH="$SCRATCH/smol-armA$SUFFIX"
@@ -82,7 +83,7 @@ ORIG_REF="$(git -C "$REPO" symbolic-ref --quiet --short HEAD || git -C "$REPO" r
 on_exit() {
     local rc=$?
     echo "restoring $REPO to $ORIG_REF"
-    git -C "$REPO" checkout --quiet "$ORIG_REF" || true
+    git -C "$REPO" checkout --quiet --force "$ORIG_REF" || true
     echo "=== AB-HARNESS-EXIT $rc ==="
 }
 trap on_exit EXIT
@@ -101,8 +102,14 @@ echo "    arm A $BASE_SHA (propagate!)  ->  arm B $NEW_SHA (ruptrail)"
 # ── helpers ──────────────────────────────────────────────────────────────────
 run_arm() {                                     # $1=sha  $2=label  $3=outdir
     local sha="$1" label="$2" outdir="$3"
-    echo "=== arm $label: checkout $sha ==="
-    git -C "$REPO" checkout --quiet "$sha"
+    echo "=== arm $label: checkout $sha (analysis scripts pinned to $ANALYSIS_REF) ==="
+    git -C "$REPO" checkout --quiet --force "$sha"
+    # A bare checkout reverts scripts/ as well as src/, so each arm would be harvested by
+    # its own commit's analysis code — a confound, and the reason arm A crashed on the
+    # unfixed classify_supplementals.jl. Overlay one pinned version so the arms differ in
+    # src/ only. (The analysis scripts are in fact identical between the two arms; this
+    # just makes that guaranteed rather than incidental, and carries the crash fix.)
+    git -C "$REPO" checkout --quiet "$ANALYSIS_REF" -- scripts/
     ( cd "$REPO" && julia --project=. build_sysimage.jl )   # src changed between arms
 
     local started; started="$(date -Iseconds)"
@@ -151,6 +158,7 @@ $N_INST instances, stratified sample (\`select_instances.jl\`, from the 6-29 ful
 | Host | \`$(hostname)\` |
 | TrimAnalyser | \`$sha\` — $(git -C "$REPO" log -1 --pretty=%s) |
 | Glasgow binary | \`$GSS_BIN\` (identical in both arms) |
+| Analysis scripts | pinned to \`$ANALYSIS_REF\` in both arms |
 | Started | $started |
 | Finished | $finished |
 | Node at start | $load |
