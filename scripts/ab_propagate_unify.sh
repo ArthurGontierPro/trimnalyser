@@ -23,13 +23,17 @@ REPO="$HOME/trimnalyser"
 GSS_BIN=/scratch/arthur/glasgow_subgraph_solver
 SCRATCH=/scratch/arthur
 PROOFS="$SCRATCH/proofs"
-INSTFILE="$HOME/instances_stratified.txt"   # outside $REPO: a tracked file would vanish on checkout
+# Overridable so the harness itself can be smoke-tested on a handful of instances
+# before the real multi-hour run:
+#   INSTFILE=~/smoke.txt SUFFIX=-smoke bash ~/ab_propagate_unify.sh
+INSTFILE="${INSTFILE:-$HOME/instances_stratified.txt}"  # outside $REPO: a tracked file would vanish on checkout
+SUFFIX="${SUFFIX:-}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 BASE_SHA=5e31074   # arm A: propagate!
 NEW_SHA=d30f849    # arm B: unified ruptrail
-ARM_A="$REPO/ab-propagate"
-ARM_B="$REPO/ab-ruptrail"
+ARM_A="$REPO/ab-propagate$SUFFIX"
+ARM_B="$REPO/ab-ruptrail$SUFFIX"
 
 RUNFLAGS=(--threads 75,1 solve resolv verif keepraw "instfile=$INSTFILE" st=600 tt=6000 rand)
 
@@ -151,14 +155,14 @@ run_arm "$BASE_SHA" A "$ARM_A"
 reset_between_arms
 run_arm "$NEW_SHA"  B "$ARM_B"
 
-mv "$PROOFS" "$SCRATCH/proofs.ab-propagate-unify"
+mv "$PROOFS" "$SCRATCH/proofs.ab-propagate-unify$SUFFIX"
 mkdir -p "$PROOFS"
 
 echo
 echo "=== both arms done ==="
 echo "  $ARM_A   (propagate!)"
 echo "  $ARM_B   (ruptrail)"
-echo "  raw proofs: $SCRATCH/proofs.ab-propagate-unify"
+echo "  raw proofs: $SCRATCH/proofs.ab-propagate-unify$SUFFIX"
 echo
 echo "next:"
 echo "  cd $REPO && git checkout $NEW_SHA"
