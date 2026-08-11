@@ -1,13 +1,22 @@
 #!/bin/bash
 # Harvest: aggregate results and generate reports.
-# Run ON THE CLUSTER from ~/trimnalyser/
-# Usage: bash scripts/harvest.sh
+# Run ON THE COMPUTE NODE that produced the proofs, from ~/trimnalyser/
+# (/scratch is local to each machine — the head node has its own empty one,
+#  so running this there would find nothing.)
+# Usage: bash scripts/harvest.sh [proofs_dir]
 # Then pull results locally with: bash scripts/harvest_pull.sh
+#
+# The optional argument lets an archived run be re-harvested in place, without the
+# rename dance that a hardcoded path would force:
+#   bash scripts/harvest.sh /scratch/arthur/proofs.ab-labels-for-analysis
+# Output filenames are unchanged, so move them aside between two harvests.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PROOFS=/scratch/arthur/proofs
+PROOFS="${1:-/scratch/arthur/proofs}"
+[[ -d "$PROOFS" ]] || { echo "no such proofs dir: $PROOFS" >&2; exit 1; }
+echo "harvesting $PROOFS"
 
 echo "=== 1/5 Aggregate results ==="
 julia scripts/aggregate_results.jl "$PROOFS" cluster_results.csv
