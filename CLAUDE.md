@@ -128,7 +128,18 @@ Files read via `Mmap.mmap` → byte array. `tokenize!` produces `ByteSpan` token
 **Full heuristic chain (do not break any link):**
 outer traversal → `cone` accumulation → `activate!` routing → `pq_prio`/`pq_nonprio` ordering → first conflict found → `conflicttrail(mode)` → antecedents added to cone
 
-**One propagation engine — `ruptrail`.** The initial contradiction used to be handled by a separate `propagate!` (index scan with a rewind pointer, hardcoded `Grim`, no `rev` handling); it was removed 2026-08-11 in favour of `do_rup!(firstcontradiction, 0:0)`, the call the BOUNDS branch already used. Safe because for UNSAT the contradiction is the empty `>= 1` constraint, so reversing it in `process_eq!` is a no-op (`slack_rev = rhs-1 = 0`, no literals to propagate) and the min-heaps pop in index order with an empty cone — i.e. exactly the old scan order. Verified byte-identical `.smol.*` on `LVg10g12`. Gains: `mode` (`clit`) now respected in the contradiction's own conflict analysis; a non-RUP final step fails loudly instead of silently yielding a size-1 cone; `rs.que` reused instead of a fresh `trues(n)` per call. Do not reintroduce a second propagation path.
+**One propagation engine — `ruptrail`.** The initial contradiction used to be handled by a separate `propagate!` (index scan with a rewind pointer, hardcoded `Grim`, no `rev` handling); it was removed 2026-08-11 in favour of `do_rup!(firstcontradiction, 0:0)`, the call the BOUNDS branch already used. Safe because for UNSAT the contradiction is the empty `>= 1` constraint, so reversing it in `process_eq!` is a no-op (`slack_rev = rhs-1 = 0`, no literals to propagate) and the min-heaps pop in index order with an empty cone — i.e. exactly the old scan order. Gains: `mode` (`clit`) now respected in the contradiction's own conflict analysis; a non-RUP final step fails loudly instead of silently yielding a size-1 cone; `rs.que` reused instead of a fresh `trues(n)` per call. Do not reintroduce a second propagation path.
+
+*Validated 2026-08-12* by a solve-once/trim-twice A/B on 828 stratified instances (`scripts/ab_propagate_unify.sh`, arms in `ab-propagate/` and `ab-ruptrail/`). Output is unchanged: 1642/1642 `.smol.*` byte-identical, 0 differing, and every cone metric equal on all 1490 paired instances. VeriPB: 0 failures in either arm.
+
+**`propagate!` was quadratic on large systems.** Its `i = rewind` (`rewind = min(rewind, eid)` over every constraint containing a newly assigned variable) jumped the scan back to the lowest affected index and walked forward one index at a time, so cost grew with the *whole* constraint set rather than with the constraints an assignment touches. `ruptrail` pops from the occurrence-indexed heaps instead. The A/B shows a clean dose-response in median trim time (arm B / arm A) against OPB constraint count — and, importantly, **no effect on small systems**, which is what rules out a machine-load artifact:
+
+| constraints | <10k | 10k–100k | 100k–300k | 300k–1M | 1M–3M | >3M |
+|---|---|---|---|---|---|---|
+| n | 509 | 515 | 179 | 166 | 92 | 29 |
+| median B/A | 0.98 | 0.92 | 0.39 | 0.27 | 0.04 | 0.01–0.07 |
+
+Three instances that hit `tt=6000` under `propagate!` now trim: `LVg75g80` (13.3 M constraints) 7.7 s, `LVg71g100` (6.0 M) 14.4 s, `cviu11_p4_t102` (1.1 M) 5656 s. Caveat on the headline −42 % total trim time: arm B skipped solving, so the arms ran under different load. The size buckets, not the total, are the trustworthy signal — on the <100k null control arm B is in fact 4.4 % *slower* in aggregate (median 0.96), i.e. no measurable win where the mechanism cannot fire.
 
 ### Resolv loop
 
