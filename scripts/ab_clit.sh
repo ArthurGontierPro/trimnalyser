@@ -4,11 +4,13 @@
 #
 #   bash scripts/ab_clit.sh            # from ~/trimnalyser on the compute node, in tmux
 #
-# UNLIKE ab_propagate_unify.sh THIS IS A SINGLE-ARM RUN. The `clit` flag makes
-# trimnalyseandcie (pipeline.jl:69-77) trim the SAME parsed proof twice in the SAME
-# subprocess — Grim first, then Clit — writing grim_* and gclt_* columns side by side
-# into one .out. The comparison is therefore paired per instance, on identical input
-# bytes, under identical machine load. No checkout, no second arm, no reset.
+#   MODE=clit bash scripts/ab_clit.sh   # Clit alone (default)
+#   MODE=grim bash scripts/ab_clit.sh   # Grim alone
+#
+# ONE MODE PER RUN, each with its own full tt. Trimming is deterministic, so two
+# independent runs over the same staged proofs compare exactly as well as a coupled run
+# would, without the shared-timeout bias the coupled form carries (see MODE below).
+# No checkout, no arm reset — the two runs differ only in the mode flag.
 #
 # Inputs are the already-solved proofs from the propagate!/ruptrail A/B, so nothing is
 # re-solved. That also gives us a Grim verification baseline for free: ab-ruptrail/
@@ -44,18 +46,23 @@ DONE_MARKER="=== AB-CLIT-COMPLETE ==="
 # No `solve` (proofs are on disk), no `resolv` (core iterations only add cost and blur
 # the paired comparison). `overwrite` is required: smol_complete (pipeline.jl:42) would
 # otherwise skip every instance outright, since .smol.* already exist.
-# ARM=both      one subprocess runs Grim then Clit. tt is ONE `timeout` around the whole
-#               subprocess (orchestrator.jl:219), so the two passes SHARE the budget, and
-#               since Grim goes first the squeeze lands entirely on Clit. Cheap, paired,
-#               but it truncates Clit on the slow instances — the ones that matter most.
-# ARM=clit-only the `no` flag skips the Grim pass (pipeline.jl:67), so Clit runs alone
-#               with a full tt to itself. Pair against the grim_* columns of a previous
-#               ARM=both run, which already had the full budget for the same reason.
-ARM="${ARM:-both}"
-case "$ARM" in
-    both)      MODEFLAGS=(clit) ;;
-    clit-only) MODEFLAGS=(no clit) ;;
-    *) echo "ARM must be 'both' or 'clit-only'" >&2; exit 1 ;;
+# ONE MODE PER RUN. Do not add a mode that trims twice in one invocation.
+#
+# Passing `clit` alone makes pipeline.jl:67-77 run Grim and then Clit inside a single
+# subprocess, and tt is a single `timeout` around that subprocess (orchestrator.jl:219).
+# The two passes therefore SHARE the budget, and since Grim goes first the squeeze lands
+# entirely on Clit: in the 2026-08-12 run that truncated Clit on 34 instances and Grim on
+# none. Those 34 are the slowest instances — precisely where the two rules have the most
+# room to differ — so the coupled form does not merely lose data, it biases the comparison
+# towards agreement. Each mode gets its own invocation and its own full tt instead.
+#
+# Cone sizes are deterministic, so separate runs compare exactly as well as a coupled one.
+# Only trim TIME picks up a machine-load confound across runs; the cone result does not.
+MODE="${MODE:-clit}"
+case "$MODE" in
+    grim) MODEFLAGS=();          PREFIX=grim ;;  # default pass is Grim; `no` would skip it
+    clit) MODEFLAGS=(no clit);   PREFIX=gclt ;;  # `no` skips Grim (pipeline.jl:67)
+    *) echo "MODE must be 'grim' or 'clit'" >&2; exit 1 ;;
 esac
 RUNFLAGS=(--threads 75,1 "${MODEFLAGS[@]}" verif keepraw overwrite
           "instfile=$INSTFILE" "tt=$TT" "vt=$VT" rand)
@@ -154,15 +161,15 @@ cp "$INSTFILE" "$OUTDIR/instances.txt"
 # instances where Clit has the most room to differ. The smoke caught this on LVg10g16
 # (Grim trim 210s of a 300s budget, gclt_total_cone empty).
 #
-# The `gclt TRIM TIME` line is written by writeout_trim only after the Clit pass
-# completes, so it is the ground truth for "Clit actually ran on this instance".
+# The `<prefix> TRIM TIME` line is written by writeout_trim only after the pass completes,
+# so it is the ground truth for "this mode actually ran to completion on this instance".
 report="$OUTDIR/smol-bytecompare.txt"
 same=0; differ=0; missing=0; extra=0; truncated=0
 : > "$report"
 while IFS= read -r f; do
     base="$(basename "$f")"
     ins="${base%.smol.opb}"; ins="${ins%.smol.pbp}"
-    if ! grep -q '^gclt TRIM TIME' "$PROOFS/$ins.out" 2>/dev/null; then
+    if ! grep -q "^$PREFIX TRIM TIME" "$PROOFS/$ins.out" 2>/dev/null; then
         truncated=$((truncated+1)); echo "NO_CLIT_PASS $base" >> "$report"; continue
     fi
     if [[ ! -f "$PROOFS/$base" ]]; then
@@ -190,11 +197,13 @@ done < <(find "$PROOFS" -maxdepth 1 -type f \( -name '*.smol.opb' -o -name '*.sm
 cat "$OUTDIR/smol-bytecompare.summary" "$report" > "$report.tmp" && mv "$report.tmp" "$report"
 
 cat > "$OUTDIR/README.md" <<EOF
-# clit A/B — Grim vs Clit conflict analysis
+# conflict-analysis rule comparison — MODE=$MODE
 
-Single run, $N_INST instances. \`clit\` trims each parsed proof twice in one subprocess
-(Grim then Clit), so \`grim_*\` and \`gclt_*\` columns in \`cluster_results.csv\` are
-paired per instance on identical input bytes.
+$N_INST instances, **$MODE only**, one mode per run so each gets a full \`tt\` to itself.
+This run fills the \`${PREFIX}_*\` columns of \`cluster_results.csv\`; pair it against the
+other mode's run with \`scripts/clit_vs_grim.py --clit-from\`. Trimming is deterministic,
+so pairing across runs is exact for cone sizes — only trim *times* carry a machine-load
+confound between runs.
 
 \`\`\`bash
 ./trimnalyser ${RUNFLAGS[*]}
@@ -205,7 +214,7 @@ paired per instance on identical input bytes.
 | Host | \`$(hostname)\` |
 | TrimAnalyser | \`$HEAD_SHA\` — $(git -C "$REPO" log -1 --pretty=%s) |
 | Input proofs | \`$SRC_PROOFS\` (not re-solved) |
-| Trim timeout | ${TT}s (bounds parse+Grim+write+parse+Clit+write combined) |
+| Trim timeout | ${TT}s (this mode only — parse+trim+write) |
 | Verif timeout | ${VT}s (pinned to the baseline run, not to tt) |
 | Grim verif baseline | \`ab-ruptrail/cluster_results.csv\` — same proofs, 0 failures |
 | Started | $started |
@@ -213,9 +222,8 @@ paired per instance on identical input bytes.
 | Node at start | $load |
 
 **Reading the verif column.** In batch mode \`verify()\` runs once, after the subprocess
-(\`orchestrator.jl:404\`), on whatever \`.smol.*\` is on disk — and Clit wrote last. So
-\`veri_smol_verified\` here describes **Clit's** proof. Grim's baseline is the
-ab-ruptrail CSV.
+(\`orchestrator.jl:404\`), on whatever \`.smol.*\` is on disk. With one mode per run that
+is unambiguous: \`veri_smol_verified\` here describes **$MODE's** proof.
 
 Byte comparison of the trimmed proofs: see \`smol-bytecompare.summary\`.
 EOF
