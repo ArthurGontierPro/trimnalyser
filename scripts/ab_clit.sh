@@ -125,11 +125,26 @@ cp "$INSTFILE" "$OUTDIR/instances.txt"
 # ── byte-compare: did Clit change the trimmed proof at all? ──────────────────
 # On LVg10g12 locally, Clit reproduced Grim's output byte for byte. If that holds at
 # scale, the mode is a no-op and the choice is not worth its place in the heuristic chain.
+#
+# GATING IS MANDATORY. tt bounds the WHOLE subprocess — parse+Grim+write+parse+Clit+write
+# — so on a slow instance the Grim pass can eat the budget and `timeout` kills the process
+# before Clit finishes. .smol.* is then still Grim's own output from earlier in that same
+# subprocess, smol_complete() reports :ok, and a naive compare scores the instance
+# "identical" while Clit never ran. Worse, that bias is concentrated exactly on the big
+# instances where Clit has the most room to differ. The smoke caught this on LVg10g16
+# (Grim trim 210s of a 300s budget, gclt_total_cone empty).
+#
+# The `gclt TRIM TIME` line is written by writeout_trim only after the Clit pass
+# completes, so it is the ground truth for "Clit actually ran on this instance".
 report="$OUTDIR/smol-bytecompare.txt"
-same=0; differ=0; missing=0; extra=0
+same=0; differ=0; missing=0; extra=0; truncated=0
 : > "$report"
 while IFS= read -r f; do
     base="$(basename "$f")"
+    ins="${base%.smol.opb}"; ins="${ins%.smol.pbp}"
+    if ! grep -q '^gclt TRIM TIME' "$PROOFS/$ins.out" 2>/dev/null; then
+        truncated=$((truncated+1)); echo "NO_CLIT_PASS $base" >> "$report"; continue
+    fi
     if [[ ! -f "$PROOFS/$base" ]]; then
         missing=$((missing+1)); echo "MISSING_IN_CLIT $base" >> "$report"
     elif cmp -s "$f" "$PROOFS/$base"; then
@@ -145,10 +160,12 @@ while IFS= read -r f; do
 done < <(find "$PROOFS" -maxdepth 1 -type f \( -name '*.smol.opb' -o -name '*.smol.pbp' \) | sort)
 
 {   echo "# trimmed proofs: Grim (ab-propagate-unify) vs Clit (this run)"
+    echo "# counts are FILES (.smol.opb + .smol.pbp), not instances"
     echo "identical:        $same"
     echo "differ:           $differ"
     echo "missing in clit:  $missing"
     echo "only in clit:     $extra"
+    echo "no clit pass:     $truncated   (tt=$TT budget spent by the Grim pass; excluded, not counted identical)"
 } | tee "$OUTDIR/smol-bytecompare.summary"
 cat "$OUTDIR/smol-bytecompare.summary" "$report" > "$report.tmp" && mv "$report.tmp" "$report"
 

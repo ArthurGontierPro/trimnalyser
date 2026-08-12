@@ -58,6 +58,19 @@ def main():
     if all(num(r, "gclt_total_cone") is None for r in rows):
         sys.exit("no gclt_* data — was the run launched with the `clit` flag?")
 
+    # tt bounds the whole subprocess (both passes). Where the Grim pass spent the budget,
+    # `timeout` killed the process before Clit finished and gclt_* is empty. Those rows are
+    # NOT evidence that the two modes agree — they are missing data, and they are
+    # concentrated on the slowest instances. Report them instead of silently dropping them.
+    trunc = [r for r in rows
+             if num(r, "grim_total_cone") is not None and num(r, "gclt_total_cone") is None]
+    if trunc:
+        slowest = sorted(trunc, key=lambda r: -(num(r, "grim_total_time") or 0))[:5]
+        print(f"clit pass did not complete on {len(trunc)}/{len(rows)} rows "
+              f"({100*len(trunc)/len(rows):.1f}%) — excluded from every table below")
+        print("  slowest: " + ", ".join(
+            f"{r['instance']}({num(r,'grim_total_time') or 0:.0f}s grim)" for r in slowest) + "\n")
+
     w = max(len(p[0]) for p in PAIRS)
     print(f"{'metric':<{w}}  {'n':>5}  {'clit<grim':>9}  {'equal':>6}  "
           f"{'clit>grim':>9}  {'median c/g':>10}  {'sum ratio':>9}")
@@ -102,15 +115,19 @@ def main():
     def verified(r):
         return (r.get("veri_smol_verified") or "").strip().lower() in ("1", "true", "yes", "verified")
 
-    ok = sum(1 for r in rows if verified(r))
-    print(f"\nveripb on Clit's trimmed proof: {ok} verified / {len(rows)} rows")
+    # Only rows where Clit actually ran describe Clit's proof. On a truncated row the
+    # .smol.* verify() saw was Grim's own output from earlier in the same subprocess, so
+    # counting it here would credit Clit with a verification it never earned.
+    ran = [r for r in rows if num(r, "gclt_total_cone") is not None]
+    ok = sum(1 for r in ran if verified(r))
+    print(f"\nveripb on Clit's trimmed proof: {ok} verified / {len(ran)} rows where Clit ran")
     if args.baseline:
         with open(args.baseline, newline="") as f:
             base = {r["instance"]: r for r in csv.DictReader(f)}
-        regressions = [r["instance"] for r in rows
+        regressions = [r["instance"] for r in ran
                        if r["instance"] in base
                        and verified(base[r["instance"]]) and not verified(r)]
-        common = sum(1 for r in rows if r["instance"] in base)
+        common = sum(1 for r in ran if r["instance"] in base)
         print(f"baseline join: {common} common instances ({args.baseline})")
         print(f"verified under Grim but NOT under Clit: {len(regressions)}")
         for i in regressions[:20]:
