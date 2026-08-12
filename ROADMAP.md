@@ -6,6 +6,8 @@ Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
 **Status as of 2026-07-27:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6, M3.5.7 complete. M3.5.4 still open. M4.1 (lazy supplemental generation) pivoted: our own per-vertex prototype abandoned, Ciaran's upstream proof-compatible implementation adopted and relabelled on `lazy-adjacency-relabelled`, not yet merged into the reference `labels-for-analysis` branch. **Paper scope decided:** characterisation-only (cone-vs-full + resolv shrinkage), M4/M4.1 as future work — see "Paper scope decision" below. **Full run launched 2026-07-27** on `lazy-adjacency-relabelled` — characterisation stats only, single-arm (see "Cluster run — 2026-07-27" below). Next: harvest, then reassess — either write up, or pull M5 (cross-solver) forward for more results.
 
+**Update 2026-08-12 — a second proof-producing solver now exists.** The LAD solver (Solnon's; repo `~/ladveri`, `git@github.com:ArthurGontierPro/ladveri.git`) has VeriPB proof logging, verified end-to-end through CakeML. This is relevant to M5, which until now could only have compared against *non*-proof-producing solvers. It is **not yet ready for a cluster arm** — see "M5" below for the honest capability list before planning around it.
+
 ---
 
 ## M1–M2.5 — Infrastructure ✅
@@ -528,13 +530,67 @@ truncated count collapse, and a proof-identity check on LVg10g12.
 
 **Immediate next step:** full run launched 2026-07-27 (cluster-side, `lazy-adjacency-relabelled`, single-arm) to confirm/refresh the cone-vs-full and resolv numbers before write-up. Harvest with `bash scripts/harvest.sh` on the compute node, then `bash scripts/harvest_pull.sh` locally.
 
-**Contingency:** if characterisation alone is judged too thin post-rerun, next lever is **M5 (cross-solver)** — comparing against RI/VF2/McSplit to add a second axis of results, rather than waiting on M4/M4.1 to land.
+**Contingency:** if characterisation alone is judged too thin post-rerun, next lever is **M5 (cross-solver)** — comparing against RI/VF2/McSplit to add a second axis of results, rather than waiting on M4/M4.1 to land. As of 2026-08-12 there is a second option in that slot: **LAD, which produces proofs**, so it can test whether the per-family proof fingerprints are instance properties or Glasgow artefacts — a better fit for a proof-characterisation paper than another PAR-2 column. It needs a pilot first; see "M5-proof" for the capability limits.
 
 ---
 
 ## M5 — Cross-solver comparison
 
 Glasgow (default vs heuristic-selected) vs RI vs VF2/McSplit. Fixed 180s timeout; PAR-2 score; stratified by family and cluster. Key question: do heuristics learned on LV transfer to phase/scalefree/si?
+
+### M5-proof — LAD as a second proof-producing arm (available 2026-08-12, pilot-only)
+
+RI/VF2/McSplit produce no proofs, so they can only be compared on solve time. **LAD now emits VeriPB proofs**, which makes a different comparison possible: every characterisation result we have (cone depth, `pol_frac`/`ia_frac` shapes, resolv shrinkage, the images-vs-meshes fingerprint) is currently **single-solver**, so we cannot tell whether "mesh shape = single-wave algebraic certificate, image shape = propagation cascade" is a property of the *instance family* or of *Glasgow's proof style*. A second proof producer separates those.
+
+Repo: `~/ladveri` / `git@github.com:ArthurGontierPro/ladveri.git`. Read `PROOF_TODO.md` and `doc/` there first.
+
+**What it can do today.** Every inference in its pinned configuration is discharged and checked end-to-end by CakeML: 14/14 curated cases, 588 proofs over three random seeds, zero broken proofs, zero unchecked assertions. Proofs are pure `rup`/`pol`.
+
+**What it cannot do — read before planning any run:**
+
+- **Never run on a real benchmark instance.** All validation is small random graphs (patterns ≤ 9 vertices). No proof-size numbers, no verification-time numbers, no evidence of where it falls over. A newSIP pilot is exactly the missing step (their TODO #11).
+- **No deletions.** The proof buffer is flat and accumulating, so proofs grow unboundedly — expect this to bite at benchmark scale (their TODO #10).
+- **Requires `-c 0`** (clique filtering unlogged) and **`-f 0` or `-f 1` pinned**, never `-f 2` adaptive.
+- **Restarts forced off** under `-P`.
+- **Clique instances silently produce no proof at all** — the shortcut fires before proof logging starts and exits. 12 of 600 sweep instances. Any harness must detect "no `.pbp` produced" and classify it, not treat it as a failure.
+- **Non-induced, undirected, unlabelled only**; first-solution only (no enumeration).
+- Instances must be **cake-clean**: no trailing blank line, degree counts matching successor counts exactly, edges present in both directions. Cake's LAD parser is stricter than LAD's own — note our `writecoreladfile` output has not been checked against it.
+
+**Comparison caveat — proof size is not directly comparable.** Glasgow emits its own OPB; LAD emits no model at all, writing against the constraint labels of the verified `cake_pb_iso` encoder. Different variable and constraint sets, so raw byte counts compare encodings as much as solvers. Normalise per node or per elimination, or compare growth curves. Glasgow also uses dominance; LAD's proofs never do.
+
+**Status 2026-08-12 — harness built, pilot pending.** LAD now runs on real newSIP instances: `LVg10g12` verifies end-to-end (dev VeriPB + trusted CakeML) in ~6 s with zero unchecked assertions. The runner is `~/ladveri/proof/bench/bench.py`; read `~/ladveri/proof/bench/README.md` before using it.
+
+#### The two planned runs
+
+Both emit one CSV row per (instance, solver), named exactly as we name instances, so they join onto `cluster_results.csv` on `instance`.
+
+**Run A — `--mode nopl`, no proof logging, clique reasoning ON both sides.** Measures verdict agreement, nodes, wall-clock. Deliberately *not* a controlled ablation: "clique reasoning" is different machinery on each side (Glasgow clique *detection* = whole-pattern shortcut to a dedicated clique solver, `--cliques` = clique *size* constraints; LAD `-c > 0` = clique *count* domination plus `filterMaxClique` *size* domination). Write it up as "both solvers as you would actually run them".
+
+**Run B — `--mode pl`, proof logging + checking, parity flags pinned.** Both solvers: clique reasoning off, restarts off, single-threaded, non-induced, first solution. Measures the above plus proof bytes and VeriPB verification time.
+
+```sh
+proof/bench/bench.py --mode nopl --families LV --out nopl.csv --jobs 32
+proof/bench/bench.py --mode pl   --families LV --out pl.csv   --jobs 32
+```
+
+Resumable — re-running the same command skips rows already present, so a killed cluster run resumes cleanly.
+
+#### Three traps in the run design
+
+1. **`--restarts none` must be pinned on Glasgow by hand.** Glasgow's default for a decision problem is Luby restarts, and proof logging does *not* disable them (the only restart guard is for counting). LAD forces restarts off under `-P`. Miss this and Run B compares a restarting solver against a non-restarting one. Note our existing `runsipsolver` (`src/solver.jl:158`) does **not** pass it — correct for our own runs, wrong for this comparison.
+2. **`bio` must be excluded from both runs.** It is genuinely directed (68 asymmetric pairs in `001.txt`). CakePB rejects it, and LAD reads it as undirected *without warning* — on `bio 001 -> 002` Glasgow says SAT and LAD says UNSAT. Including it would manufacture thousands of spurious disagreements from our own misuse. `bench.py` hard-errors on the family. This costs us the largest family in the 6-29 run (11,914 instances).
+3. **Clique instances give LAD no proof at all**, and this fires on real data — `LVg2g4` produces nothing because `LV/g4` is K₁₀. Rows are marked `no-proof(clique)`; count them separately, never as failures.
+
+#### M5-proof-trim — trimnalyse LAD proofs as we do Glasgow's
+
+The end goal, after Run B produces proofs worth trimming: feed LAD `.pbp` files through the existing cone extraction / resolv loop and compare the proof fingerprints against Glasgow's on the *same instances*. That is the result the single-solver characterisation cannot reach — whether `pol_frac`/`ia_frac`, cone depth and resolv shrinkage are properties of the instance family or of Glasgow's proof style.
+
+Two things to check before assuming the trimmer just works on LAD proofs:
+
+- **LAD emits no OPB.** It writes only `.pbp`, against the constraint labels of the verified `cake_pb_iso` encoder — so the model must come from `cake_pb_iso pat tgt > enc.opb`. Our pipeline assumes the solver produced both files (`runsipsolver` checks for `.opb` *and* `.pbp`). Either generate the OPB in the harness, or implement LAD's TODO #9 (emit our own OPB), which exists precisely for this.
+- **Variable naming differs.** LAD uses `x<p>_<t>`, which `parsevarname` (`src/solver.jl`) already parses — that part should carry over unchanged. Label-based provenance (M3.5.1–3) will *not*: those labels are Glasgow-specific, so cone-leaf classification needs a LAD-side equivalent or must be restricted to the structural columns.
+
+**Suggested order:** Run A first (cheap, no proof machinery, immediately says whether the solvers agree at all), then Run B on LV only, then reassess. Do not schedule meshes or images until LV verification times are known — a single mesh instance encodes to ~21 MB of OPB before any proof is written, and LAD has no proof deletions.
 
 ---
 
@@ -558,5 +614,9 @@ M1 → M2 → M2.5 → M3 (taxonomy) ✅
                                       ├─ M4.2b (lazy closure capture-by-value → RAM fix) ✅ — 4.2G OOM → 218M on LVg3g77
                                       └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7 + M4.1)
                                             └─ M5 (cross-solver)
+                                                  ├─ M5-proof (LAD arm) 🔜 — independent of M4
+                                                  │     ├─ Run A (nopl: solver compare)  🔜 CURRENT
+                                                  │     ├─ Run B (pl: proof + checking)  🔜
+                                                  │     └─ M5-proof-trim (LAD proofs through the cone/resolv loop)
                                                   └─ M6 (integration)
 ```

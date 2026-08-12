@@ -74,6 +74,12 @@ cmake --build build -j 48    # ~40s
 
 **SSH is non-interactive and does not source `.bashrc`**, so `julia` isn't on `PATH`. Wrap remote commands: `ssh fataepyc-07 'bash -lc "..."'`. Long runs need `tmux`/`nohup` — each SSH is a fresh shell.
 
+## Related projects
+
+**LAD with VeriPB proof logging** — `~/ladveri` (`git@github.com:ArthurGontierPro/ladveri.git`). Since 2026-08-12 there is a *second* proof-producing SIP solver, verified end-to-end through CakeML. Relevant to M5: it can test whether our per-family proof fingerprints are instance properties or Glasgow artefacts. **Pilot-only — it has never run a real benchmark instance**, has no proof deletions, and emits no proof at all on clique instances. Read `ROADMAP.md` "M5-proof" for the full capability limits before planning any run.
+
+Note the name clash: `writecoreladfile` (`src/solver.jl`) writes the LAD *graph file format*, which is unrelated to the LAD *solver*.
+
 ## Architecture
 
 **Orchestrator mode** (no instance in ARGS, or `allgraphs`): spawns one subprocess per instance via `julia bin/trimnalyser.jl <instance>`. OOM monitor on `:interactive` thread polls `/proc` every 10s, kills trimmer subprocesses and Glasgow solver processes exceeding `maxmem=` GB. Solve/verif/resolv run in orchestrator threads with independent timeouts.
