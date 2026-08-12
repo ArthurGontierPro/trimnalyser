@@ -22,17 +22,24 @@ PROOFS="$SCRATCH/proofs"
 SRC_PROOFS="${SRC_PROOFS:-$SCRATCH/proofs.ab-propagate-unify}"   # 825 solved .opb/.pbp pairs
 INSTFILE="${INSTFILE:-$HOME/instances_stratified.txt}"
 SUFFIX="${SUFFIX:-}"
-TT="${TT:-600}"       # trim timeout, seconds — 10 min, as asked
-VT="${VT:-6000}"      # verif timeout: pinned to last night's budget, NOT to TT (see below)
+TT="${TT:-600}"       # trim timeout, seconds — 10 min
+VT="${VT:-600}"       # verif timeout, seconds — set explicitly, never left to default (see below)
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 OUTDIR="$REPO/ab-clit$SUFFIX"
 GRIM_REF="$SCRATCH/smol-grim-ref$SUFFIX"      # Grim's .smol.*, moved aside before the run
 DONE_MARKER="=== AB-CLIT-COMPLETE ==="
 
-# vt= defaults to tt= (config.jl:80). Letting a 10-min TT drag the verif budget down to
-# 10 min would time out instances that verified fine last night at vt=6000, and those
-# timeouts would look like clit regressions. Pin VT to the baseline's value instead.
+# vt= defaults to tt= (config.jl:80), so it is always passed explicitly here — a silent
+# default is the kind of thing that only shows up as a wedged run at 3am.
+#
+# 600s, and the run does not lose anything by it. `verify()` checks the trimmed proof and
+# then RE-checks the full one; only the full check is ever slow (observed 553s / 1152s /
+# 2017s), while every smol verif in the 828-run finished in ~0s. The smol result is the
+# one that tests Clit and the only one the analysis reads (veri_smol_verified) — the full
+# proofs were already verified by the run that produced them. So capping at 600s truncates
+# redundant work, not evidence. The first run used vt=6000 and spent 33 minutes on a single
+# full-proof re-verification for nothing.
 #
 # No `solve` (proofs are on disk), no `resolv` (core iterations only add cost and blur
 # the paired comparison). `overwrite` is required: smol_complete (pipeline.jl:42) would
