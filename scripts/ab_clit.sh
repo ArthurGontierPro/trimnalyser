@@ -44,7 +44,20 @@ DONE_MARKER="=== AB-CLIT-COMPLETE ==="
 # No `solve` (proofs are on disk), no `resolv` (core iterations only add cost and blur
 # the paired comparison). `overwrite` is required: smol_complete (pipeline.jl:42) would
 # otherwise skip every instance outright, since .smol.* already exist.
-RUNFLAGS=(--threads 75,1 clit verif keepraw overwrite
+# ARM=both      one subprocess runs Grim then Clit. tt is ONE `timeout` around the whole
+#               subprocess (orchestrator.jl:219), so the two passes SHARE the budget, and
+#               since Grim goes first the squeeze lands entirely on Clit. Cheap, paired,
+#               but it truncates Clit on the slow instances — the ones that matter most.
+# ARM=clit-only the `no` flag skips the Grim pass (pipeline.jl:67), so Clit runs alone
+#               with a full tt to itself. Pair against the grim_* columns of a previous
+#               ARM=both run, which already had the full budget for the same reason.
+ARM="${ARM:-both}"
+case "$ARM" in
+    both)      MODEFLAGS=(clit) ;;
+    clit-only) MODEFLAGS=(no clit) ;;
+    *) echo "ARM must be 'both' or 'clit-only'" >&2; exit 1 ;;
+esac
+RUNFLAGS=(--threads 75,1 "${MODEFLAGS[@]}" verif keepraw overwrite
           "instfile=$INSTFILE" "tt=$TT" "vt=$VT" rand)
 
 HARVEST_FILES=(cluster_results.csv graph_features.csv quick_stats.txt

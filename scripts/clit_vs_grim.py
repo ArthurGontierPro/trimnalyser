@@ -47,6 +47,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("csv")
     ap.add_argument("--baseline", help="CSV whose veri_smol_verified describes Grim")
+    ap.add_argument("--clit-from", metavar="CSV",
+                    help="take gclt_*/veri_* from an ARM=clit-only run (which gave Clit a "
+                         "full tt to itself) and pair them against this CSV's grim_* columns")
     args = ap.parse_args()
 
     with open(args.csv, newline="") as f:
@@ -54,6 +57,27 @@ def main():
     if not rows:
         sys.exit("empty CSV")
     print(f"rows: {len(rows)}  ({args.csv})\n")
+
+    # In ARM=both the two passes share one tt and Grim goes first, so Clit is the only one
+    # that ever gets truncated. An ARM=clit-only run gives Clit its own full budget; overlay
+    # its gclt_* here so both sides of the comparison had the same time. veri_* comes with
+    # it, since in that run the verified .smol.* is Clit's.
+    if args.clit_from:
+        with open(args.clit_from, newline="") as f:
+            other = {r["instance"]: r for r in csv.DictReader(f)}
+        overlaid = 0
+        for r in rows:
+            o = other.get(r["instance"])
+            if not o:
+                continue
+            if num(o, "gclt_total_cone") is None:
+                continue
+            for k, v in o.items():
+                if k.startswith("gclt_") or k.startswith("veri_"):
+                    r[k] = v
+            overlaid += 1
+        print(f"overlaid gclt_* from {args.clit_from} on {overlaid} instances "
+              f"(Clit given its own full tt)\n")
 
     if all(num(r, "gclt_total_cone") is None for r in rows):
         sys.exit("no gclt_* data — was the run launched with the `clit` flag?")
