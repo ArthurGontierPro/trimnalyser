@@ -4,7 +4,7 @@ TrimAnalyser supports all 8 newSIP benchmark families, extracts UNSAT cores via 
 
 Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
-**Status as of 2026-07-27:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6, M3.5.7 complete. M3.5.4 still open. M4.1 (lazy supplemental generation) pivoted: our own per-vertex prototype abandoned, Ciaran's upstream proof-compatible implementation adopted and relabelled on `lazy-adjacency-relabelled`, not yet merged into the reference `labels-for-analysis` branch. **Paper scope decided:** characterisation-only (cone-vs-full + resolv shrinkage), M4/M4.1 as future work — see "Paper scope decision" below. **Full run launched 2026-07-27** on `lazy-adjacency-relabelled` — characterisation stats only, single-arm (see "Cluster run — 2026-07-27" below). Next: harvest, then reassess — either write up, or pull M5 (cross-solver) forward for more results.
+**Status as of 2026-07-27:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6, M3.5.7 complete. **M3.5.4 dropped 2026-08-17** — not statistically feasible on this benchmark (n_eff = 51 in the only viable family); rescoped to a per-family lookup table, see below. M4.1 (lazy supplemental generation) pivoted: our own per-vertex prototype abandoned, Ciaran's upstream proof-compatible implementation adopted and relabelled on `lazy-adjacency-relabelled`, not yet merged into the reference `labels-for-analysis` branch. **Paper scope decided:** characterisation-only (cone-vs-full + resolv shrinkage), M4/M4.1 as future work — see "Paper scope decision" below. **Full run launched 2026-07-27** on `lazy-adjacency-relabelled` — characterisation stats only, single-arm (see "Cluster run — 2026-07-27" below). Next: harvest, then reassess — either write up, or pull M5 (cross-solver) forward for more results.
 
 **Update 2026-08-12 — a second proof-producing solver now exists.** The LAD solver (Solnon's; repo `~/ladveri`, `git@github.com:ArthurGontierPro/ladveri.git`) has VeriPB proof logging, verified end-to-end through CakeML. This is relevant to M5, which until now could only have compared against *non*-proof-producing solvers. It is **not yet ready for a cluster arm** — see "M5" below for the honest capability list before planning around it.
 
@@ -87,7 +87,7 @@ Launched `./trimnalyser --threads 75,1 solve resolv verif allgraphs st=600 tt=60
 - **Two-axis classifier:** `cone_depth_entropy × pol_frac` as primary family discriminants.
 - **Scalefree proof coverage:** 20 UNSAT instances exist; determine how many complete within timeout.
 - **Intra-family scaling:** proof size as O(|V(P)|), O(|V(T)|), or O(|V(P)|·|V(T)|)?
-- **Intra-LV sub-fingerprinting:** `pat_deg_var` and `pat_is_bipartite` as stratification axes.
+- **Intra-LV sub-fingerprinting:** `pat_deg_var` and `pat_is_bipartite` as stratification axes. *(Caution, M3.5.4: within LV, `pat_deg_var` vs supplemental usage is r² = 0.003 over 83 distinct patterns. It works as a fingerprint axis for `pol` width — §7 of the paper defends that — but not as a per-instance predictor. Do not promote it to one.)*
 
 ### Second pass — automated clustering
 
@@ -111,27 +111,109 @@ Per-family supplemental usage now quantified (see M3 cluster run table). Key fin
 - g1adj bimodal: 77% zero, 23% with counts sometimes exceeding g0adj. Per-family stratification required.
 - images-CVIU11: 100% supplemental usage, massive counts (median 38k g1adj). meshes-CVIU11: near-zero.
 - bio: 55% g1adj usage overall, jumps to 100% in search-heavy instances.
-- Families with near-zero gNadj → depth-N supplementals can be disabled — direct `--supplementals` tuning knob for M4.
+- ~~Families with near-zero gNadj → depth-N supplementals can be disabled — direct `--supplementals` tuning knob for M4.~~ **Retracted 2026-08-17 (M3.5.4).** This read cone counts without checking emission. The near-zero families are near-zero because Glasgow *emits nothing there*: `grim_full_*` summed over meshes is 0 for every supplemental label (including on its 497 searching instances), and 0 for `g3adj`/`pathg3` on images. Disabling a knob that already produces nothing saves nothing. Where emission is real (LV 8.4 M, bio 9.1 M `g1adj` steps) usage cannot be predicted — see M3.5.4.
 
-### M3.5.4 — Structural classifier for supplemental graph usage 🔜 CURRENT
+### M3.5.4 — Structural classifier for supplemental graph usage ❌ DROPPED (rescoped to a lookup table)
 
-**Goal:** Identify which graph structural properties predict whether g1adj/g2adj/g3adj appear in the UNSAT cone. Feed result into M4 as a fast pre-solve probe.
+**Verdict 2026-08-17: DROP the classifier. The deciding number is n_eff = 51.**
 
-**Inputs:** `6-22-fullrun/graph_features.csv` (33 structural features + 30 core features) joined with `6-22-fullrun/cluster_results.csv` (g1adj/g2adj/g3adj counts). 15,394 instances in innerjoin.
+That is the effective sample size in images-CVIU11 — the *only* one of the four families where the outcome varies at all *and* the candidate predictors are non-constant. 2827 rows collapse to 43 distinct pattern graphs (ICC by pattern = 0.836, design effect 55). A per-family decision tree of depth ≤ 3 has more free parameters than that supports, and the "per-family precision ≥ 0.80" target was never well-posed in three of the four families.
 
-**Steps:**
+Assessed on **both** full runs — 8-3 (lazy, `lazy-adjacency-relabelled`) as primary because it is the branch all current characterisation results sit on, and 6-29 (eager, `labels-for-analysis`) as a control. **The answer does not flip.** Lazy adjacency roughly doubles the base rates (images 0.44 → 0.72, LV 0.015 → 0.026) but changes no conclusion below: same degenerate families, same effective n, same collinearity, same partial correlations within noise. `.coreN` resolv-iteration rows excluded (14,479 of them) — they are re-solves of a graph pair already in the data, so they inflate row count without adding a graph. No `core_*` column from `graph_features.csv` used.
 
-1. **Per-family stratification** — for each family (LV, bio, images, meshes, phase, scalefree), compute: fraction of instances with g1adj > 0, median g1adj count, median g1adj/g0adj ratio. *(Partially done in classify_supplementals — extend with g0adj ratios.)*
+**Q1 — base rates and the baseline every rule must beat** (8-3; 6-29 in brackets)
 
-2. **Feature correlation** — point-biserial correlation of each `graph_features` column against `g1adj_used` (binary). Primary candidates: `pat_triangles`, `pat_clustering`, `density_ratio`, `node_ratio`, `pat_deg_var`, `diameter_ratio`.
+| family | rows | P(g1adj>0) | P(g2adj>0) | P(g3adj>0) | majority-class baseline |
+|---|---|---|---|---|---|
+| LV | 3724 | 0.026 [0.015] | 0.040 | 0.030 | **0.974** (predict NEG) |
+| bio | 6598 | 0.111 [0.103] | 0.118 | 0.055 | **0.889** (predict NEG) |
+| images-CVIU11 | 2827 | 0.721 [0.440] | 0.677 | **0.000** | **0.721** (predict POS) |
+| meshes-CVIU11 | 2793 | **0.000** | **0.000** | **0.000** | **1.000** (predict NEG) |
 
-3. **Simple classifier** — decision tree (depth ≤ 3) or explicit threshold rules on top 2–3 features. Interpretability required; no black-box models. Target: per-family precision ≥ 0.80.
+"Precision ≥ 0.80" is meaningless in three of these. In meshes the outcome is constant zero on 2793/2793 rows in both runs — no classifier is *definable*, let alone fittable. In LV a constant "never" already scores 0.974, so a rule must be near-perfect on the 2.6 % minority to add anything. In images the majority class is POS at 0.721, so the 0.80 precision target is a 0.08 improvement over predicting "always yes". Only bio has a baseline (0.889) far enough from both ends for precision to mean something, and bio has no usable predictor (below).
 
-4. **proof_survey section** — per-family g1adj usage rate stacked bar + top structural predictors table + classifier confusion matrix.
+**Q2 — effective n: the classifier's real degrees of freedom**
 
-5. **M4 implication** — families where classifier predicts g1adj ≈ 0 → propose `--supplementals=0` as default; document expected speedup.
+| family | rows | distinct patterns | distinct targets | distinct (pat,tar) pairs | ICC(pattern) | design effect | **n_eff** |
+|---|---|---|---|---|---|---|---|
+| LV | 3724 | **83** | 114 | 3724 | 0.137 | 7.0 | 532 |
+| bio | 6598 | **135** | 136 | 6598 | 0.155 | 8.4 | 783 |
+| images-CVIU11 | 2827 | **43** | 146 | 2827 | 0.836 | 55.1 | **51** |
+| meshes-CVIU11 | 2793 | **6** | 503 | 2793 | n/a (constant) | — | ≤ 6 |
 
-**Deliverable:** classifier rules in `paper/notes.tex §8` + new proof_survey section.
+15,942 rows across the four families are 267 distinct patterns and 899 distinct targets. Every (pattern,target) pair is unique — the row inflation is not duplicate instances, it is the Cartesian product of a small pattern set with a small target set, which is exactly the structure that makes row count a lie. Pattern IDs were validated: 0 patterns and 0 targets have non-constant `(nodes, edges)` in any family, so the name-derived graph identity is sound.
+
+**Q3 — predictor variance between distinct graphs.** Two of the six candidates are *literally constant* in bio: all 135 bio patterns have `pat_triangles = 0` and `pat_clustering = 0.0` (the bio patterns are triangle-free). They cannot separate anything there, in either run. In meshes there are 6 distinct values of any pattern-level feature, one per pattern. `diameter_ratio` is all-NaN in images. The only family where the pattern-level features have both spread and a varying outcome is images — and there `pat_deg_var` has CV 0.231 with 41 distinct values over 43 patterns, i.e. it is close to an instance label.
+
+**Q4 — variance explained by family membership alone** (η², four families, 8-3 [6-29]):
+
+- `g1adj_used`: **0.440** [0.201]
+- `g2adj_used`: 0.380 [0.170]
+- `g3adj_used`: 0.020 [0.022]
+- family × searched (8 cells): 0.510 [0.287]
+
+Family alone explains 44 % of the outcome variance on the lazy run. No structural feature comes close to its own contribution beyond that, so the honest deliverable is a **per-family lookup table**, not a classifier. The g3adj row is the exception that proves it: η² = 0.02 because g3adj is ~0 nearly everywhere, including 0/2827 in images.
+
+**Q5 — point-biserial correlations vs `g1adj_used`, clustered by pattern** (8-3; `clust p` = 2000-permutation test permuting outcomes at pattern-cluster level):
+
+| feature | LV r (r²) | bio r (r²) | images r (r²) |
+|---|---|---|---|
+| pat_triangles | −0.038 (0.001) p=0.12 | **constant** | −0.561 (0.314) p=0.0005 |
+| pat_clustering | −0.081 (0.007) p=0.03 | **constant** | −0.016 (0.000) p=0.91 |
+| density_ratio | −0.004 (0.000) p=0.85 | −0.028 (0.001) p=0.20 | 0.377 (0.142) p=0.0015 |
+| node_ratio | −0.029 (0.001) p=0.21 | −0.127 (0.016) p=0.0005 | −0.373 (0.139) p=0.0005 |
+| pat_deg_var | −0.057 (0.003) p=0.06 | −0.107 (0.011) p=0.001 | −0.299 (0.089) p=0.014 |
+| diameter_ratio | −0.019 (0.000) p=0.67 | 0.162 (0.026) p=0.001 | all-NaN |
+
+In LV and bio the largest r² is 0.026 — statistically detectable at n_eff ≈ 500–800 and operationally worthless. Only images has correlations worth a second look, and they do not survive it.
+
+The effective-n correction is not cosmetic: LV `pat_clustering` has naive p = 6.7 × 10⁻⁷, which becomes p = 0.061 once n is deflated by the design effect and p = 0.028 under the pattern-clustered permutation. Reading the naive column is how a 0.007-r² non-result gets written up as significant.
+
+**The §7 failure mode does apply, and it is worse here.** At pattern level in images (n = 43 units), Spearman `pat_nodes` ↔ `pat_density` = **−0.996**. Pattern order and density are not merely correlated, they are the same axis, exactly as in the withdrawn §7 claim. `pat_triangles` ↔ `pat_nodes` = 0.816. Residualising on pattern order:
+
+| predictor (images, 43 pattern units) | raw r | partial r, controlling pat_nodes | permutation p (20k, pattern level) |
+|---|---|---|---|
+| pat_triangles | −0.485 (p = 0.0009) | **−0.200** (r² = 0.040) | **p = 0.198** |
+| density_ratio | +0.370 | **−0.007** | — |
+
+[6-29 control: raw −0.627 → partial −0.168, p = 0.286. Same conclusion.] So the one apparently strong structural predictor in the one viable family contributes nothing once pattern order is held fixed. `density_ratio`'s entire signal is pattern order.
+
+**A per-target reframing does not rescue it.** ICC by target in images is **0.009** (vs 0.836 by pattern): g1adj usage in images is a property of the pattern, not of the target, so switching the prediction unit to targets moves it to the axis carrying no variance. In bio the two are comparable (0.155 pattern / 0.122 target) — but bio has no predictor.
+
+**The dominant driver is not structural and is not available pre-solve.** `solver_nodes > 1` is a necessary condition: across both runs, **0 of 16,914 no-search rows have g1adj > 0** (also 0 for g2adj and g3adj). Point-biserial `searched` vs `g1adj_used` is 0.449 in bio and 0.327 in LV — larger than every structural feature in those families combined. Note this is *mechanical, not empirical*: `--staged` builds the supplemental graphs only when the supplemental-free first stage fails to conclude, so a no-search instance cannot emit a `gNadj` label. Checked directly — every instance with `grim_full_g1adj > 0` is a searching instance, in all four families. (Definition note: `searched` here is `solver_nodes > 1`, which is *stricter* than the paper's "searching subset" of `solver_nodes > 0` — the latter gives 7,908 instances and 602 meshes, reproducing `sec:exp-metrics` exactly. The zero-usage result holds under either, since the paper's no-search set is a subset of ours.) It still sinks the M4 framing: the strongest predictor of the outcome is search effort, which a *pre-solve* probe by definition does not have.
+
+**Rescoped deliverable (what to actually ship):**
+
+1. A **per-family lookup table** of the Q1 base rates, stated as such — a 4-row table with confidence intervals, not a model. This is what the data supports and it is already most of what `classify_supplementals` prints.
+2. One narrow, honestly-labelled images-only rule: `pat_triangles ≤ 1 → g1adj unused` selects 3 of 43 patterns at in-sample precision 1.000 / recall 0.115 (6-29: 0.983 / 0.162). Report it as an in-sample optimum over all thresholds on 43 units with no held-out patterns — an upper bound, not an estimate. It is not worth a §8.
+3. **No M4 implication. The zero-usage families are zero-*emission* families** — corrected 2026-08-17 after checking `grim_full_*` alongside `grim_cone_*`, which is the check that distinguishes "the cone did not need it" from "the solver never wrote it":
+
+| family | g1adj Σ full proof | instances emitting | g3adj Σ full | pathg3 Σ full |
+|---|---|---|---|---|
+| LV | 8.37 M | 275 (all searching) | 641 k | 33.1 M |
+| bio | 9.05 M | 1055 (all searching) | 567 k | 21.4 M |
+| images-CVIU11 | 461 M | 2066 | **0** | **0** |
+| meshes-CVIU11 | **0** | **0** | **0** | **0** |
+
+   Glasgow emits *no* supplemental step of any depth on meshes — not on the 497 mesh instances that do search — and no level-3 supplemental on images. So `--supplementals=0` for meshes and a depth-2 cap for images would save **nothing**; they describe solver behaviour we already get for free, not a configuration win. Both bullets as originally written here were wrong.
+
+   The residual finding is the uncomfortable one: **the two families where disabling supplementals would actually save something (LV 8.4 M and bio 9.1 M emitted steps, of which the cone keeps ~3 %) are exactly the two where the outcome cannot be predicted** — base rates 0.026 and 0.111, best structural r² 0.007 and 0.026, and `pat_triangles`/`pat_clustering` constant in bio. M4's pre-solve probe is unsupported where it would have paid.
+
+**What would reverse this verdict** (in decreasing order of leverage):
+
+- **More distinct pattern graphs.** images-CVIU11 has 43 and meshes 6. Getting n_eff into the low hundreds *per family* needs new pattern graphs, not more instances — the benchmark's Cartesian pattern × target design means additional instances add rows without adding degrees of freedom. A benchmark with ≥ 150 distinct patterns per family whose order and density are decorrelated would make the question askable.
+- **Breaking the order–density collinearity.** Spearman −0.996 in images. Any generated instance set that varies density at fixed pattern order (or vice versa) would separate the axes and let `pat_triangles`'s partial contribution be measured rather than confounded.
+- **A different target variable.** `g1adj_used` is binary and saturated (0.00 / 0.03 / 0.11 / 0.72 across families). `g1adj / g0adj` as a continuous *intensity* on the subset that uses any supplementals would at least not be degenerate in meshes-by-construction — though it would still be measured on 43 and 6 pattern units.
+- **Not per-target.** Ruled out above by ICC = 0.009 in images; do not re-argue this one without new data.
+
+**Reproduce:**
+
+```bash
+python3 scripts/m354_feasibility.py 8-3-fullrun 6-29-fullrun    # Q1-Q5 per family, both runs
+python3 scripts/m354_pattern_probe.py 8-3-fullrun 6-29-fullrun  # pattern-level collinearity + ICC-by-target
+```
+
+Pandas/numpy only, no scipy. Runs locally in well under a minute — after dropping `.coreN` rows and requiring a cone, the analysis is 15,942 rows, so no cluster job is needed.
 
 ### M3.5.5 — Branching order variance analysis ✅
 
@@ -287,7 +369,7 @@ Alongside the existing `.var_order` (cone vertex frequencies), write `.full.var_
 | Image-like | Most-constrained variable ordering | Triangle propagation |
 | Bio-like | BFS ordering from bottleneck vertex | Degree pre-check |
 
-**Depends on:** M3.5 cluster data (supplemental depth profiles inform which `--supplementals` flags to test). Framework: `scripts/heuristic_eval.jl` — runs flag combinations on benchmark subset, outputs per-instance × per-config performance matrix. Learning: manual rules first, then decision-tree model.
+**Depends on:** M3.5 cluster data (supplemental depth profiles inform which `--supplementals` flags to test). Framework: `scripts/heuristic_eval.jl` — runs flag combinations on benchmark subset, outputs per-instance × per-config performance matrix. Learning: manual rules first. **Not a decision-tree model on graph features** — M3.5.4 measured the available degrees of freedom (267 distinct patterns across four families, 43 in the only family with a non-degenerate outcome) and a tree is unfittable on them. Any learning here must be over *configurations measured per instance*, not over structural features predicting instance behaviour.
 
 ---
 
@@ -605,14 +687,14 @@ Lightweight graph-feature probe at Glasgow startup selects heuristic config. Sub
 ```
 M1 → M2 → M2.5 → M3 (taxonomy) ✅
                     └─ M3.5.1–3 (CP provenance) ✅
-                          ├─ M3.5.4 (supplemental classifier) 🔜 CURRENT
+                          ├─ M3.5.4 (supplemental classifier) ❌ DROPPED 2026-08-17 — n_eff=51, do not retry
                           ├─ M3.5.5 (branching order variance) ✅
                           │     └─ M3.5.6 (oracle replay) ✅ — static override marginal, tiebreaker for M4
                           └─ M3.5.7 (trimmed vs full proof) ✅ — cone_vs_full data in 6-22 + 6-29 runs
                                 └─ M4.1 (lazy supplemental generation) 🔜 — Glasgow modification, feeds M4 flags
                                       ├─ M4.2a (identical-supplemental memcmp → skip propagators) ✅ — +20% node throughput on g84
                                       ├─ M4.2b (lazy closure capture-by-value → RAM fix) ✅ — 4.2G OOM → 218M on LVg3g77
-                                      └─ M4 (heuristic learning, depends on M3.5.4 + M3.5.7 + M4.1)
+                                      └─ M4 (heuristic learning, depends on M3.5.7 + M4.1; the M3.5.4 dependency is void — no classifier exists and none is fittable)
                                             └─ M5 (cross-solver)
                                                   ├─ M5-proof (LAD arm) 🔜 — independent of M4
                                                   │     ├─ Run A (nopl: solver compare)  🔜 CURRENT
