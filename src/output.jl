@@ -2,7 +2,7 @@
     function writeout_parse(ins, t1, inp_lits, inp_vars, prefix)
         opb_sz = filesize(_cfg[].proofs*ins*opb)
         pbp_sz = filesize(_cfg[].proofs*ins*pbp)
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             println(f, "inp OPB SIZE ",   opb_sz)
             println(f, "inp PBP SIZE ",   pbp_sz)
             println(f, "inp SIZE ",       opb_sz + pbp_sz)
@@ -15,7 +15,7 @@
         cone_opb = sum(cone[1:nbopb])
         cone_pbp = sum(cone[nbopb+1:end])
         n_pbp = length(cone) - nbopb
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " TRIM TIME ", t2)
             println(f, prefix, " OPB ",  cone_opb, "/", nbopb)
             println(f, prefix, " PBP ",  cone_pbp, "/", n_pbp)
@@ -36,7 +36,7 @@
 
     function writeout_conelits(ins, sys, cone, conelits, inp_lits, prefix)
         s = conelits_stats(sys, cone, conelits)
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " LIT ", s.lits_cone, "/", inp_lits)
             println(f, prefix, " SMOL LIT ", s.lits_smol)
             println(f, prefix, " VAR ", s.vars_used, "/", s.vars_total)
@@ -98,7 +98,7 @@
         (rup=n_rup, pol=n_pol, red=n_red, ia=n_ia, other=n_other) end
 
     function writeout_step_types(ins, cone_counts, full_counts, prefix)
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " RUP ",  cone_counts.rup, "/", full_counts.rup)
             println(f, prefix, " POL ",  cone_counts.pol, "/", full_counts.pol)
             println(f, prefix, " RED ",  cone_counts.red, "/", full_counts.red)
@@ -130,7 +130,7 @@
         (max_depth=Int(d_max), mean_depth=mean, depth_arr=depth) end
 
     function writeout_depth(ins, cone_stats, full_stats, prefix)
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " CONE DEPTH MAX ",  cone_stats.max_depth)
             println(f, prefix, " FULL DEPTH MAX ",  full_stats.max_depth)
             println(f, prefix, " CONE DEPTH MEAN ", round(cone_stats.mean_depth; digits=2))
@@ -275,7 +275,7 @@
          pol_before_rup_burst=pol_before_rup_burst) end
 
     function writeout_depth_dist(ins, cone_dist, full_dist, prefix)
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " CONE DEPTH P50 ",        cone_dist.cone_depth_p50)
             println(f, prefix, " FULL DEPTH P50 ",        full_dist.cone_depth_p50)
             println(f, prefix, " CONE DEPTH P90 ",        cone_dist.cone_depth_p90)
@@ -504,7 +504,7 @@
     end
 
     function writeout_write(ins, t1, t2, t3, prefix)
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " WRITE TIME ", t3)
             println(f, prefix, " TIME ",       t1+t2+t3)
             println(f, prefix, " OPB SIZE ",   filesize(_cfg[].proofs*ins*smol_opb))
@@ -514,7 +514,7 @@
 
     function writeout_verif(ins, smol_verif_time, full_verif_time)
         smol_verif_time < 0 && full_verif_time < 0 && return
-        open(_cfg[].proofs*ins*".out", "a") do f
+        logopen(ins) do f
             smol_verif_time >= 0 && println(f, "veri smol TIME ", smol_verif_time)
             full_verif_time >= 0 && println(f, "veri TIME ",      full_verif_time)
         end end
@@ -528,7 +528,7 @@
             return -1, :missing, -1, :missing
         end
         ins2 = _cfg[].proofs*ins
-        outfile = ins2*".out"
+        outfile = logpath(ins)
         function run_verif(opb, pbp, tag)
             tmp_out = opb*".veriptmp"; tmp_err = opb*".veriptmperr"
             proc = nothing
@@ -559,7 +559,7 @@
         return smol_time, smol_status, full_time, full_status end
 
     function verif_ok(ins)
-        outfile = _cfg[].proofs * ins * ".out"
+        outfile = logpath(ins)
         isfile(outfile) || return false
         sz = filesize(outfile)
         sz == 0 && return false
@@ -686,12 +686,12 @@
         # Counts how many resolv iterations ran for ins by checking coreN .out files.
     function countresolveiters(ins)
         n = 0
-        while isfile(_cfg[].proofs * ins * ".core$(n+1)" * ".out"); n += 1 end
+        while isfile(logpath(ins * ".core$(n+1)")); n += 1 end
         return n end
 
         # Parses solver-written fields from the top of ins.out (appended by runsipsolver).
     function parsesolverstats(ins)
-        outfile = _cfg[].proofs * ins * ".out"
+        outfile = solveroutpath(ins)
         isfile(outfile) || return nothing
         content = read(outfile, String)
         gi(r) = (m = match(r, content)) !== nothing ? parse(Int, m.captures[1]) : nothing
@@ -704,12 +704,12 @@
     _parse_frac(s) = let p = findfirst('/', s); p === nothing ? (tryparse(Int, s), nothing) : (tryparse(Int, s[1:p-1]), tryparse(Int, s[p+1:end])) end
 
     function plotresultstable()
-        list = filter(x -> ext(x)==".out" && !endswith(x,".smolverif.out") && !endswith(x,".verif.out"), readdir(_cfg[].proofs))
-        list = onlyname.(list)
+        suffix = "." * solverconfig().kind * "." * _cfg[].config * ".out"
+        list = [x[1:end-length(suffix)] for x in readdir(logroot) if endswith(x, suffix)]
         table = Vector{Vector{Any}}()
         for file in list
             res = Any[file; fill(nothing, T_NCOLS - 1)]
-            for line in eachline(_cfg[].proofs*file*".out")
+            for line in eachline(logpath(file))
                     if occursin("grim PARSE TIME ", line)    res[T_GRIM_PTIME]= tryparse(Int, split(line)[end])
                 elseif occursin("grim TRIM TIME ", line)     res[T_GRIM_TTIME]= tryparse(Int, split(line)[end])
                 elseif occursin("grim WRITE TIME ", line)    res[T_GRIM_WTIME]= tryparse(Int, split(line)[end])
@@ -1142,7 +1142,7 @@
 
     function writeout_labels(ins, cone, full, prefix)
         _lbl(f, tag, c, t) = (c > 0 || t > 0) && println(f, prefix, " LABEL ", tag, " ", c, "/", t)
-        open(_cfg[].proofs * ins * ".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " LABEL AL1 ",         cone.al1,        "/", full.al1)
             println(f, prefix, " LABEL AM1 ",         cone.am1,        "/", full.am1)
             println(f, prefix, " LABEL INJ ",         cone.inj,        "/", full.inj)
@@ -1246,7 +1246,7 @@
     end
 
     function writeout_var_order(ins, cone_data, full_data, prefix)
-        open(_cfg[].proofs * ins * ".out", "a") do f
+        logopen(ins) do f
             println(f, prefix, " UNIQ PAT ", length(cone_data.order), "/", length(full_data.order))
             println(f, prefix, " UNIQ TAR ", cone_data.n_unique_tar, "/", full_data.n_unique_tar)
         end

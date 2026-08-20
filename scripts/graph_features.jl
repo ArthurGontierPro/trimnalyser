@@ -330,12 +330,23 @@ function main()
     println("Graphs dir : $graphs_dir")
     println("Output     : $output_csv")
 
-    # Collect all instances (base + .coreN), excluding verification files
+    # Collect all instances (base + .coreN), excluding verification files.
+    # Since M7.4 the .out logs live outside the proof tree and are named
+    # <instance>.<solver>.<config>.out; fall back to the flat pre-M7 layout.
+    logs_dir = get(ENV, "TRIMNALYSER_LOGS", proofs_dir)
+    isdir(logs_dir) || (logs_dir = proofs_dir)
     all_out = filter(f -> endswith(f, ".out") &&
                           !endswith(f, ".smolverif.out") &&
-                          !endswith(f, ".verif.out"),
-                     readdir(proofs_dir))
-    instances = [splitext(f)[1] for f in all_out]
+                          !endswith(f, ".verif.out") &&
+                          !endswith(f, ".solverout"),
+                     readdir(logs_dir))
+    isempty(all_out) && logs_dir != proofs_dir &&
+        (all_out = filter(f -> endswith(f, ".out"), readdir(proofs_dir)))
+    instances = map(all_out) do f
+        m = match(r"^(.*)\.(?:gss|lad)\.[^.]+\.out$", f)
+        m === nothing ? splitext(f)[1] : m.captures[1]
+    end
+    unique!(instances)
     println("Found $(length(instances)) instances")
 
     vis_dir = joinpath(proofs_dir, "vis")

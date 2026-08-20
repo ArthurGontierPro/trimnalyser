@@ -24,6 +24,8 @@ const SIPgraphpath  = get(ENV, "TRIMNALYSER_GRAPHS",
     _cluster ? "/scratch/arthur/newSIPbenchmarks/" : "/home/arthur_gla/veriPB/newSIPbenchmarks/")
 const sipsolverpath = get(ENV, "GLASGOW_SUBGRAPH_SOLVER",
     _cluster ? "/scratch/arthur/glasgow_subgraph_solver" : "/home/arthur_gla/veriPB/subgraphsolver/glasgow-subgraph-solver/build/glasgow_subgraph_solver")
+const logroot = get(ENV, "TRIMNALYSER_LOGS",
+    _cluster ? "/cluster/arthur/logs/" : abspath_base*"logs/")
 const ladsolverpath = get(ENV, "LAD_SOLVER",
     _cluster ? "/scratch/arthur/lad" : "/home/arthur_gla/ladveri/lad")
 

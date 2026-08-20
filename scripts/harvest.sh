@@ -3,7 +3,11 @@
 # Run ON THE COMPUTE NODE that produced the proofs, from ~/trimnalyser/
 # (/scratch is local to each machine — the head node has its own empty one,
 #  so running this there would find nothing.)
-# Usage: bash scripts/harvest.sh [proofs_dir]
+# Usage: bash scripts/harvest.sh [proofs_dir] [logs_dir]
+# Since M7.1/M7.4 the proofs dir is namespaced per configuration
+# (/scratch/arthur/proofs/<solver>/<config>) and the .out logs live outside the proof
+# tree in /cluster/arthur/logs. Harvest one configuration at a time:
+#   bash scripts/harvest.sh /scratch/arthur/proofs/gss/gss-lazy
 # Then pull results locally with: bash scripts/harvest_pull.sh
 #
 # The optional argument lets an archived run be re-harvested in place, without the
@@ -14,18 +18,20 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PROOFS="${1:-/scratch/arthur/proofs}"
+PROOFS="${1:-/scratch/arthur/proofs/gss/gss-lazy}"
+LOGS="${2:-/cluster/arthur/logs}"
 [[ -d "$PROOFS" ]] || { echo "no such proofs dir: $PROOFS" >&2; exit 1; }
-echo "harvesting $PROOFS"
+[[ -d "$LOGS" ]]   || { echo "no such logs dir: $LOGS" >&2; exit 1; }
+echo "harvesting $PROOFS (logs: $LOGS)"
 
 echo "=== 1/5 Aggregate results ==="
-julia scripts/aggregate_results.jl "$PROOFS" cluster_results.csv
+julia scripts/aggregate_results.jl "$PROOFS" cluster_results.csv "$LOGS"
 
 echo "=== 2/5 Graph features ==="
-julia scripts/graph_features.jl "$PROOFS" graph_features.csv
+TRIMNALYSER_LOGS="$LOGS" julia scripts/graph_features.jl "$PROOFS" graph_features.csv
 
 echo "=== 3/5 Var order aggregation ==="
-julia scripts/aggregate_var_order.jl "$PROOFS" var_order
+TRIMNALYSER_LOGS="$LOGS" julia scripts/aggregate_var_order.jl "$PROOFS" var_order
 
 echo "=== 4/5 Quick stats ==="
 julia scripts/quick_stats.jl cluster_results.csv

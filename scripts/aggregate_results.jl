@@ -36,7 +36,7 @@ end
 
 # Column names for the CSV
 const CSV_COLUMNS = [
-    "instance", "family",
+    "instance", "solver", "config", "family",
     # Input stats
     "inp_opb_size", "inp_pbp_size", "inp_total_size",
     "inp_literals", "inp_variables",
@@ -304,7 +304,14 @@ function parse_out_file(filepath)
     data = Dict{String, Any}()
     isfile(filepath) || return data
 
-    for line in eachline(filepath)
+    # The log is append-only (M7.4): every run of this configuration adds a
+    # "=== RUN <iso8601> <host> <config> ===" block. Only the last one is current.
+    lines = readlines(filepath)
+    let i = findlast(l -> startswith(l, "=== RUN "), lines)
+        i !== nothing && (lines = lines[i+1:end])
+    end
+
+    for line in lines
         for (substr, key, T) in _SUFFIX_RULES
             startswith(line, substr) && (data[key] = tryparse(T, split(line)[end]))
         end
@@ -380,19 +387,19 @@ function parse_err_file(filepath)
     return (true, "Unknown", strip(content)[1:min(100, end)])
 end
 
-function count_resolv_iterations(proofdir, instance)
+function count_resolv_iterations(proofdir, instance, tag="")
     n = 0
-    while isfile(joinpath(proofdir, instance * ".core$(n+1)" * ".out"))
+    while isfile(joinpath(proofdir, instance * ".core$(n+1)" * tag * ".out"))
         n += 1
     end
     return n
 end
 
 # Extract a list of keys from each .coreN.out file for the given instance.
-function get_iteration_fields(proofdir, instance, n_iterations, keys)
+function get_iteration_fields(proofdir, instance, n_iterations, keys, tag="")
     result = [[] for _ in keys]
     for i in 1:n_iterations
-        out_file = joinpath(proofdir, instance * ".core$i" * ".out")
+        out_file = joinpath(proofdir, instance * ".core$i" * tag * ".out")
         if isfile(out_file)
             data = parse_out_file(out_file)
             for (j, k) in enumerate(keys); push!(result[j], get(data, k, nothing)); end
@@ -450,37 +457,50 @@ function format_array(arr)
     return csv_quote("[" * join(vals, ",") * "]")
 end
 
-function aggregate_results(proofdir::String, output_csv::String)
-    println("Scanning directory: $proofdir")
+# Log files are named <instance>.<solver>.<config>.out (M7.4) and live outside the proof
+# tree. Flat <instance>.out files from pre-M7 runs are still accepted, with empty tag.
+const _LOGNAME = r"^(.*)\.(gss|lad)\.([^.]+)\.out$"
 
-    all_files = readdir(proofdir)
+function aggregate_results(proofdir::String, output_csv::String, logdir::String=proofdir)
+    println("Scanning proofs: $proofdir")
+    println("Scanning logs:   $logdir")
+
     out_files = filter(f -> endswith(f, ".out") &&
                            !endswith(f, ".smolverif.out") &&
-                           !endswith(f, ".verif.out"), all_files)
+                           !endswith(f, ".verif.out") &&
+                           !endswith(f, ".solverout") &&
+                           match(r"\.core\d+(\.|$)", f) === nothing, readdir(logdir))
 
-    instances = [splitext(f)[1] for f in out_files]
-    println("Found $(length(instances)) instances")
+    # (instance, tag, solver, config); tag is the ".<solver>.<config>" middle, "" if flat.
+    entries = map(out_files) do f
+        m = match(_LOGNAME, f)
+        m === nothing ? (splitext(f)[1], "", "", "") :
+                        (m.captures[1], "." * m.captures[2] * "." * m.captures[3], m.captures[2], m.captures[3])
+    end
+    println("Found $(length(entries)) instances")
 
     open(output_csv, "w") do io
         println(io, join(CSV_COLUMNS, ","))
 
-        for (i, instance) in enumerate(instances)
-            i % 100 == 0 && println("Processing $i/$(length(instances))...")
+        for (i, (instance, tag, solver, config)) in enumerate(entries)
+            i % 100 == 0 && println("Processing $i/$(length(entries))...")
 
-            out_file = joinpath(proofdir, instance * ".out")
+            out_file = joinpath(logdir, instance * tag * ".out")
             data = parse_out_file(out_file)
 
             err_file = joinpath(proofdir, instance * ".err")
             has_error, error_type, error_details = parse_err_file(err_file)
 
-            resolv_iters = count_resolv_iterations(proofdir, instance)
+            resolv_iters = count_resolv_iterations(logdir, instance, tag)
             iter_sizes_total, iter_sizes_opb, iter_sizes_pbp = get_iteration_fields(
-                proofdir, instance, resolv_iters, ["grim_total_size", "grim_opb_size", "grim_pbp_size"])
+                logdir, instance, resolv_iters, ["grim_total_size", "grim_opb_size", "grim_pbp_size"], tag)
             iter_nbeq, iter_var, iter_lit = get_iteration_fields(
-                proofdir, instance, resolv_iters, ["inp_total_nbeq", "inp_variables", "inp_literals"])
+                logdir, instance, resolv_iters, ["inp_total_nbeq", "inp_variables", "inp_literals"], tag)
 
             row = []
             push!(row, csv_quote(instance))
+            push!(row, csv_quote(solver))
+            push!(row, csv_quote(config))
             push!(row, csv_quote(instance_family(instance)))
 
             # Input stats
@@ -739,7 +759,7 @@ end
 
 # Main
 if length(ARGS) < 1
-    println("Usage: julia aggregate_results.jl <proofs_directory> [output_csv]")
+    println("Usage: julia aggregate_results.jl <proofs_directory> [output_csv] [logs_directory]")
     println()
     println("Example: julia aggregate_results.jl /home/arthur_gla/veriPB/subgraphsolver/proofs/ results.csv")
     exit(1)
@@ -747,5 +767,6 @@ end
 
 proofdir = ARGS[1]
 output_csv = length(ARGS) >= 2 ? ARGS[2] : "results.csv"
+logdir     = length(ARGS) >= 3 ? ARGS[3] : proofdir
 
-aggregate_results(proofdir, output_csv)
+aggregate_results(proofdir, output_csv, logdir)

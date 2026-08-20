@@ -244,14 +244,17 @@
             msg = "Timeout after $(_cfg[].trimtimeout)s"
             printstyled("  $ins: $msg\n"; color=:red)
             open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
+            logstage(ins, "trim TIMEOUT", _cfg[].trimtimeout)
             return :timeout
         elseif exitcode == 137
             msg = "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)"
             printstyled("  $ins: $msg\n"; color=:red)
             open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
+            logstage(ins, "trim MEMOUT", _cfg[].maxinstmem_gb)
             return :memout
         else
-            exitcode != 0 && printstyled("  $ins: trim failed (exit $exitcode)\n"; color=:red)
+            exitcode != 0 && (printstyled("  $ins: trim failed (exit $exitcode)\n"; color=:red);
+                              logstage(ins, "trim ERR exit", exitcode))
             return :failed
         end end
 
@@ -261,7 +264,7 @@
         patfile, tarfile = parsegraphfiles(ins)
         prev_np = parse(Int, readline(patfile))
         prev_nt = parse(Int, readline(tarfile))
-        outfile = _cfg[].proofs * ins * ".out"
+        outfile = logpath(ins)
         open(outfile, "a") do f; println(f, "resolv ITER 0 PAT $prev_np TAR $prev_nt") end
         iter = 0
         while true
@@ -280,7 +283,6 @@
             prev_np, prev_nt = np, nt
             open(outfile, "a") do f; println(f, "resolv ITER $iter PAT $np TAR $nt") end
             core_ins = ins * ".core$iter"
-            tryrm(_cfg[].proofs*core_ins*".out")
             tryrm(_cfg[].proofs*core_ins*".err")
             t = @elapsed (ok, timed_out) = runsipsolver(core_ins, cur_pat, cur_tar)
             if !ok
@@ -341,37 +343,44 @@
         oom_killed, mem_info = was_oom_killed(ins)
         if !_cfg[].overwrite && oom_killed
             mem_str = isempty(mem_info) ? "" : " at $mem_info"
-            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow); return :skip
+            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow)
+            runheader(ins); logstage(ins, "solve MEMOUT", isempty(mem_info) ? "?" : mem_info)
+            return :skip
         end
-        tryrm(_cfg[].proofs*ins*".out")
         tryrm(_cfg[].proofs*ins*".err")
+        runheader(ins)
         if _cfg[].solve
             patfile, tarfile = parsegraphfiles(ins)
             if patfile === nothing
-                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red); return :skip
+                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red)
+                logstage(ins, "solve ERR", "no_graph_paths"); return :skip
             end
             if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
                 printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
             else
                 t = @elapsed (ok, timed_out) = runsipsolver(ins, patfile, tarfile)
                 if !ok
-                    out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
+                    out_content = isfile(solveroutpath(ins)) ? read(solveroutpath(ins), String) : ""
                     if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
                         touch(_cfg[].proofs * ins * ".sat")
                         tryrm(_cfg[].proofs * ins * pbp)
                         tryrm(_cfg[].proofs * ins * opb)
                         printstyled("  $ins SAT — skipping\n"; color=:yellow)
+                        logstage(ins, "solve VERDICT", "SAT"); logstage(ins, "solve TIME", round(t; digits=2))
                     elseif timed_out
                         touch(_cfg[].proofs * ins * ".timeout$(_cfg[].solvertimeout)")
                         tryrm(_cfg[].proofs * ins * pbp)
                         tryrm(_cfg[].proofs * ins * opb)
                         printstyled("  $ins solver timed out ($(round(t;digits=1))s)\n"; color=:red)
+                        logstage(ins, "solve VERDICT", "TIMEOUT"); logstage(ins, "solve TIMEOUT", _cfg[].solvertimeout)
                     else
                         printstyled("  $ins solve failed ($(round(t;digits=1))s)\n"; color=:red)
+                        logstage(ins, "solve VERDICT", "FAILED"); logstage(ins, "solve TIME", round(t; digits=2))
                     end
                     return :skip
                 end
                 printstyled("  $ins solved $(round(t;digits=1))s\n"; color=:cyan)
+                logstage(ins, "solve VERDICT", "UNSAT"); logstage(ins, "solve TIME", round(t; digits=2))
             end
         end
         let c = pbpconclusion(ins)
@@ -379,21 +388,22 @@
                 touch(_cfg[].proofs * ins * ".sat")
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
-                printstyled("  $ins $c — skipping\n"; color=:yellow); return :skip
+                printstyled("  $ins $c — skipping\n"; color=:yellow)
+                logstage(ins, "solve VERDICT", c); return :skip
             end
             if isempty(c)
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
                 printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
                 open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
-                return :skip
+                logstage(ins, "solve ERR", "truncated_proof"); return :skip
             end
         end
         let sz = (isfile(_cfg[].proofs*ins*opb) ? filesize(_cfg[].proofs*ins*opb) : 0) +
                     (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
             if sz > 50 * 1024^3
                 printstyled("  $ins too large ($(round(sz/1024^3; digits=1)) GB) — skipping\n"; color=:yellow)
-                return :skip
+                logstage(ins, "solve ERR", "too_large_$(round(sz/1024^3; digits=1))G"); return :skip
             end
         end
         return :ok end

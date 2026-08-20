@@ -158,7 +158,8 @@
         errfile = _cfg[].proofs*out_prefix*".err"
         options = solverflags()   # per-config; see SOLVER_CONFIGS in config.jl
         local exitcode = 0
-        open(_cfg[].proofs*out_prefix*".out", "a") do fout
+        tryrm(solveroutpath(out_prefix))   # truncate: the verdict grep must not see a previous run's
+        open(solveroutpath(out_prefix), "a") do fout
             open(errfile, "a") do ferr
                 p = run(pipeline(
                     ignorestatus(`timeout $(_cfg[].solvertimeout) $binary

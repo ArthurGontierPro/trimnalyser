@@ -38,6 +38,29 @@ const default_config = "gss-lazy"   # current hardcoded behaviour: --staged --no
 
     # The active entry. Flags additionally carry the legacy `no-supplementals` arg.
 solverconfig() = SOLVER_CONFIGS[_cfg[].config]
+
+    # The append-only per-instance log. It lives OUTSIDE the proof tree: the proof
+    # directory is deleted at last use, and the record must survive that. One file per
+    # (instance, solver, configuration) so configurations never overwrite each other.
+logpath(ins) = logroot * ins * "." * solverconfig().kind * "." * _cfg[].config * ".out"
+logopen(f, ins) = open(f, logpath(ins), "a")
+
+    # The solver's own stdout. Stays in the proof directory and is truncated per solve:
+    # the SAT/UNSAT verdict is grepped out of it, so it must never carry a previous run's.
+solveroutpath(ins) = _cfg[].proofs * ins * ".solverout"
+
+    # Opens a run in the append-only log. Every re-run of any configuration appends its own
+    # block, so a partial cluster run stays readable and no configuration destroys another's
+    # record. Readers take the LAST block.
+function runheader(ins)
+    logopen(ins) do f
+        println(f, "=== RUN ", Base.Libc.strftime("%Y-%m-%dT%H:%M:%S", time()),
+                   " ", gethostname(), " ", _cfg[].config, " ===")
+    end
+end
+
+    # One greppable KEY SUBKEY VALUE line, so a table cell can be filled from the log alone.
+logstage(ins, key, val) = logopen(ins) do f; println(f, key, " ", val) end
 solverflags()  = _cfg[].nosup && "--no-supplementals" ∉ solverconfig().flags ?
                      [solverconfig().flags; "--no-supplementals"] : solverconfig().flags
 
@@ -136,5 +159,6 @@ function parse_config!(args=ARGS)
         config_val,
     )
     mkpath(_cfg[].proofs)
+    mkpath(logroot)
     return _cfg[]
 end
