@@ -153,15 +153,15 @@
         # Solver stdout/stderr are appended to out_prefix.{out,err} (tryrm clears them beforehand for the original instance).
         # Returns true if both output files were produced.
     function runsipsolver(out_prefix, pat_lad, tar_lad)
-        isfile(sipsolverpath) || (printstyled("  solver not found: $sipsolverpath\n"; color=:red); return (false, false))
+        binary = solverconfig().binary
+        isfile(binary) || (printstyled("  solver not found: $binary\n"; color=:red); return (false, false))
         errfile = _cfg[].proofs*out_prefix*".err"
-        options = ["--no-clique-detection","--staged"] # clique solver is different so we exclude it. staged is a preprocess optimisation.
-        _cfg[].nosup && push!(options, "--no-supplementals")
+        options = solverflags()   # per-config; see SOLVER_CONFIGS in config.jl
         local exitcode = 0
         open(_cfg[].proofs*out_prefix*".out", "a") do fout
             open(errfile, "a") do ferr
                 p = run(pipeline(
-                    ignorestatus(`timeout $(_cfg[].solvertimeout) $sipsolverpath
+                    ignorestatus(`timeout $(_cfg[].solvertimeout) $binary
                         --prove $(_cfg[].proofs*out_prefix) $options --format lad $pat_lad $tar_lad`),
                     stdout=fout, stderr=ferr))
                 exitcode = p.exitcode

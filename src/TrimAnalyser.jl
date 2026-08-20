@@ -24,6 +24,8 @@ const SIPgraphpath  = get(ENV, "TRIMNALYSER_GRAPHS",
     _cluster ? "/scratch/arthur/newSIPbenchmarks/" : "/home/arthur_gla/veriPB/newSIPbenchmarks/")
 const sipsolverpath = get(ENV, "GLASGOW_SUBGRAPH_SOLVER",
     _cluster ? "/scratch/arthur/glasgow_subgraph_solver" : "/home/arthur_gla/veriPB/subgraphsolver/glasgow-subgraph-solver/build/glasgow_subgraph_solver")
+const ladsolverpath = get(ENV, "LAD_SOLVER",
+    _cluster ? "/scratch/arthur/lad" : "/home/arthur_gla/ladveri/lad")
 
 # ── Optional profiler ─────────────────────────────────────────────────────────
 const _HAS_PROFILER = try; @eval using StatProfilerHTML; true; catch; false; end

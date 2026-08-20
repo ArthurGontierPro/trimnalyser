@@ -506,7 +506,7 @@
         # Independent OOM monitor: scans all trimnalyser.jl subprocesses every 10s and kills OOM ones.
         # Runs on :interactive thread so worker saturation can't starve it.
         Threads.@spawn :interactive begin
-            solver_name = basename(sipsolverpath)
+            solver_name = basename(solverconfig().binary)
             while monitor_active[]
                 sleep(10)
                 try
@@ -561,6 +561,7 @@
         # Each trim subprocess is trim-only (GC-isolated Julia). Solve/verif/resolv run in orchestrator thread.
         # "subprocess" flag distinguishes trim-only subprocesses from interactive invocations.
         subargs = filter(a -> a in Set(["resolv","clit","render","profile","no-supplementals","keepraw","overwrite"]) ||
+                              startswith(a, "config=") ||   # else the subprocess resolves a different proofs dir
                               startswith(a, "tt=") ||
                               startswith(a, "maxmem=") || startswith(a, "minmem="), args)
         push!(subargs, "subprocess")

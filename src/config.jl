@@ -1,3 +1,46 @@
+# ══ Solver configuration grid (M7) ══════════════════════════════════════════════════════
+# One entry per column of the paper's appendix tables (tab:configs-gss,
+# tab:configs-gss-ablations, tab:configs-lad). `binary` lets configurations that differ
+# only by solver revision coexist; `proves` marks the ones that log a proof at all.
+struct SolverConfig
+    kind   ::String            # "gss" | "lad"
+    binary ::String
+    flags  ::Vector{String}
+    proves ::Bool
+end
+
+    # Per-revision binary override: $GLASGOW_SUBGRAPH_SOLVER_<rev>, else the single global.
+gssbin(rev) = get(ENV, "GLASGOW_SUBGRAPH_SOLVER_" * rev, sipsolverpath)
+
+const _gss_base = ["--staged", "--no-clique-detection"]
+
+const SOLVER_CONFIGS = Dict{String,SolverConfig}(
+    # ── tab:configs-gss ──
+    "gss-default"    => SolverConfig("gss", gssbin("head"),    String[],                                    false),
+    "gss-noclique"   => SolverConfig("gss", gssbin("head"),    ["--no-clique-detection"],                   false),
+    "gss-eager"      => SolverConfig("gss", gssbin("2180663"), _gss_base,                                   true),
+    "gss-lazy"       => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
+    # ── tab:configs-gss-ablations (all against 39ca857, deliberately pre-OOM-fix) ──
+    "gss-lazy-base"  => SolverConfig("gss", gssbin("39ca857"), _gss_base,                                   true),
+    "gss-nostaged"   => SolverConfig("gss", gssbin("39ca857"), ["--no-clique-detection"],                   true),
+    "gss-nosupp"     => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--no-supplementals"],           true),
+    "gss-norestarts" => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--restarts"; "none"],           true),
+    "gss-cliques"    => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--cliques"],                    true),
+    # ── tab:configs-lad (M7.5; bio is hard-excluded for every lad-* key) ──
+    "lad-default"    => SolverConfig("lad", ladsolverpath, ["-f", "2", "-c", "4"],                          false),
+    "lad-clique"     => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "2"],                          false),
+    "lad-noclique"   => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "0"],                          false),
+    "lad-alldiff-pl" => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "0", "-P"],                    true),
+    "lad-fc-pl"      => SolverConfig("lad", ladsolverpath, ["-f", "1", "-c", "0", "-P"],                    true),
+)
+
+const default_config = "gss-lazy"   # current hardcoded behaviour: --staged --no-clique-detection --prove
+
+    # The active entry. Flags additionally carry the legacy `no-supplementals` arg.
+solverconfig() = SOLVER_CONFIGS[_cfg[].config]
+solverflags()  = _cfg[].nosup && "--no-supplementals" ∉ solverconfig().flags ?
+                     [solverconfig().flags; "--no-supplementals"] : solverconfig().flags
+
 # ══ Config ══════════════════════════════════════════════════════════════════════════════
 mutable struct Config
     inst           ::Union{String,Nothing}
@@ -28,6 +71,7 @@ mutable struct Config
     minfreemem     ::Int
     maxinstmem_gb  ::Float64
     proofs         ::String
+    config         ::String
 end
 
 const _cfg = Ref{Config}()
@@ -38,7 +82,15 @@ const argflags = Set(["clit","core","verif","no","rand","sort","clean","atable",
 function parse_config!(args=ARGS)
     argval(prefix, T, default) = (i = findfirst(x -> startswith(x, prefix), args);
                                    i !== nothing ? parse(T, args[i][length(prefix)+1:end]) : default)
-    defaultproofs = _cluster ? "/scratch/arthur/proofs/" : abspath_base*"proofs/"
+    config_val = let i = findfirst(x -> startswith(x, "config="), args)
+        i === nothing ? default_config : String(args[i][8:end])
+    end
+    haskey(SOLVER_CONFIGS, config_val) ||
+        error("unknown config=$config_val — valid keys: " * join(sort(collect(keys(SOLVER_CONFIGS))), ", "))
+    # Namespaced per configuration: two configurations of one instance must not collide
+    # on <ins>.opb in a single flat directory.
+    proofroot     = _cluster ? "/scratch/arthur/proofs/" : abspath_base*"proofs/"
+    defaultproofs = proofroot * SOLVER_CONFIGS[config_val].kind * "/" * config_val * "/"
     proofs_dir = begin
         i = findfirst(x -> isdir(x), args)
         i !== nothing ? args[i] : defaultproofs
@@ -81,5 +133,8 @@ function parse_config!(args=ARGS)
         argval("minmem=",   Int,     _cluster ? 100 : 4) * 1024^3,
         argval("maxmem=",   Float64, _cluster ? 50.0 : 8.0),
         proofs_dir,
+        config_val,
     )
+    mkpath(_cfg[].proofs)
+    return _cfg[]
 end
