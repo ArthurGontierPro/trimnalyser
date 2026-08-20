@@ -152,7 +152,22 @@
         # Runs the Glasgow SIP solver on pat_lad/tar_lad, writing proof to proofs/out_prefix.{opb,pbp}.
         # Solver stdout/stderr are appended to out_prefix.{out,err} (tryrm clears them beforehand for the original instance).
         # Returns true if both output files were produced.
-    function runsipsolver(out_prefix, pat_lad, tar_lad)
+        # Reads the SAT/UNSAT verdict out of the solver's own stdout for the last solve.
+        # :unknown covers timeout, crash and a missing file alike.
+    function solve_verdict(ins)
+        isfile(solveroutpath(ins)) || return :unknown
+        c = read(solveroutpath(ins), String)
+        # Glasgow reports the verdict as "status = true|false" (true = a mapping was found);
+        # it never prints the word SATISFIABLE. Other builds/solvers may, so accept both.
+        m = match(r"^status\s*=\s*(\w+)"m, c)
+        m !== nothing && m.captures[1] == "true"  && return :sat
+        m !== nothing && m.captures[1] == "false" && return :unsat
+        occursin("UNSATISFIABLE", c) && return :unsat
+        occursin("SATISFIABLE",   c) && return :sat
+        return :unknown end
+
+    function runsipsolver(out_prefix, pat_lad, tar_lad; prove::Bool=true,
+                          timeout::Int=_cfg[].solvertimeout)
         binary = solverconfig().binary
         isfile(binary) || (printstyled("  solver not found: $binary\n"; color=:red); return (false, false))
         errfile = _cfg[].proofs*out_prefix*".err"
@@ -161,9 +176,10 @@
         tryrm(solveroutpath(out_prefix))   # truncate: the verdict grep must not see a previous run's
         open(solveroutpath(out_prefix), "a") do fout
             open(errfile, "a") do ferr
+                proveargs = prove ? ["--prove", _cfg[].proofs*out_prefix] : String[]
                 p = run(pipeline(
-                    ignorestatus(`timeout $(_cfg[].solvertimeout) $binary
-                        --prove $(_cfg[].proofs*out_prefix) $options --format lad $pat_lad $tar_lad`),
+                    ignorestatus(`timeout $timeout $binary
+                        $proveargs $options --format lad $pat_lad $tar_lad`),
                     stdout=fout, stderr=ferr))
                 exitcode = p.exitcode
             end
@@ -180,7 +196,10 @@
                 tryrm(errfile)
             end
         end
-        return (isfile(_cfg[].proofs*out_prefix*opb) && isfile(_cfg[].proofs*out_prefix*pbp), false) end
+        # A non-logging solve writes no files, so its success is the exit code alone.
+        ok = prove ? (isfile(_cfg[].proofs*out_prefix*opb) && isfile(_cfg[].proofs*out_prefix*pbp)) :
+                     (exitcode == 0)
+        return (ok, false) end
 
     function writeunsatcore(ins, sys::PBSystem, cone::BitVector,
                             conelits::Dict{Int,Set{Int}}, varmap_inv::Vector{String}, nbopb::Int)

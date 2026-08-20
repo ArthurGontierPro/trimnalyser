@@ -89,6 +89,7 @@ mutable struct Config
     minnodes       ::Int
     maxnodes       ::Int
     solvertimeout  ::Int
+    nopltimeout    ::Int
     trimtimeout    ::Int
     veriftimeout   ::Int
     minfreemem     ::Int
@@ -151,6 +152,7 @@ function parse_config!(args=ARGS)
         argval("minnodes=", Int,     0),
         argval("maxnodes=", Int,     typemax(Int)),
         argval("st=",       Int,     5),
+        argval("stnopl=",   Int,     60),
         tt,
         argval("vt=",       Int,     tt),
         argval("minmem=",   Int,     _cluster ? 100 : 4) * 1024^3,

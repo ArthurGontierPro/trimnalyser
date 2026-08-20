@@ -358,10 +358,35 @@
             if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
                 printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
             else
+                # ── Tier 1: no proof logging, short cap. Five of the fourteen configurations
+                # write no proof at all and this solve IS their table cell; for the rest it
+                # is the gate that keeps expensive logging runs off hopeless instances.
+                if _cfg[].nopltimeout > 0
+                    t0 = @elapsed runsipsolver(ins, patfile, tarfile; prove=false,
+                                               timeout=_cfg[].nopltimeout)
+                    v0 = solve_verdict(ins)
+                    logstage(ins, "nopl VERDICT", uppercase(string(v0)))
+                    logstage(ins, "nopl TIME", round(t0; digits=2))
+                    if v0 === :sat
+                        touch(_cfg[].proofs * ins * ".sat")
+                        printstyled("  $ins SAT (no-logging solve) — skipping\n"; color=:yellow)
+                        return :skip
+                    elseif v0 === :unknown
+                        touch(_cfg[].proofs * ins * ".timeout$(_cfg[].nopltimeout)")
+                        printstyled("  $ins did not conclude in $(_cfg[].nopltimeout)s without logging — skipping\n"; color=:red)
+                        return :skip
+                    end
+                    if !solverconfig().proves
+                        # The cell is complete: this configuration never logs a proof.
+                        touch(_cfg[].proofs * ins * ".done")
+                        printstyled("  $ins $(uppercase(string(v0))) $(round(t0;digits=1))s (no-logging config)\n"; color=:cyan)
+                        return :skip
+                    end
+                end
+                # ── Tier 2: the logging solve.
                 t = @elapsed (ok, timed_out) = runsipsolver(ins, patfile, tarfile)
                 if !ok
-                    out_content = isfile(solveroutpath(ins)) ? read(solveroutpath(ins), String) : ""
-                    if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
+                    if solve_verdict(ins) === :sat
                         touch(_cfg[].proofs * ins * ".sat")
                         tryrm(_cfg[].proofs * ins * pbp)
                         tryrm(_cfg[].proofs * ins * opb)
@@ -572,6 +597,7 @@
         # "subprocess" flag distinguishes trim-only subprocesses from interactive invocations.
         subargs = filter(a -> a in Set(["resolv","clit","render","profile","no-supplementals","keepraw","overwrite"]) ||
                               startswith(a, "config=") ||   # else the subprocess resolves a different proofs dir
+                              startswith(a, "stnopl=") ||
                               startswith(a, "tt=") ||
                               startswith(a, "maxmem=") || startswith(a, "minmem="), args)
         push!(subargs, "subprocess")
