@@ -335,18 +335,20 @@
             cur_tar = _cfg[].proofs * "vis/" * core_ins * ".core.tar.lad"
         end end
 
-    function run_instance_batch(ins, subargs, script)
+        # Shared prologue for both instance drivers: OOM sentinel, log reset, solve,
+        # conclusion gate and size guard. Returns :ok to continue, :skip to abandon the instance.
+    function prepare_instance(ins)
         oom_killed, mem_info = was_oom_killed(ins)
         if !_cfg[].overwrite && oom_killed
             mem_str = isempty(mem_info) ? "" : " at $mem_info"
-            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow); return
+            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow); return :skip
         end
         tryrm(_cfg[].proofs*ins*".out")
         tryrm(_cfg[].proofs*ins*".err")
         if _cfg[].solve
             patfile, tarfile = parsegraphfiles(ins)
             if patfile === nothing
-                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red); return
+                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red); return :skip
             end
             if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
                 printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
@@ -367,7 +369,7 @@
                     else
                         printstyled("  $ins solve failed ($(round(t;digits=1))s)\n"; color=:red)
                     end
-                    return
+                    return :skip
                 end
                 printstyled("  $ins solved $(round(t;digits=1))s\n"; color=:cyan)
             end
@@ -377,23 +379,27 @@
                 touch(_cfg[].proofs * ins * ".sat")
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
-                printstyled("  $ins $c — skipping\n"; color=:yellow); return
+                printstyled("  $ins $c — skipping\n"; color=:yellow); return :skip
             end
             if isempty(c)
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
                 printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
                 open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
-                return
+                return :skip
             end
         end
         let sz = (isfile(_cfg[].proofs*ins*opb) ? filesize(_cfg[].proofs*ins*opb) : 0) +
                     (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
             if sz > 50 * 1024^3
                 printstyled("  $ins too large ($(round(sz/1024^3; digits=1)) GB) — skipping\n"; color=:yellow)
-                return
+                return :skip
             end
         end
+        return :ok end
+
+    function run_instance_batch(ins, subargs, script)
+        prepare_instance(ins) === :ok || return
         trim_status = run_trim_subprocess(ins, subargs, script)
         if trim_status !== :ok
             if trim_status === :timeout || trim_status === :memout
@@ -431,64 +437,7 @@
         if !_cfg[].overwrite && timed_out_at_current_st(ins)
             printstyled("  $ins timed out (cached st≤$(_cfg[].solvertimeout)s) — skipping\n"; color=:yellow); return
         end
-        oom_killed, mem_info = was_oom_killed(ins)
-        if !_cfg[].overwrite && oom_killed
-            mem_str = isempty(mem_info) ? "" : " at $mem_info"
-            printstyled("  $ins previously OOM killed$mem_str — skipping\n"; color=:yellow); return
-        end
-        tryrm(_cfg[].proofs*ins*".out")
-        tryrm(_cfg[].proofs*ins*".err")
-        if _cfg[].solve
-            patfile, tarfile = parsegraphfiles(ins)
-            if patfile === nothing
-                printstyled("  solve: cannot parse graph paths for $ins\n"; color=:red); return
-            end
-            if !_cfg[].overwrite && isfile(_cfg[].proofs*ins*opb) && !isempty(pbpconclusion(ins))
-                printstyled("  $ins proof exists — skipping solve\n"; color=:blue)
-            else
-                t = @elapsed (ok, timed_out) = runsipsolver(ins, patfile, tarfile)
-                if !ok
-                    out_content = isfile(_cfg[].proofs*ins*".out") ? read(_cfg[].proofs*ins*".out", String) : ""
-                    if occursin("SATISFIABLE", out_content) && !occursin("UNSATISFIABLE", out_content)
-                        touch(_cfg[].proofs * ins * ".sat")
-                        tryrm(_cfg[].proofs * ins * pbp)
-                        tryrm(_cfg[].proofs * ins * opb)
-                        printstyled("  $ins SAT — skipping\n"; color=:yellow)
-                    elseif timed_out
-                        touch(_cfg[].proofs * ins * ".timeout$(_cfg[].solvertimeout)")
-                        tryrm(_cfg[].proofs * ins * pbp)
-                        tryrm(_cfg[].proofs * ins * opb)
-                        printstyled("  $ins solver timed out ($(round(t;digits=1))s)\n"; color=:red)
-                    else
-                        printstyled("  $ins solve failed ($(round(t;digits=1))s)\n"; color=:red)
-                    end
-                    return
-                end
-                printstyled("  $ins solved $(round(t;digits=1))s\n"; color=:cyan)
-            end
-        end
-        let c = pbpconclusion(ins)
-            if c == "SAT" || c == "NONE"
-                touch(_cfg[].proofs * ins * ".sat")
-                tryrm(_cfg[].proofs * ins * pbp)
-                tryrm(_cfg[].proofs * ins * opb)
-                printstyled("  $ins $c — skipping\n"; color=:yellow); return
-            end
-            if isempty(c)
-                tryrm(_cfg[].proofs * ins * pbp)
-                tryrm(_cfg[].proofs * ins * opb)
-                printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
-                open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
-                return
-            end
-        end
-        let sz = (isfile(_cfg[].proofs*ins*opb) ? filesize(_cfg[].proofs*ins*opb) : 0) +
-                    (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
-            if sz > 50 * 1024^3
-                printstyled("  $ins too large ($(round(sz/1024^3; digits=1)) GB) — skipping\n"; color=:yellow)
-                return
-            end
-        end
+        prepare_instance(ins) === :ok || return
         grim_verif_ok = false
         if !_cfg[].nonorm
             printabline(ins)
