@@ -6,6 +6,8 @@ Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
 **Status as of 2026-07-27:** M1–M2.5, M3.5.1–M3.5.3, M3.5.5, M3.5.6, M3.5.7 complete. **M3.5.4 dropped 2026-08-17** — not statistically feasible on this benchmark (n_eff = 51 in the only viable family); rescoped to a per-family lookup table, see below. M4.1 (lazy supplemental generation) pivoted: our own per-vertex prototype abandoned, Ciaran's upstream proof-compatible implementation adopted and relabelled on `lazy-adjacency-relabelled`, not yet merged into the reference `labels-for-analysis` branch. **Paper scope decided:** characterisation-only (cone-vs-full + resolv shrinkage), M4/M4.1 as future work — see "Paper scope decision" below. **Full run launched 2026-07-27** on `lazy-adjacency-relabelled` — characterisation stats only, single-arm (see "Cluster run — 2026-07-27" below). Next: harvest, then reassess — either write up, or pull M5 (cross-solver) forward for more results.
 
+**Update 2026-08-20 — M7 (configuration-grid bench harness) added.** The paper's three appendix configuration grids need fourteen solver configurations across two solvers, and the orchestrator has no configuration axis at all: solver flags are hardcoded in `runsipsolver` and the proof directory is flat, so two configurations of the same instance collide. M7 below scopes the edits — a config table with per-entry binary and flags, a namespaced proof directory, a two-tier solve for the no-logging columns, an elaborate + CakeML stage, an append-only log outside the proof tree, and the LAD arm. It is ~200 lines across four existing files, not new machinery. See "M7" below.
+
 **Update 2026-08-12 — a second proof-producing solver now exists.** The LAD solver (Solnon's; repo `~/ladveri`, `git@github.com:ArthurGontierPro/ladveri.git`) has VeriPB proof logging, verified end-to-end through CakeML. This is relevant to M5, which until now could only have compared against *non*-proof-producing solvers. It is **not yet ready for a cluster arm** — see "M5" below for the honest capability list before planning around it.
 
 ---
@@ -682,6 +684,142 @@ Lightweight graph-feature probe at Glasgow startup selects heuristic config. Sub
 
 ---
 
+## M7 — Configuration-grid bench harness (appendix tables) ✅ implemented 2026-08-20, cluster run pending
+
+**Status.** M7.0–M7.5 are implemented and tested on LVg10g12 in both drivers; no cluster run
+has been made yet. Three things came out different from the plan below:
+
+- **M7.0 (new, prerequisite).** The prologue shared by `run_instance_full` and
+  `run_instance_batch` was extracted into `prepare_instance` *first* — M7.1, M7.2 and M7.4
+  each edit it, and two copies would have drifted.
+- **M7.3 is partial by construction.** `cake_pb_iso` takes the two LAD graphs and rebuilds
+  the PB encoding itself; it cannot be handed our trimmed `.smol.opb`, whose id space is its
+  own. The trimmed-proof Cake column is therefore not producible this way (logged
+  `cake smol UNSUPPORTED`), and the coreN recursion is **not** gated on Cake as planned.
+  Deciding what the trimmed-proof column should contain is open work.
+- **M7.5 route 1 is cheaper than described.** `~/ladveri/proof/bench/results` already holds
+  real LV benchmark data (8,495 rows, 2026-08-17), including the 4,247-pair `-P` set — the
+  "pilot-only, never run a real benchmark instance" caveat below is out of date.
+
+Two latent bugs were fixed on the way: `config=` had to join the `subargs` whitelist (else
+every trim subprocess resolves a different proofs dir and reports "truncated proof"), and the
+solver's stdout had to be split out of the now-append-only log (else the SAT/UNSAT grep sees a
+previous run's verdict). The `occursin("SATISFIABLE", ...)` check it replaced was dead code:
+Glasgow reports `status = true|false`.
+
+
+**Goal:** fill `tab:configs-gss`, `tab:configs-gss-ablations` and `tab:configs-lad` in `~/papers/trimnalyser-paper/sections/A-ablations.tex`. Every `\ph{...}` placeholder in those three tables is a cell this harness must produce; the paper says "grep `\ph` before submission; there must be none left".
+
+The orchestrator already implements most of the pipeline the tables need — family enumeration (`allgraphinstances`), timed solve (`runsipsolver`), trim, VeriPB check, the resolv/coreN loop to fixpoint, proof deletion at last use, the `/proc` RSS OOM monitor at `maxmem=50`, and the `.done`/`.sat`/`.timeoutNNN`/`.err` sentinels that make a run resumable. What is missing is a **configuration axis**, a **second solver**, an **elaborate + CakeML stage**, and a **log destination**. Everything below is an edit to existing code, not new machinery.
+
+### The grid
+
+Fourteen configurations, transcribed from the three tables. Names are the harness keys.
+
+| # | Key | Solver | Flags | Proof | Table |
+|---|---|---|---|---|---|
+| 1 | `gss-default` | Glasgow | clique detection on, no `--staged` | no | gss col 1 |
+| 2 | `gss-noclique` | Glasgow | `--no-clique-detection`, no `--staged` | no | gss col 2 |
+| 3 | `gss-eager` | Glasgow `2180663` | `--staged --no-clique-detection --prove` | yes | gss col 3 |
+| 4 | `gss-lazy` | Glasgow `1ff87ba` | `--staged --no-clique-detection --prove` | yes | gss col 4 |
+| 5 | `gss-lazy-base` | Glasgow `39ca857` | `--staged --no-clique-detection --prove` | yes | ablations baseline |
+| 6 | `gss-nostaged` | Glasgow `39ca857` | drop `--staged` | yes | ablation |
+| 7 | `gss-nosupp` | Glasgow `39ca857` | `--no-supplementals` | yes | ablation |
+| 8 | `gss-norestarts` | Glasgow `39ca857` | `--restarts none` | yes | ablation |
+| 9 | `gss-cliques` | Glasgow `39ca857` | `--cliques` | yes | ablation |
+| 10 | `lad-default` | LAD | `-f 2 -c 4` | no | lad col 1 |
+| 11 | `lad-clique` | LAD | `-f 0 -c 2` | no | lad col 2 |
+| 12 | `lad-noclique` | LAD | `-f 0 -c 0` | no | lad col 3 |
+| 13 | `lad-alldiff-pl` | LAD | `-f 0 -c 0 -P` | yes | lad col 4 |
+| 14 | `lad-fc-pl` | LAD | `-f 1 -c 0 -P` | yes | lad col 5 |
+
+Configurations 3, 4 and 5 differ only by **solver revision**, not by flag, so the config table must carry a binary path per entry. Today the binary is a single global (`sipsolverpath`, `TrimAnalyser.jl:25`) and the flags are hardcoded in `runsipsolver` (`src/solver.jl`):
+
+```julia
+options = ["--no-clique-detection","--staged"]
+_cfg[].nosup && push!(options, "--no-supplementals")
+```
+
+Of the fourteen, exactly two are reachable today (5 and 7), and only by setting `$GLASGOW_SUBGRAPH_SOLVER` out of band.
+
+### M7.1 — Configuration axis (Glasgow only) ✅
+
+- Add `config::String` to `Config` (`src/config.jl`), parsed from `config=<key>`, defaulting to `gss-lazy` so existing invocations keep their current meaning.
+- Add a config table — solver kind, binary path, flag vector, `proves::Bool` — as a `const Dict` beside it. Binary paths default per key and stay env-overridable.
+- `runsipsolver` takes its flags and its binary from the config instead of hardcoding them. Keep `_cfg[].nosup` working as an alias for `gss-nosupp` so nothing downstream breaks.
+- **Namespace the proof directory:** default `proofs` becomes `/scratch/arthur/proofs/<solver>/<config>/`. This is the one decision to get right up front, and the directory is the right place for it rather than the instance name — every path in the codebase is built as `_cfg[].proofs*ins*ext`, so one change to the default in `parse_config!` namespaces the whole run, whereas putting the config in the instance name would break `parsegraphfiles`, which dispatches on instance-name prefixes (`LV`, `bio`, `cviu11_p`, ...) and on the `.coreN` suffix regex.
+- Without this, two configurations running the same instance collide on `<ins>.opb` in one flat directory.
+
+~40 lines in `config.jl`, ~20 in `solver.jl`.
+
+### M7.2 — Two-tier solve (the no-proof-logging columns) ✅
+
+Five of the fourteen configurations write no proof at all, and the tables report `concluded` and median solve time for them. Today `runsipsolver` always passes `--prove`, so there is exactly one solve and it is always a logging solve.
+
+- Split into a `nopl` solve at `st_nopl=60` and, only if that concluded, the logging solve at `st=600`. The gate is what the README pipeline asks for and it also keeps the expensive logging runs off instances that are hopeless anyway.
+- For a `proves=false` config, stop after the first solve and record the verdict — that is the whole cell.
+- Record the verdict, not just the time: `concluded` needs SAT/UNSAT/timeout separated. `run_instance_batch` already greps `.out` for `SATISFIABLE`/`UNSATISFIABLE`; lift that into a helper and log it as a field.
+
+This closes a gap the paper already documents: the `§`-marked columns of both tables were "measured with a separate harness that runs the solver alone", at a 180 s cap and on a different LV denominator (6,105 pairs). Once M7.2 lands, those columns can be re-measured inside the main harness on the same denominator as everything else, and the two footnotes explaining the mismatched denominators can go.
+
+~20 lines, but note `run_instance_full` and `run_instance_batch` (`src/orchestrator.jl:338` and `:422`) are near-duplicate ~90-line bodies. Factor the shared solve/conclusion/size-guard prologue into one function before editing, or the change has to be made twice and will drift.
+
+### M7.3 — Elaborate + CakeML check ⚠️ full proof only
+
+`verify` (`src/output.jl:525`) runs bare `veripb $opb $pbp` on the smol proof and then the full proof. The tables need the trusted checker as well — the LAD caption already reports "VeriPB's figures... The trusted CakeML checker accepts fewer, 67.6% and 5.8%", numbers that did not come from this harness.
+
+- Add an `--elaborate` variant producing `<ins>.elab.pbp`, then run `cake_pb_iso` on the elaborated proof. `run_verif`'s shape (timeout, exit-code → `:timeout`/`:memout`/`:verified`/`:failed`, timing, stderr capture) carries over verbatim; add `cake=<path>` config and a `ct=` timeout.
+- Run it for both the full and the trimmed proof, so the tables can report VeriPB-certified and Cake-certified separately.
+- Delete each elaborated proof immediately after its check. Elaborated proofs are the largest artefact in the pipeline and there is no later use for them.
+- Gate the coreN recursion on Cake accepting the trimmed proof, not just VeriPB — `run_resolv_loop` currently proceeds on `smol_vs === :verified` alone.
+
+~50 lines in `output.jl`, mirroring `run_verif`.
+
+### M7.4 — Log destination and append semantics ✅
+
+`writeout_*` already records everything the tables need — `inp OPB SIZE`, `inp PBP SIZE`, cone sizes, parse/trim/write times, `veri smol TIME`, `veri smol VERIFIED`, step types, depth distributions, labels, var order — in a greppable `KEY SUBKEY VALUE` format. Two things are wrong for a multi-config run:
+
+- Output goes to `$proofs/<ins>.out`, which lives in the proof directory and so is deleted along with it. It belongs in `/cluster/arthur/logs/<instance>.<solver>.<config>.out`. Add a `logpath(ins)` helper and route the ~15 `open(_cfg[].proofs*ins*".out", "a")` call sites through it.
+- Both `run_instance_full` and `run_instance_batch` open with `tryrm(...".out")`, truncating the log at the start of every run. The log must be append-only with a timestamped `=== RUN <iso8601> <host> <config> ===` header, so a re-run of one configuration never destroys the record of another and a partial cluster run is still readable. The `.done`/`.timeoutNNN` sentinels already provide the resumability that the truncation was standing in for.
+
+Add explicit `err`, `timeout` and `memout` fields per stage. The OOM monitor writes `OOM at X.XG` into `.err` and `was_oom_killed` parses it back; keep that, but mirror it into the log so one file is enough to fill a cell.
+
+~15 lines plus the call-site sweep.
+
+### M7.5 — LAD arm ✅ route 1
+
+Depends on M5-proof; read that section first, and `~/ladveri/PROOF_TODO.md`, before planning any run. The constraints there are hard ones and several of them shape the table:
+
+- **`bio` is excluded outright** — directed graphs, which LAD reads as undirected without warning and CakePB rejects. The table marks all four bio cells `†`. The harness must hard-error on the family for any `lad-*` config, as `bench.py` already does.
+- **`-c 0` is forced for any proof-logging config** (clique filtering emits no justification), and `-P` pins restarts to infinity. Configs 13 and 14 encode this; configs 10–12 are the no-logging baselines the paper measures them against.
+- **Clique instances silently produce no proof** — the shortcut fires before logging starts. Classify as `no-proof(clique)`, count separately, never as a failure. `LVg2g4` does this on real data.
+- **LAD writes no OPB.** Its model must come from `cake_pb_iso pat tgt > enc.opb`. `runsipsolver`'s success test is `isfile(opb) && isfile(pbp)`; the LAD path needs an encoder step before it, or LAD's own TODO #9.
+- **Proofs have no deletions and grow with search length**, so `images` and `meshes` are `‡` in the table — not yet reachable. Do not schedule them; the LV encoder output alone projects to 10.4 TB uncapped, and the paper's `-P` column is restricted to the 4,247 pairs under a 250 MB encoder cap.
+- **Cake's LAD parser is stricter than LAD's own** — no trailing blank line, degree counts matching successor counts, edges in both directions. Our `writecoreladfile` output (`src/solver.jl`) has never been checked against it, and the resolv loop feeds exactly that output back into the solver. Check before enabling `resolv` on any `lad-*` config.
+
+Two implementation routes, and the choice is worth making deliberately:
+
+1. **Shell out to `~/ladveri/proof/bench/bench.py`** (already exists, resumable, emits one CSV row per instance named as we name instances, and hard-errors on bio) and join its CSV on `instance`. Cheapest path to the no-logging columns 10–12.
+2. **A `runladsolver` sibling to `runsipsolver`**, so LAD proofs enter the same trim/verif/resolv pipeline as Glasgow's. Needed for M5-proof-trim regardless, and the only route that fills the cone half of the logging cells — which the caption currently records as a dot, "because no LAD proof has been through our trimmer yet".
+
+Route 1 for the table, route 2 as the M5-proof-trim work. `parsevarname` already handles LAD's `x<p>_<t>` unchanged; the label-based provenance of M3.5.1–3 does not carry over and LAD cells must be restricted to structural columns.
+
+~60 lines for `runladsolver` plus the encoder step.
+
+### Sequencing and parallelisation
+
+M7.1 → M7.2 → M7.4 are the critical path and are all Glasgow-side; M7.3 is independent of them; M7.5 depends on M5-proof Run A. Land M7.1 and M7.4 together, since namespacing the proof directory and moving the log out of it are the same decision seen twice.
+
+The nine Glasgow configurations are independent runs over the same instance set and split cleanly across fataepyc nodes, one configuration per node. They share nothing but the read-only benchmark graphs — with M7.1's namespaced proof directories there is no write contention — so the split needs no coordination beyond assigning `config=` per node. Budget against the 2026-07-27 baseline: 25,584 instances took 71 h 23 min at 75 in flight for a single configuration.
+
+**Caveat on ablation columns 6–9:** they are measured against `39ca857`, a revision that predates the OOM fix (`68b1c9b`) and the level-collapse skip (`f75a30e`). That is deliberate — it is the build every measurement in the compression and anatomy sections was made on — but it means those four columns will show OOMs that the shipped build no longer has. Do not "fix" this by re-basing them onto `1ff87ba`; the baseline column of that table is `39ca857` on purpose.
+
+### Out of scope
+
+`bench.sh` in `~/bench` was a first sketch of this pipeline as a standalone shell script. It re-implements the orchestrator badly — no resumability, no memory monitor, no family enumeration — and should be deleted once M7.1–M7.4 land. Its only durable content is the configuration grid above and the README path corrections.
+
+---
+
 ## Dependency graph
 
 ```
@@ -701,4 +839,13 @@ M1 → M2 → M2.5 → M3 (taxonomy) ✅
                                                   │     ├─ Run B (pl: proof + checking)  🔜
                                                   │     └─ M5-proof-trim (LAD proofs through the cone/resolv loop)
                                                   └─ M6 (integration)
+
+M2.5 ─→ M7 (configuration-grid bench harness) ✅ implemented — fills the paper's appendix tables
+          ├─ M7.0 (shared prologue extraction) ✅
+          ├─ M7.1 (config axis + namespaced proof dir)  ✅
+          │     └─ M7.2 (two-tier solve → no-logging columns) ✅
+          │           └─ M7.4 (append-only log in /cluster/arthur/logs) ✅
+          ├─ M7.3 (elaborate + CakeML check) ⚠️ full proof only — trimmed proof not checkable
+          └─ M7.5 (LAD arm) ✅ route 1; bio excluded, images/meshes not reachable
+                └─ NEXT: the nine Glasgow configurations, one per fataepyc node
 ```
