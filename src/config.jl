@@ -73,6 +73,7 @@ mutable struct Config
     rand           ::Bool
     sort_by_size   ::Bool
     verif          ::Bool
+    cake           ::Bool
     profile        ::Bool
     nonorm         ::Bool
     core           ::Bool
@@ -92,6 +93,7 @@ mutable struct Config
     nopltimeout    ::Int
     trimtimeout    ::Int
     veriftimeout   ::Int
+    caketimeout    ::Int
     minfreemem     ::Int
     maxinstmem_gb  ::Float64
     proofs         ::String
@@ -100,7 +102,7 @@ end
 
 const _cfg = Ref{Config}()
 
-const argflags = Set(["clit","core","verif","no","rand","sort","clean","atable",
+const argflags = Set(["clit","core","verif","cake","no","rand","sort","clean","atable",
                       "profile","solve","resolv","allgraphs","keepraw","subprocess"])
 
 function parse_config!(args=ARGS)
@@ -136,6 +138,7 @@ function parse_config!(args=ARGS)
         "rand"             in args,
         "sort"             in args,
         "verif"            in args,
+        "cake"             in args,
         "profile"          in args,
         "no"               in args,
         "core"             in args,
@@ -155,6 +158,7 @@ function parse_config!(args=ARGS)
         argval("stnopl=",   Int,     60),
         tt,
         argval("vt=",       Int,     tt),
+        argval("ct=",       Int,     argval("vt=", Int, tt)),
         argval("minmem=",   Int,     _cluster ? 100 : 4) * 1024^3,
         argval("maxmem=",   Float64, _cluster ? 50.0 : 8.0),
         proofs_dir,

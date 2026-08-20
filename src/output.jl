@@ -558,6 +558,77 @@
         full_time, full_status = (isfile(ins2*opb) && isfile(ins2*pbp)) ? run_verif(ins2*opb, ins2*pbp, "full") : (-1, :missing)
         return smol_time, smol_status, full_time, full_status end
 
+    const cakepath = get(ENV, "CAKE_PB_ISO",
+        _cluster ? "/scratch/arthur/cake_pb_iso" : "/home/arthur_gla/CakePB-dev/graph/cake_pb_iso")
+
+        # Elaborates the full proof with VeriPB and re-checks it with the trusted CakeML
+        # checker, which the tables report separately from VeriPB's own verdict.
+        #
+        # Full proof only, by construction: cake_pb_iso takes the two LAD graphs and rebuilds
+        # the PB encoding itself — it has no way to accept a supplied OPB. Our .smol.opb is a
+        # *trimmed* constraint set with its own id space, so pointing Cake at the trimmed
+        # proof does not check what it appears to check. Recorded as UNSUPPORTED rather than
+        # as a failure, so it can never be mistaken for a Cake rejection.
+        #
+        # The elaborated proof is the largest artefact in the pipeline and has no later use:
+        # it is deleted as soon as its check returns.
+    function cakecheck(ins)
+        _cfg[].cake || return (-1, :missing)
+        logstage(ins, "cake smol UNSUPPORTED", "encoder_rebuilds_model")
+        if !isfile(cakepath)
+            printstyled("  cake_pb_iso not found at $cakepath — skipping cake\n"; color=:yellow)
+            return (-1, :missing)
+        end
+        if !isfile(veripbpath)
+            printstyled("  veripb not found at $veripbpath — skipping cake\n"; color=:yellow)
+            return (-1, :missing)
+        end
+        ins2 = _cfg[].proofs*ins
+        (isfile(ins2*opb) && isfile(ins2*pbp)) || (logstage(ins, "cake full", "MISSING"); return (-1, :missing))
+        patfile, tarfile = parsegraphfiles(ins)
+        (patfile === nothing || !isfile(patfile) || !isfile(tarfile)) &&
+            (logstage(ins, "cake full", "MISSING"); return (-1, :missing))
+
+        elab = ins2*".elab"*pbp
+        tmp_out = elab*".tmpout"; tmp_err = elab*".tmperr"
+        status = :failed
+        t = @elapsed begin
+            ep = nothing
+            try
+                ep = run(pipeline(ignorestatus(`timeout $(_cfg[].veriftimeout) $veripbpath -e $elab $(ins2*opb) $(ins2*pbp)`),
+                                  stdout=tmp_out, stderr=tmp_err))
+            catch e end
+            ecode = ep !== nothing ? ep.exitcode : -1
+            if ecode == 124;      status = :elab_timeout
+            elseif ecode == 137;  status = :elab_memout
+            elseif !isfile(elab); status = :elab_failed
+            else
+                logstage(ins, "cake ELAB SIZE", filesize(elab))
+                cp = nothing
+                try
+                    cp = run(pipeline(ignorestatus(`timeout $(_cfg[].caketimeout) $cakepath $patfile $tarfile $elab`),
+                                      stdout=tmp_out, stderr=tmp_err))
+                catch e end
+                ccode = cp !== nothing ? cp.exitcode : -1
+                # cake_pb_iso exits 0 even when the check fails and prints its diagnostics
+                # on stderr — the "s VERIFIED" line on stdout is the only success signal.
+                out = isfile(tmp_out) ? read(tmp_out, String) : ""
+                err = isfile(tmp_err) ? read(tmp_err, String) : ""
+                status = ccode == 124 ? :timeout :
+                         ccode == 137 ? :memout  :
+                         occursin("s VERIFIED", out) ? :verified : :failed
+                if status !== :verified && !isempty(strip(out * err))
+                    write(ins2*".cake.err", out * err)
+                end
+            end
+        end
+        tryrm(elab); tryrm(tmp_out); tryrm(tmp_err)
+        logstage(ins, "cake full", uppercase(string(status)))
+        logstage(ins, "cake full TIME", trunc(Int, t))
+        color = status === :verified ? :green : status === :failed ? :red : :yellow
+        printstyled("  $ins cake $(trunc(Int,t))s $(uppercase(string(status)))\n"; color=color)
+        return trunc(Int, t), status end
+
     function verif_ok(ins)
         outfile = logpath(ins)
         isfile(outfile) || return false

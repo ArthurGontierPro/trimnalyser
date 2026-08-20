@@ -448,6 +448,7 @@
         smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
         writeout_verif(ins, smol_vt, full_vt)
         printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
+        cakecheck(ins)
         if !_cfg[].keepraw
             tryrm(_cfg[].proofs * ins * pbp)
             tryrm(_cfg[].proofs * ins * opb)
@@ -482,6 +483,7 @@
             !isempty(coremsg) && println(coremsg)
             writeout_verif(ins,smol_vt,full_vt)
             printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
+            cakecheck(ins)
             grim_verif_ok = smol_vs === :verified
             _cfg[].resolv && run_resolv_loop(ins, false)
         end
