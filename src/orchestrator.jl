@@ -85,6 +85,17 @@
                 push!(list, line)
             end
         end
+        # bio is directed. LAD reads directed graphs as undirected without warning (on
+        # bio 001->002 Glasgow says SAT and LAD says UNSAT) and the cake encoder rejects
+        # them outright, so every bio cell of tab:configs-lad is marked †. Excluded
+        # outright for any lad-* configuration, exactly as ladveri's own bench.py does.
+        if solverconfig().kind == "lad"
+            n0 = length(list)
+            filter!(x -> !startswith(x, "bio"), list)
+            n0 == length(list) ||
+                printstyled("%Excluded $(n0 - length(list)) bio instances: directed graphs, invalid for LAD\n"; color=:yellow)
+        end
+
         _cfg[].rand && _shuffle!(list)
         skipped > 0 && printstyled("  instfile: skipped $skipped unresolvable line(s)\n"; color=:yellow)
         println("%Read ", length(list), " instances from ", path)
@@ -199,6 +210,17 @@
                     np <= nt && push!(list, "sf_$subdir")
                 end
             end
+        end
+
+        # bio is directed. LAD reads directed graphs as undirected without warning (on
+        # bio 001->002 Glasgow says SAT and LAD says UNSAT) and the cake encoder rejects
+        # them outright, so every bio cell of tab:configs-lad is marked †. Excluded
+        # outright for any lad-* configuration, exactly as ladveri's own bench.py does.
+        if solverconfig().kind == "lad"
+            n0 = length(list)
+            filter!(x -> !startswith(x, "bio"), list)
+            n0 == length(list) ||
+                printstyled("%Excluded $(n0 - length(list)) bio instances: directed graphs, invalid for LAD\n"; color=:yellow)
         end
 
         _cfg[].rand && _shuffle!(list)
@@ -503,7 +525,19 @@
             touch(_cfg[].proofs * ins * ".done")
         end end
 
+        # Route 2 (a runladsolver sibling to runsipsolver, feeding LAD proofs into the same
+        # trim/verif/resolv pipeline) is M5-proof-trim work and is not implemented. The
+        # no-logging LAD columns come from ladveri's own bench.py — see scripts/lad_bench.sh.
+    function check_lad_route(args)
+        solverconfig().kind == "lad" || return
+        (_cfg[].solve || _cfg[].resolv || _cfg[].verif) || return
+        error("config=$(_cfg[].config) is a LAD configuration and this harness cannot run it: " *
+              "LAD writes no OPB and has no runladsolver path yet (ROADMAP M7.5, route 2). " *
+              "Produce these cells with scripts/lad_bench.sh, then merge with scripts/merge_lad_results.jl.")
+    end
+
     function _run_main(args)
+        check_lad_route(args)
         if _cfg[].pack   packdots();   return
         elseif _cfg[].render renderdots(); return
         elseif _cfg[].atable plotresultstable(); return

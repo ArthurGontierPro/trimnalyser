@@ -58,6 +58,9 @@ const CSV_COLUMNS = [
     "veri_smol_time", "veri_total_time",
     "veri_smol_verified",
     "veri_opb_size", "veri_pbp_size", "veri_total_size",
+    # M7: per-configuration solve verdicts and the trusted-checker column
+    "solve_verdict", "solve_time", "nopl_verdict", "nopl_time",
+    "veri_full_status", "cake_full_status", "cake_full_time", "cake_elab_size",
     # Solver stats (if available)
     "pattern_vertices", "target_vertices", "runtime_ms", "status", "solver_nodes", "solver_propagations",
     # UNSAT core statistics (if core files exist)
@@ -337,6 +340,15 @@ function parse_out_file(filepath)
                 end
             end
         end
+        # M7 log fields (see logstage in src/config.jl)
+        let m = match(r"^solve VERDICT (\S+)", line);  m !== nothing && (data["solve_verdict"] = m.captures[1]); end
+        let m = match(r"^solve TIME ([\d.]+)", line);   m !== nothing && (data["solve_time"]    = m.captures[1]); end
+        let m = match(r"^nopl VERDICT (\S+)", line);   m !== nothing && (data["nopl_verdict"]  = m.captures[1]); end
+        let m = match(r"^nopl TIME ([\d.]+)", line);    m !== nothing && (data["nopl_time"]     = m.captures[1]); end
+        let m = match(r"^veri full (\S+)", line);      m !== nothing && (data["veri_full_status"] = m.captures[1]); end
+        let m = match(r"^cake full ([A-Z_]+)$", line); m !== nothing && (data["cake_full_status"] = m.captures[1]); end
+        let m = match(r"^cake full TIME (\d+)", line); m !== nothing && (data["cake_full_time"] = m.captures[1]); end
+        let m = match(r"^cake ELAB SIZE (\d+)", line); m !== nothing && (data["cake_elab_size"] = m.captures[1]); end
         # Special cases that don't fit a table pattern
         line == "veri smol VERIFIED"     && (data["veri_smol_verified"] = 1)
         line == "veri smol NOT VERIFIED" && (data["veri_smol_verified"] = 0)
@@ -554,6 +566,10 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             push!(row, veri_opb !== nothing ? veri_opb : "")
             push!(row, veri_pbp !== nothing ? veri_pbp : "")
             push!(row, veri_total !== nothing ? veri_total : "")
+            for k in ("solve_verdict", "solve_time", "nopl_verdict", "nopl_time",
+                      "veri_full_status", "cake_full_status", "cake_full_time", "cake_elab_size")
+                push!(row, get(data, k, ""))
+            end
 
             # Solver stats
             push!(row, get(data, "pattern_vertices", ""))
