@@ -19,8 +19,11 @@
 
 ```bash
 ./trimnalyser LVg10g12 overwrite resolv                                          # single instance
+./trimnalyser LVg10g12 overwrite resolv verif cake config=gss-lazy               # one grid configuration (M7)
 ./trimnalyser --threads 92,1 solve resolv verif allgraphs minnodes=50 maxnodes=200 st=18 tt=600 rand  # cluster run
-julia scripts/aggregate_results.jl /scratch/arthur/proofs/ cluster_results.csv   # aggregate → CSV
+julia scripts/aggregate_results.jl /scratch/arthur/proofs/gss/gss-lazy cluster_results.csv /cluster/arthur/logs  # aggregate → CSV
+bash scripts/lad_bench.sh lad_results.csv                                       # LAD columns (route 1, via ladveri)
+julia scripts/merge_lad_results.jl cluster_results.csv lad_results.csv combined.csv
 julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv       # static graph features
 julia scripts/quick_stats.jl cluster_results.csv                                 # terminal stats (stdlib only)
 julia --project=scripts scripts/proof_survey.jl cluster_results.csv graph_features.csv proof_survey.html  # HTML report
@@ -29,8 +32,34 @@ julia --project=scripts -e 'using Pkg; Pkg.instantiate()'                       
 julia --project=. build_sysimage.jl                                              # build sysimage (~5s → ~0.1s)
 ```
 
-Key flags: `solve` (run SIP solver), `resolv` (iterative re-solve on UNSAT cores), `verif` (run VeriPB), `overwrite`, `profile`, `allgraphs`, `bfs`/`clit` (alternative trim modes).
-Timeout args: `st=N` (solver), `tt=N` (trim), `vt=N` (verif), `maxnodes=N`, `minnodes=N`.
+Key flags: `solve` (run SIP solver), `resolv` (iterative re-solve on UNSAT cores), `verif` (run VeriPB), `cake` (elaborate + CakeML check of the full proof), `overwrite`, `profile`, `allgraphs`, `bfs`/`clit` (alternative trim modes).
+Timeout args: `st=N` (solver), `stnopl=N` (tier-1 non-logging solve, default 60; `0` disables it), `tt=N` (trim), `vt=N` (verif), `ct=N` (cake), `maxnodes=N`, `minnodes=N`.
+
+### Configuration grid (M7)
+
+`config=<key>` selects one of the fourteen entries in `SOLVER_CONFIGS` (`src/config.jl`),
+one per column of the paper's appendix tables. Default `gss-lazy` = the old hardcoded
+`--staged --no-clique-detection --prove`. Consequences to keep in mind:
+
+- **Proofs are namespaced:** `<root>/proofs/<solver>/<config>/`. Two configurations of one
+  instance no longer collide, and `config=` must stay in the `subargs` whitelist
+  (`orchestrator.jl`) or trim subprocesses resolve a different directory.
+- **Logs live outside the proof tree:** `/cluster/arthur/logs/<instance>.<solver>.<config>.out`
+  (`$TRIMNALYSER_LOGS` locally), **append-only**, one `=== RUN <iso8601> <host> <config> ===`
+  block per run. Readers must take the **last** block. The proof directory is deleted at last
+  use; the log must survive that.
+- **The solver's own stdout is separate:** `<ins>.solverout` in the proof directory, truncated
+  per solve. The SAT/UNSAT verdict is grepped out of it, so it must never carry a previous
+  run's. Glasgow reports the verdict as `status = true|false` — it never prints the word
+  SATISFIABLE.
+- **Two-tier solve:** a non-logging solve at `stnopl=` runs first. A `proves=false` config
+  stops there (that solve is its table cell); for the others it gates the logging solve.
+- **`cake` checks the FULL proof only.** `cake_pb_iso` takes the two LAD graphs and rebuilds
+  the encoding itself — it cannot be given our trimmed `.smol.opb`, so the trimmed proof is
+  logged `cake smol UNSUPPORTED`, not as a rejection. It also **exits 0 on failure** and
+  prints to stderr; `s VERIFIED` on stdout is the only success signal.
+- **`lad-*` configs hard-error** in this harness (LAD writes no OPB). Use `scripts/lad_bench.sh`
+  then `scripts/merge_lad_results.jl`. `bio` is excluded outright for every LAD configuration.
 
 ### Cluster commands
 
