@@ -48,3 +48,21 @@ cluster_output.log
 /vis.tar.gz
 /LVg20g45_staged.opb
 /LVg20g45_staged.pbp
+
+# Output artefacts: A/B run arms, oracle replays, benchmark sweeps, plots and
+# the local proof dir. Regenerable; kept on local disk and the cluster, not in
+# git. Purged from history 2026-08-21 (see the bundle referenced above).
+/ab-labels-for-analysis/
+/ab-lazy-adjacency-relabelled/
+/ab-propagate/
+/ab-ruptrail/
+/ab-propagate-unify.html
+/ab-propagate-unify-instances.csv
+/benchmark_results/
+/oracle_replay_results.csv
+/oracle_scatter.html
+/april-report.html
+/g45_analysis.png
+/PBstuf/
+/proofs/
+*.bak
