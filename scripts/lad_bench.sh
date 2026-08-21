@@ -1,9 +1,14 @@
 #!/bin/bash
 # M7.5 route 1 — produce the tab:configs-lad cells with ladveri's own bench harness.
 #
-# This harness cannot run LAD itself (LAD writes no OPB; see ROADMAP M7.5 route 2),
-# so the five LAD columns come from ~/ladveri/proof/bench/bench.py, which is already
-# resumable, names instances exactly as we do, and hard-excludes bio. The config names
+# The five LAD columns come from ~/ladveri/proof/bench/bench.py, which is already
+# resumable, names instances exactly as we do, and hard-excludes bio.
+#
+# NOTE (2026-08-21): the reason this is route 1 -- "LAD writes no OPB" -- no longer
+# holds. LAD's -O FILE emits the model byte-identically to cake_pb_iso, so route 2
+# (a runladsolver running LAD through our own trim/verif/resolv pipeline) is now
+# possible and is what M5-proof-trim needs. This script stays as the cheap path to
+# the no-logging columns. The config names
 # below are OUR harness keys, defined inline so the CSV joins on (instance, config).
 #
 # Usage: bash scripts/lad_bench.sh [out.csv] [families]

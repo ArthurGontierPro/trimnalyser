@@ -8,6 +8,8 @@ Milestones are strictly ordered: M1–M2 produce the data that M3–M6 consume.
 
 **Update 2026-08-20 — M7 (configuration-grid bench harness) added.** The paper's three appendix configuration grids need fourteen solver configurations across two solvers, and the orchestrator has no configuration axis at all: solver flags are hardcoded in `runsipsolver` and the proof directory is flat, so two configurations of the same instance collide. M7 below scopes the edits — a config table with per-entry binary and flags, a namespaced proof directory, a two-tier solve for the no-logging columns, an elaborate + CakeML stage, an append-only log outside the proof tree, and the LAD arm. It is ~200 lines across four existing files, not new machinery. See "M7" below.
 
+**Update 2026-08-21 — LAD now writes its own OPB, so route 2 is unblocked.** The one thing that kept LAD proofs out of our trimmer was that LAD emitted only a `.pbp`, against the constraint labels of the `cake_pb_iso` encoder, while `runsipsolver` requires the solver to produce both files. LAD's `-O FILE` (its TODO #9, commit `2a9884b`) now emits the model byte-identically to the encoder, so `runladsolver` needs no encoder stage and M5-proof-trim can proceed. It also drops the encoder's 4.20 GB peak out of the loop. See "M5-proof-trim" and "M7.5" below.
+
 **Update 2026-08-12 — a second proof-producing solver now exists.** The LAD solver (Solnon's; repo `~/ladveri`, `git@github.com:ArthurGontierPro/ladveri.git`) has VeriPB proof logging, verified end-to-end through CakeML. This is relevant to M5, which until now could only have compared against *non*-proof-producing solvers. It is **not yet ready for a cluster arm** — see "M5" below for the honest capability list before planning around it.
 
 ---
@@ -671,10 +673,12 @@ The end goal, after Run B produces proofs worth trimming: feed LAD `.pbp` files 
 
 Two things to check before assuming the trimmer just works on LAD proofs:
 
-- **LAD emits no OPB.** It writes only `.pbp`, against the constraint labels of the verified `cake_pb_iso` encoder — so the model must come from `cake_pb_iso pat tgt > enc.opb`. Our pipeline assumes the solver produced both files (`runsipsolver` checks for `.opb` *and* `.pbp`). Either generate the OPB in the harness, or implement LAD's TODO #9 (emit our own OPB), which exists precisely for this.
+- ~~**LAD emits no OPB.**~~ **Resolved 2026-08-21 — LAD's TODO #9 is implemented.** `main -p pat -t tgt -P out.pbp -O enc.opb` now writes both files, so `runsipsolver`'s `isfile(opb) && isfile(pbp)` test is satisfiable and no encoder step is needed. The `-O` output is **byte-identical** to `cake_pb_iso`'s over ladveri's whole test manifest plus a self-loop pair (`make opb-test`), over LV `g10→g12` (824 KB) and over `meshes pattern1→target1` (21.8 MB); the LV proof verifies *and elaborates* against it. Caveat for the paper: a proof checked against LAD's own OPB is certified only up to trusting `proofOpb`, not the HOL-verified encoder — fine for the trimmer, not a substitute for the trusted CakeML claim (`~/ladveri/proof/verify.sh`, unchanged).
 - **Variable naming differs.** LAD uses `x<p>_<t>`, which `parsevarname` (`src/solver.jl`) already parses — that part should carry over unchanged. Label-based provenance (M3.5.1–3) will *not*: those labels are Glasgow-specific, so cone-leaf classification needs a LAD-side equivalent or must be restricted to the structural columns.
 
 **Suggested order:** Run A first (cheap, no proof machinery, immediately says whether the solvers agree at all), then Run B on LV only, then reassess. Do not schedule meshes or images until LV verification times are known — a single mesh instance encodes to ~21 MB of OPB before any proof is written, and LAD has no proof deletions.
+
+**Update 2026-08-21 — the encoder is no longer the memory ceiling.** `-O` also removes `cake_pb_iso` from the trim loop, and the encoder is where the 4 GB heap lived: on `meshes pattern1 → target1` the encoder takes 10.5 s at **4.20 GB RSS**, whereas LAD's entire solve writing the same 21.8 MB of OPB takes 0.39 s at **7.3 MB**. That removes one of the two reasons meshes and images were unreachable. The other — no proof deletions, so `.pbp` grows with search length (ladveri TODO #10) — still stands, and is the one that governs. Do not reclassify `‡` on the strength of the encoder result alone.
 
 ---
 
@@ -793,7 +797,7 @@ Depends on M5-proof; read that section first, and `~/ladveri/PROOF_TODO.md`, bef
 - **`bio` is excluded outright** — directed graphs, which LAD reads as undirected without warning and CakePB rejects. The table marks all four bio cells `†`. The harness must hard-error on the family for any `lad-*` config, as `bench.py` already does.
 - **`-c 0` is forced for any proof-logging config** (clique filtering emits no justification), and `-P` pins restarts to infinity. Configs 13 and 14 encode this; configs 10–12 are the no-logging baselines the paper measures them against.
 - **Clique instances silently produce no proof** — the shortcut fires before logging starts. Classify as `no-proof(clique)`, count separately, never as a failure. `LVg2g4` does this on real data.
-- **LAD writes no OPB.** Its model must come from `cake_pb_iso pat tgt > enc.opb`. `runsipsolver`'s success test is `isfile(opb) && isfile(pbp)`; the LAD path needs an encoder step before it, or LAD's own TODO #9.
+- ~~**LAD writes no OPB.**~~ **Resolved 2026-08-21:** LAD's `-O FILE` emits the model itself, byte-identical to the encoder (ladveri TODO #9, commit `2a9884b`). `runsipsolver`'s `isfile(opb) && isfile(pbp)` test needs no encoder step. See M5-proof-trim above for the trust caveat.
 - **Proofs have no deletions and grow with search length**, so `images` and `meshes` are `‡` in the table — not yet reachable. Do not schedule them; the LV encoder output alone projects to 10.4 TB uncapped, and the paper's `-P` column is restricted to the 4,247 pairs under a 250 MB encoder cap.
 - **Cake's LAD parser is stricter than LAD's own** — no trailing blank line, degree counts matching successor counts, edges in both directions. Our `writecoreladfile` output (`src/solver.jl`) has never been checked against it, and the resolv loop feeds exactly that output back into the solver. Check before enabling `resolv` on any `lad-*` config.
 
@@ -802,9 +806,9 @@ Two implementation routes, and the choice is worth making deliberately:
 1. **Shell out to `~/ladveri/proof/bench/bench.py`** (already exists, resumable, emits one CSV row per instance named as we name instances, and hard-errors on bio) and join its CSV on `instance`. Cheapest path to the no-logging columns 10–12.
 2. **A `runladsolver` sibling to `runsipsolver`**, so LAD proofs enter the same trim/verif/resolv pipeline as Glasgow's. Needed for M5-proof-trim regardless, and the only route that fills the cone half of the logging cells — which the caption currently records as a dot, "because no LAD proof has been through our trimmer yet".
 
-Route 1 for the table, route 2 as the M5-proof-trim work. `parsevarname` already handles LAD's `x<p>_<t>` unchanged; the label-based provenance of M3.5.1–3 does not carry over and LAD cells must be restricted to structural columns.
+Route 1 for the table, route 2 as the M5-proof-trim work — and **route 2's stated blocker is gone as of 2026-08-21** (`-O`), so `runladsolver` is now a plain port of `runsipsolver` with a different binary and flags, with no encoder stage. `parsevarname` already handles LAD's `x<p>_<t>` unchanged; the label-based provenance of M3.5.1–3 does not carry over and LAD cells must be restricted to structural columns.
 
-~60 lines for `runladsolver` plus the encoder step.
+~60 lines for `runladsolver`; the encoder step is no longer needed (`-O`).
 
 ### Sequencing and parallelisation
 

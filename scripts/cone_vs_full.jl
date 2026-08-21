@@ -248,11 +248,32 @@ function build_chart(id, present, fam_data, significant, mode::Symbol)
     """
 end
 
+# ── Static-render JSON export (for matplotlib) ──────────────────────────────
+
+function write_chart_json(path, present, fam_data, significant, mode::Symbol)
+    frac_field = mode == :mean ? :mean_frac : :med_frac
+
+    labels_js = join(("""{"key":"$sym","name":"$name","color":"$(get(COLORS, sym, "#999999"))"}"""
+                       for (sym, name) in significant), ",")
+
+    fam_arrs(field) = join((
+        "\"$f\":" * json_num_arr([getfield(fam_data[f][field][sym], frac_field) for (sym, _) in significant])
+        for f in present), ",")
+
+    json = """{"families":$(json_str_arr(present)),"labels":[$labels_js],"full":{$(fam_arrs(:full))},"cone":{$(fam_arrs(:cone))}}"""
+
+    open(path, "w") do io
+        write(io, json)
+    end
+    println("Written: $path")
+end
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 function main()
     csv_path = ARGS[1]
     out_path = length(ARGS) >= 2 ? ARGS[2] : "cone_vs_full.html"
+    json_path = length(ARGS) >= 3 ? ARGS[3] : nothing
 
     df = CSV.read(csv_path, DataFrame)
 
@@ -303,6 +324,10 @@ function main()
     end
 
     println("Significant labels (all): $(length(significant))  (search): $(length(significant_search))")
+
+    if json_path !== nothing
+        write_chart_json(json_path, present, fam_all, significant, :mean)
+    end
 
     # Build charts (mean only — median visible in tooltips)
     chart_mean_all    = build_chart("megaMeanAll",    present,        fam_all,    significant,        :mean)

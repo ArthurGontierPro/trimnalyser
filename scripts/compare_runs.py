@@ -1221,17 +1221,24 @@ def build_html(la, lb, A, B, coreA, coreB, srcA, srcB, metaA=None, metaB=None, c
         ll["_sz"] = pd.to_numeric(ll["inp_total_size"], errors="coerce")
         ll = ll.sort_values("_sz", ascending=False).head(25)
         add('<div class="tw"><table><thead><tr><th>instance</th><th>famille</th>'
-            f'<th class="num">preuve brute {html.escape(la)}</th><th class="num">cône {html.escape(la)}</th>'
+            f'<th class="num">preuve brute {html.escape(la)}</th>'
+            f'<th class="num">preuve brute {html.escape(lb)}</th>'
+            f'<th class="num">cône {html.escape(la)}</th>'
             f'<th class="num">temps trim {html.escape(la)}</th><th>issue {html.escape(lb)}</th>'
             f'<th>détail {html.escape(lb)}</th></tr></thead><tbody>')
+        szB = pd.to_numeric(Bc["inp_total_size"], errors="coerce")
         for ins, r in ll.iterrows():
             add(f'<tr><td>{html.escape(ins)}</td><td>{html.escape(str(r["family"]))}</td>'
                 f'<td class="num">{fbytes(r["_sz"])}</td>'
+                f'<td class="num">{fbytes(szB.get(ins, np.nan))}</td>'
                 f'<td class="num">{fnum(pd.to_numeric(r["grim_total_cone"], errors="coerce"))}</td>'
                 f'<td class="num">{ftime(pd.to_numeric(r["grim_trim_time"], errors="coerce"))}</td>'
                 f'<td>{html.escape(OUTCOME_LABEL[Bc.at[ins, "outcome"]])}</td>'
                 f'<td>{html.escape(str(Bc.at[ins, "error_details"] if pd.notna(Bc.at[ins, "error_details"]) else ""))}</td></tr>')
         add("</tbody></table></div>")
+        add('<p class="sub">Une preuve brute absente côté ' + html.escape(lb) +
+            " signifie que le solveur est mort avant d'écrire la conclusion : le "
+            "<code>.pbp</code> partiel est effacé, donc aucune taille n'est enregistrée.</p>")
 
     # ── 9. reading notes ──────────────────────────────────────────────────────
     add("<h2>13 · Précautions de lecture</h2>")
