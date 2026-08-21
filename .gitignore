@@ -24,3 +24,7 @@ statprof/
 comparaison-*.html
 comparaison-*-instances.csv
 __pycache__/
+
+# Cumulative run log — 123 MB and growing, past GitHub's 100 MB file limit.
+# The per-run archives keep a gzipped copy instead (8-21-fullrun/cluster_output.log.gz).
+cluster_output.log

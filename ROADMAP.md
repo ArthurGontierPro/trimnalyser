@@ -86,6 +86,30 @@ Launched `./trimnalyser --threads 75,1 solve resolv verif allgraphs st=600 tt=60
 
 **Pre-flight validation** (7692-instance smoke run, `st=6 tt=60 minnodes=10 maxnodes=100`, 301.8s at 1529 inst/min): 10337 instances with proofs, **zero verification failures** (10337 smol + 10337 full VERIFIED), zero truncated, 77 errors all `Timeout after 60s` from the deliberately short trim cap. Sentinels (`.done`/`.sat`/`.timeoutNNN`) working. All 6 `harvest.sh` stages produced output. Smoke artefacts parked in `~/smoke-2026-07-27/` on the cluster. That smoke config covers only LV and bio — the larger families (images, meshes, PR15, phase, scalefree, si) have targets of 150–4838 nodes and are excluded by `maxnodes=100`; at `st=30` they predominantly hit the solver timeout or OOM, which is expected at those sizes.
 
+### Cluster run — 2026-08-18 (harvested 2026-08-21)
+
+25590/25590 in 62 h 05 min (`223485.7s`), same command and limits as the 07-31 run, on
+Glasgow `1ff87ba` — `39ca857` plus the M4.2b memory fix (`68b1c9b`) and the level-collapse
+skip (`f75a30e`). Reason: no run on disk had measured that build, which is the one the
+paper's *lazy logging* column claims. Archive in `8-21-fullrun/` (README there has the full
+accounting); it filled `tab:configs-gss` column 4 via
+`~/papers/trimnalyser-paper/scripts/config_grid.py`.
+
+Against 8-3: certified cones 16006 → 16182, OOM 3472 → 3188, trim timeouts 904 → 773,
+truncated proofs 348 → **0**. Same node and limits, different days and load, so read it as
+consistent with the fixes, not as a controlled A/B.
+
+**Placeholder by decision.** Further ideas are queued that will need another run; this set
+exists to fill the appendix tables now.
+
+**Two population differences — use each run's own denominator.** LV is on **6,539** attempted,
+not 6,667: the `g200`/`g300`/`g400`/`g500` micro graphs were removed from the suite as never
+having been part of it, and the 128 pairs using them error `unable to open file`
+(`error_type=Unknown` in the CSV). images is on **6,278**, six more than the 8-3 run attempted.
+
+This run predates M7, so it wrote into the flat `/scratch/arthur/proofs` with `.out` beside
+the proofs. It is **not** the M7 configuration grid, which is still pending.
+
 ### Open questions (`notes.tex §7`)
 
 - **Two-axis classifier:** `cone_depth_entropy × pol_frac` as primary family discriminants.
