@@ -22,6 +22,20 @@
         end
         false end
 
+        # Memory twin of timed_out_at_current_st: a `.memoutNNN` sentinel records the
+        # maxmem= limit (GB) in force when the instance was OOM killed or produced a
+        # truncated proof. Re-running is pointless unless the new limit is larger.
+    function memout_at_current_maxmem(ins)
+        pref = ins * ".memout"
+        for f in readdir(_cfg[].proofs)
+            startswith(f, pref) || continue
+            g = tryparse(Int, f[length(pref)+1:end])
+            g !== nothing && g >= _cfg[].maxinstmem_gb && return (true, g)
+        end
+        (false, 0) end
+
+    memout_sentinel(ins) = _cfg[].proofs * ins * ".memout" * string(round(Int, _cfg[].maxinstmem_gb))
+
         # Check if instance was previously OOM killed, return (was_killed, memory_info)
     function was_oom_killed(ins)
         errfile = _cfg[].proofs * ins * ".err"
@@ -50,10 +64,18 @@
                 printstyled("  $ins $c — skipping\n"; color=:yellow); return
             end
             if isempty(c)
+                # Capture this BEFORE the cleanup below deletes the file.
+                partial = filesize(_cfg[].proofs * ins * pbp) > 0
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
                 printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
                 open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
+                # A truncated proof is the solver dying mid-write, which in practice is always
+                # an OOM: record it like any other memout so the next run with the same
+                # maxmem= does not re-solve it from scratch. Only when a partial .pbp is
+                # actually on disk — pbpconclusion() also returns "" for a MISSING file,
+                # and sentinelling that would permanently skip an instance never solved.
+                partial && touch(memout_sentinel(ins))
                 return
             end
         end

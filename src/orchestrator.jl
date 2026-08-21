@@ -273,6 +273,7 @@
             printstyled("  $ins: $msg\n"; color=:red)
             open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
             logstage(ins, "trim MEMOUT", _cfg[].maxinstmem_gb)
+            touch(memout_sentinel(ins))
             return :memout
         else
             exitcode != 0 && (printstyled("  $ins: trim failed (exit $exitcode)\n"; color=:red);
@@ -362,6 +363,13 @@
         # Shared prologue for both instance drivers: OOM sentinel, log reset, solve,
         # conclusion gate and size guard. Returns :ok to continue, :skip to abandon the instance.
     function prepare_instance(ins)
+        let (memout, lim) = memout_at_current_maxmem(ins)
+            if !_cfg[].overwrite && memout
+                printstyled("  $ins previously OOM killed (sentinel maxmem=$(lim)G) — skipping\n"; color=:yellow)
+                runheader(ins); logstage(ins, "solve MEMOUT", lim)
+                return :skip
+            end
+        end
         oom_killed, mem_info = was_oom_killed(ins)
         if !_cfg[].overwrite && oom_killed
             mem_str = isempty(mem_info) ? "" : " at $mem_info"
@@ -439,10 +447,18 @@
                 logstage(ins, "solve VERDICT", c); return :skip
             end
             if isempty(c)
+                # Capture this BEFORE the cleanup below deletes the file.
+                partial = filesize(_cfg[].proofs * ins * pbp) > 0
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
                 printstyled("  $ins: no conclusion (truncated proof) — skipping\n"; color=:red)
                 open(_cfg[].proofs*ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
+                # A truncated proof is the solver dying mid-write, which in practice is always
+                # an OOM: record it like any other memout so the next run with the same
+                # maxmem= does not re-solve it from scratch. Only when a partial .pbp is
+                # actually on disk — pbpconclusion() also returns "" for a MISSING file,
+                # and sentinelling that would permanently skip an instance never solved.
+                partial && touch(memout_sentinel(ins))
                 logstage(ins, "solve ERR", "truncated_proof"); return :skip
             end
         end
@@ -495,6 +511,11 @@
         if !_cfg[].overwrite && timed_out_at_current_st(ins)
             printstyled("  $ins timed out (cached st≤$(_cfg[].solvertimeout)s) — skipping\n"; color=:yellow); return
         end
+        let (memout, lim) = memout_at_current_maxmem(ins)
+            if !_cfg[].overwrite && memout
+                printstyled("  $ins previously OOM killed (sentinel maxmem=$(lim)G) — skipping\n"; color=:yellow); return
+            end
+        end
         prepare_instance(ins) === :ok || return
         grim_verif_ok = false
         if !_cfg[].nonorm
@@ -546,7 +567,8 @@
                 b = basename(f)
                 if endswith(b, ".out") || endswith(b, ".err") ||
                    endswith(b, ".done") || endswith(b, ".sat") ||
-                   match(r"\.timeout\d+$", b) !== nothing
+                   match(r"\.timeout\d+$", b) !== nothing ||
+                   match(r"\.memout\d+$", b) !== nothing
                     rm(f)
                 end
             end
@@ -614,6 +636,7 @@
                                     open(_cfg[].proofs*inst_name*".err", "a") do f
                                         println(f, "OOM at $(round(rss; digits=1))G (limit $(_cfg[].maxinstmem_gb)G)")
                                     end
+                                    inst_name == "?" || touch(memout_sentinel(inst_name))
                                 catch
                                     # Ignore errors writing .err file (may not have permissions)
                                 end
@@ -640,6 +663,7 @@
         script = "bin/trimnalyser.jl"
         # Pre-scan for .timeoutNNN sentinels so we can skip without spawning subprocesses
         timeout_cache = Dict{String,Int}()
+        memout_cache  = Dict{String,Int}()
         if isdir(_cfg[].proofs)
             for fname in readdir(_cfg[].proofs)
                 m = match(r"^(.+)\.timeout(\d+)$", fname)
@@ -648,8 +672,15 @@
                     t    = parse(Int, m.captures[2])
                     timeout_cache[inst] = max(get(timeout_cache, inst, 0), t)
                 end
+                m = match(r"^(.+)\.memout(\d+)$", fname)
+                if m !== nothing
+                    inst = String(m.captures[1])
+                    g    = parse(Int, m.captures[2])
+                    memout_cache[inst] = max(get(memout_cache, inst, 0), g)
+                end
             end
             isempty(timeout_cache) || println("%Skipping $(length(timeout_cache)) previously timed-out instance(s)")
+            isempty(memout_cache)  || println("%Skipping $(length(memout_cache)) previously OOM-killed instance(s)")
         end
         wall = @elapsed Threads.@threads :greedy for ins in list
             try
@@ -657,7 +688,8 @@
                 spawn = _cfg[].overwrite ||
                     (!isfile(_cfg[].proofs * ins * ".done") &&
                      !isfile(_cfg[].proofs * ins * ".sat")  &&
-                     get(timeout_cache, ins, 0) < _cfg[].solvertimeout)
+                     get(timeout_cache, ins, 0) < _cfg[].solvertimeout &&
+                     get(memout_cache, ins, 0)  < _cfg[].maxinstmem_gb)
                 if spawn
                     run_instance_batch(ins, subargs, script)
                 end # if spawn

@@ -208,11 +208,24 @@ Now: the `./trimnalyser` wrapper pipes `2>&1 | tee -a "$TRIMNALYSER_BASE/output.
 
 **Progress `printstyled` outside `@threads` try-catch** (`orchestrator.jl:609–616`). An IO error there escapes the thread loop and crashes the orchestrator while subprocesses are still running.
 
-**Truncated proofs are solver memouts, and they are replayed on every rerun.** `no conclusion (truncated proof)` (`orchestrator.jl:385`, `pipeline.jl:55`) means the `.pbp` has no conclusion line because the solver died mid-proof. In practice that is always an OOM: on the 2026-07-31 run, 50/50 instances with `proof truncated` in their `.err` also had `OOM at <rss>G` — written by the OOM monitor (`orchestrator.jl:595`) just before it `kill -9`s the solver.
+**Truncated proofs are solver memouts.** `no conclusion (truncated proof)` (`orchestrator.jl:385`, `pipeline.jl:55`) means the `.pbp` has no conclusion line because the solver died mid-proof. In practice that is always an OOM: on the 2026-07-31 run, 50/50 instances with `proof truncated` in their `.err` also had `OOM at <rss>G` — written by the OOM monitor (`orchestrator.jl:595`) just before it `kill -9`s the solver.
 
 Beware the wording: `<ins> solver stderr: OOM at 51.0G` is **not** Glasgow talking. `runsipsolver` re-reads the `.err` after the run (`solver.jl:174–180`) and echoes back the line the monitor had just appended to it.
 
-Partial `.opb`/`.pbp` *are* cleaned (`tryrm`, `orchestrator.jl:383–384`), so nothing stale is left on disk. But **no sentinel is written**, and the skip test (`orchestrator.jl:636–638`) only checks `.done`/`.sat`/`timeout_cache` — so every truncated instance is fully re-solved on the next run, burning the same minutes and the same ~50 GB slot to produce nothing again. The consistent fix would mirror the timeout design: an `.oomNNN` sentinel recording the limit, skipped only when the new `maxmem=` is not larger. Not implemented as of 2026-07-31.
+Partial `.opb`/`.pbp` *are* cleaned (`tryrm`), so nothing stale is left on disk.
+
+**Sentinel — implemented 2026-08-21.** `.memoutNNN` mirrors `.timeoutNNN`, with `NNN` the
+`maxmem=` limit in GB in force when the instance died. Written at three sites: the OOM
+monitor's `kill -9`, a trim subprocess exiting 137, and the truncated-proof branch (which is
+an OOM in practice). Read by `memout_at_current_maxmem` (`pipeline.jl`), by
+`prepare_instance` / `run_instance_full`, and by the batch pre-scan's `memout_cache` — the
+instance is skipped unless the new `maxmem=` is strictly larger than the recorded limit, and
+`overwrite` bypasses it. `clean` deletes `.memoutNNN` alongside `.timeoutNNN`.
+
+The truncated-proof site guards on a partial `.pbp` actually being on disk: `pbpconclusion`
+also returns `""` for a *missing* file, so an unguarded `touch` would permanently sentinel
+every instance that had simply never been solved. That guard is also what keeps the
+custom-proofs-dir bug below from sentinelling a whole run.
 
 **Custom proofs dir is not forwarded to trim subprocesses.** `orchestrator.jl:614` builds `subargs` from a whitelist (`resolv`, `clit`, `render`, `profile`, `no-supplementals`, `keepraw`, `overwrite`, `tt=`, `maxmem=`, `minmem=`). The proofs-dir positional arg isn't in it, so the subprocess falls back to `defaultproofs` (`config.jl:41`), finds no `.pbp`, and reports `no conclusion (truncated proof)` for every UNSAT instance. Deterministic, and misleading: the real `.pbp` is complete, and the `tryrm` cleanup plus the `.err` file both land in the *default* dir, so the custom dir looks untouched with no `.err` explaining it. Single-instance mode spawns no subprocess and is unaffected — so it works when tested one instance at a time. Harmless for normal runs (they use the default dir); only bites when isolating a test into a scratch directory.
 
