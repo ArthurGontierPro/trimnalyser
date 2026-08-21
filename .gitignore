@@ -25,44 +25,73 @@ comparaison-*.html
 comparaison-*-instances.csv
 __pycache__/
 
-# Cumulative run log — 123 MB and growing, past GitHub's 100 MB file limit.
-# The per-run archives keep a gzipped copy instead (8-21-fullrun/cluster_output.log.gz).
-cluster_output.log
+# =============================================================================
+# Generated run data — never commit any of it.
+#
+# History was rewritten on 2026-08-21 to purge ~450 MB of this: d3bed69 had
+# swept 158 files into a commit whose message described a one-line ROADMAP
+# edit, and 8-21-fullrun/cluster_output.log (117 MB) then blocked every push
+# by exceeding GitHub's hard 100 MB per-file limit (it warns above 50 MB).
+# Pre-purge history: ~/trimnalyser-prepurge-20260821.bundle
+#
+# Everything below is regenerable — by a solver run, by scripts/harvest.sh, or
+# by the aggregate/report scripts. It lives on local disk and on the cluster.
+# The rules are written by shape, not as a list of the specific files that
+# caused the incident, so that the NEXT run's output is ignored by default.
+# =============================================================================
 
-# Run archives, their root-level report copies, and one-off large artefacts.
-# These are regenerable output (hundreds of MB; one archived cluster_output.log
-# passed GitHub's 100 MB file limit). They live on local disk and the cluster,
-# not in git. Purged from history 2026-08-21; the pre-purge history is kept in
-# ~/trimnalyser-prepurge-20260821.bundle.
+# 1. Report files written by the aggregate/report scripts, in ANY directory.
+#    These exact names reappear in every new run dir and every A/B arm, so they
+#    are deliberately unanchored.
+cluster_results.csv
+graph_features.csv
+var_order_stats.csv
+var_order_family_summary.csv
+classify_supplementals.html
+classify_supplementals.txt
+proof_survey.html
+cone_vs_full.html
+oracle_replay_results.csv
+oracle_scatter.html
+quick_stats.txt
+cluster_output.log
+harvest.log
+instances.txt
+instances_strata.csv
+smol-bytecompare.txt
+smol-bytecompare.summary
+lad_results.csv
+
+# 2. Whole directories holding one run's or one experiment's output.
+#    /*-fullrun/ and /ab-*/ cover future dated archives and future A/B arms.
 /*-fullrun/
 /*-median-run-*/
-/tmp/
-/cluster_results.csv
-/graph_features.csv
-/var_order_stats.csv
-/var_order_family_summary.csv
-/classify_supplementals.html
-/classify_supplementals.txt
-/proof_survey.html
-/cone_vs_full.html
-/vis.tar.gz
-/LVg20g45_staged.opb
-/LVg20g45_staged.pbp
-
-# Output artefacts: A/B run arms, oracle replays, benchmark sweeps, plots and
-# the local proof dir. Regenerable; kept on local disk and the cluster, not in
-# git. Purged from history 2026-08-21 (see the bundle referenced above).
-/ab-labels-for-analysis/
-/ab-lazy-adjacency-relabelled/
-/ab-propagate/
-/ab-ruptrail/
-/ab-propagate-unify.html
-/ab-propagate-unify-instances.csv
+/ab-*/
 /benchmark_results/
-/oracle_replay_results.csv
-/oracle_scatter.html
-/april-report.html
-/g45_analysis.png
 /PBstuf/
 /proofs/
+/tmp/
+
+# 3. Bulk data and binaries at the repo ROOT. Legitimate files of these types
+#    live in subdirectories (test/instances/, docs/, paper/), which these
+#    patterns deliberately do not reach. This is the catch-all that would have
+#    stopped the incident: a stray `git add -A` at the root now adds nothing.
+/*.csv
+/*.html
+/*.txt
+/*.log
+/*.png
+/*.pdf
+/*.json
+/*.opb
+/*.pbp
+/*.gz
+/*.bundle
+/*.jls
+!/instances_dense_targets.txt
+
+# 4. Editor and shell leftovers (the `0,` below is a stray `2>0,` redirect).
 *.bak
+*.orig
+*~
+/0,
