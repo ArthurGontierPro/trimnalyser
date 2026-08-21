@@ -28,3 +28,23 @@ __pycache__/
 # Cumulative run log — 123 MB and growing, past GitHub's 100 MB file limit.
 # The per-run archives keep a gzipped copy instead (8-21-fullrun/cluster_output.log.gz).
 cluster_output.log
+
+# Run archives, their root-level report copies, and one-off large artefacts.
+# These are regenerable output (hundreds of MB; one archived cluster_output.log
+# passed GitHub's 100 MB file limit). They live on local disk and the cluster,
+# not in git. Purged from history 2026-08-21; the pre-purge history is kept in
+# ~/trimnalyser-prepurge-20260821.bundle.
+/*-fullrun/
+/*-median-run-*/
+/tmp/
+/cluster_results.csv
+/graph_features.csv
+/var_order_stats.csv
+/var_order_family_summary.csv
+/classify_supplementals.html
+/classify_supplementals.txt
+/proof_survey.html
+/cone_vs_full.html
+/vis.tar.gz
+/LVg20g45_staged.opb
+/LVg20g45_staged.pbp
