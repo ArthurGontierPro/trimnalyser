@@ -473,9 +473,33 @@ end
 # tree. Flat <instance>.out files from pre-M7 runs are still accepted, with empty tag.
 const _LOGNAME = r"^(.*)\.(gss|lad)\.([^.]+)\.out$"
 
+# Since M7.1 proofs are namespaced <root>/proofs/<solver>/<config>/, while the logs dir is
+# shared by every configuration. Aggregating one proofs dir therefore emits rows for configs
+# whose proofs live in a SIBLING directory; attaching `proofdir`'s .err to all of them would
+# report one config's OOMs and timeouts against all fourteen. Recover the root here so each
+# row can resolve its own proofs dir; returns "" when proofdir is not a namespaced path
+# (pre-M7 flat layout, or an archived run), in which case we keep the old behaviour.
+function proofroot_of(proofdir::String)
+    p = rstrip(proofdir, '/')
+    isempty(basename(p)) && return ""
+    parent = dirname(p)
+    basename(parent) in ("gss", "lad") ? dirname(parent) : ""
+end
+
+    # The proofs dir for one row. Falls back to the dir we were given whenever the row is
+    # untagged (flat pre-M7 log) or its sibling dir is absent — never silently to a wrong one.
+function proofdir_for(proofdir::String, root::String, solver::String, config::String)
+    (isempty(root) || isempty(solver) || isempty(config)) && return proofdir
+    d = joinpath(root, solver, config)
+    isdir(d) ? d : proofdir
+end
+
 function aggregate_results(proofdir::String, output_csv::String, logdir::String=proofdir)
     println("Scanning proofs: $proofdir")
     println("Scanning logs:   $logdir")
+    proofroot = proofroot_of(proofdir)
+    isempty(proofroot) &&
+        println("  (proofdir is not <root>/<solver>/<config> — .err resolved from it for every row)")
 
     out_files = filter(f -> endswith(f, ".out") &&
                            !endswith(f, ".smolverif.out") &&
@@ -500,7 +524,8 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             out_file = joinpath(logdir, instance * tag * ".out")
             data = parse_out_file(out_file)
 
-            err_file = joinpath(proofdir, instance * ".err")
+            rowproofs = proofdir_for(proofdir, proofroot, solver, config)
+            err_file = joinpath(rowproofs, instance * ".err")
             has_error, error_type, error_details = parse_err_file(err_file)
 
             resolv_iters = count_resolv_iterations(logdir, instance, tag)

@@ -22,6 +22,30 @@ PROOFS="${1:-/scratch/arthur/proofs/gss/gss-lazy}"
 LOGS="${2:-/cluster/arthur/logs}"
 [[ -d "$PROOFS" ]] || { echo "no such proofs dir: $PROOFS" >&2; exit 1; }
 [[ -d "$LOGS" ]]   || { echo "no such logs dir: $LOGS" >&2; exit 1; }
+
+# /scratch is node-local: on the head node the dir can exist but be empty, and every
+# report below would then be generated, overwrite the real ones, and look merely "small".
+NOPB=$(find "$PROOFS" -maxdepth 1 -name '*.opb' -printf . 2>/dev/null | wc -c)
+if [[ "$NOPB" -eq 0 ]]; then
+    echo "no .opb files under $PROOFS — wrong host, or the run never produced proofs" >&2
+    echo "(are you on the compute node? /scratch is local to each machine)" >&2
+    exit 1
+fi
+
+# The outputs below have FIXED names with no config in them, so a second harvest silently
+# replaces the first. Stamp what produced them and refuse to clobber a different source.
+STAMP=.harvest_source
+if [[ -f "$STAMP" && -s cluster_results.csv ]]; then
+    PREV=$(cat "$STAMP")
+    if [[ "$PREV" != "$PROOFS" && "${HARVEST_FORCE:-0}" != "1" ]]; then
+        echo "refusing to overwrite reports harvested from: $PREV" >&2
+        echo "  now harvesting:                              $PROOFS" >&2
+        echo "Move the previous outputs aside, or set HARVEST_FORCE=1 to replace them." >&2
+        exit 1
+    fi
+fi
+echo "$PROOFS" > "$STAMP"
+
 echo "harvesting $PROOFS (logs: $LOGS)"
 
 echo "=== 1/5 Aggregate results ==="

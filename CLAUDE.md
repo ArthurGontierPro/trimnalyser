@@ -227,6 +227,21 @@ also returns `""` for a *missing* file, so an unguarded `touch` would permanentl
 every instance that had simply never been solved. That guard is also what keeps the
 custom-proofs-dir bug below from sentinelling a whole run.
 
-**Custom proofs dir is not forwarded to trim subprocesses.** `orchestrator.jl:614` builds `subargs` from a whitelist (`resolv`, `clit`, `render`, `profile`, `no-supplementals`, `keepraw`, `overwrite`, `tt=`, `maxmem=`, `minmem=`). The proofs-dir positional arg isn't in it, so the subprocess falls back to `defaultproofs` (`config.jl:41`), finds no `.pbp`, and reports `no conclusion (truncated proof)` for every UNSAT instance. Deterministic, and misleading: the real `.pbp` is complete, and the `tryrm` cleanup plus the `.err` file both land in the *default* dir, so the custom dir looks untouched with no `.err` explaining it. Single-instance mode spawns no subprocess and is unaffected — so it works when tested one instance at a time. Harmless for normal runs (they use the default dir); only bites when isolating a test into a scratch directory.
+**Custom proofs dir — FIXED 2026-08-21, do not reintroduce.** `subargs` (`orchestrator.jl`)
+is a whitelist, and the proofs-dir positional could not be in it (it is a bare path, not a
+flag). Trim subprocesses therefore fell back to `defaultproofs` (`config.jl`) and reported
+`no conclusion (truncated proof)` for every UNSAT instance of a batch run into a custom dir —
+deterministic, and misleading twice over: the real `.pbp` was complete, and the `.err` plus
+the `tryrm` cleanup landed in the *default* dir, so the custom dir looked untouched with
+nothing explaining it. Worse, if the default dir held proofs for the same instances from an
+earlier run, the child trimmed *those* instead and deleted them — plausible numbers computed
+from the wrong config's proof. Single-instance mode spawns no subprocess and was unaffected,
+so it always worked when tested one instance at a time.
+
+Now `main()` pushes the **resolved** `_cfg[].proofs` onto `subargs`; the child picks it up via
+the same `findfirst(isdir)` rule `parse_config!` already uses, so parent and child cannot
+diverge however the arg was written or omitted. Forward the resolved value, never a re-filter
+of `args`. Verified: batch and single-instance trims of `LVg10g12` in a scratch dir produce
+byte-identical `.smol.opb`/`.smol.pbp`.
 
 **OOM monitor matching logic.** Now branches on two process types (trimmer vs solver) with different instance-name extraction. Needs a registered table of `(binary_name, extractor)` pairs if more process types are added.

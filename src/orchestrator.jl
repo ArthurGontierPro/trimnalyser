@@ -660,6 +660,13 @@
                               startswith(a, "tt=") ||
                               startswith(a, "maxmem=") || startswith(a, "minmem="), args)
         push!(subargs, "subprocess")
+        # The proofs directory is a bare positional, so the whitelist above cannot carry it.
+        # Forward the RESOLVED value rather than re-filtering args: parse_config! picks it up
+        # with the same `findfirst(isdir)` rule, and this way the child cannot land on a
+        # different directory than the parent no matter how the arg was written (or omitted).
+        # Without it the child falls back to `defaultproofs`, finds no .pbp, and reports
+        # "no conclusion (truncated proof)" for every UNSAT instance of the run.
+        push!(subargs, _cfg[].proofs)
         script = "bin/trimnalyser.jl"
         # Pre-scan for .timeoutNNN sentinels so we can skip without spawning subprocesses
         timeout_cache = Dict{String,Int}()
