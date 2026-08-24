@@ -553,24 +553,39 @@
                                      string(min(8192, _cake_budget_mb()))))
     cake_stack_mb() = parse(Int, get(ENV, "CML_STACK_SIZE",
                                      string(min(4096, _cake_budget_mb() ÷ 2))))
-    cakeenv(cmd) = addenv(cmd, "CML_HEAP_SIZE"  => string(cake_heap_mb()),
-                               "CML_STACK_SIZE" => string(cake_stack_mb()))
+        # Pairs, not a wrapped Cmd. `runcapture` interpolates into `timeout $tl $cmd`, and
+        # Julia rejects an env-carrying Cmd anywhere but the first interpolant
+        # ("Non-default environment behavior is only permitted for the first interpolant"),
+        # so the env has to be applied to the OUTER command. Wrapping the inner one threw,
+        # runcapture's catch swallowed it, and cake reported FAILED with no output at all.
+    cakeenv() = ["CML_HEAP_SIZE"  => string(cake_heap_mb()),
+                 "CML_STACK_SIZE" => string(cake_stack_mb())]
 
         # Runs `cmd` under `timeout tl`, capturing both streams via temp files next to
         # `stem`. Returns (seconds, exitcode, stdout, stderr); never throws.
         # Every caller here (veripb, cake_pb, cake_pb_iso) is a heavyweight child, so this
         # is where they meet the admission gate — see wait_for_memory in utilities.jl.
-    function runcapture(cmd, tl, stem; stage::AbstractString="", ins::AbstractString="")
+    function runcapture(cmd, tl, stem; stage::AbstractString="", ins::AbstractString="",
+                        env = nothing)
         wait_for_memory(stage, ins)
         to = stem*".tmpout"; te = stem*".tmperr"
         p = nothing
+        launcherr = ""
+        full = `timeout $tl $cmd`
+        env === nothing || (full = addenv(full, env...))
         t = @elapsed try
-            p = run(pipeline(ignorestatus(`timeout $tl $cmd`), stdout=to, stderr=te))
-        catch e end
+            p = run(pipeline(ignorestatus(full), stdout=to, stderr=te))
+        catch e
+            # Never silent. A failure to LAUNCH used to be indistinguishable from a checker
+            # that ran and rejected the proof: both produced empty output, which cakestatus
+            # and the veripb branch both read as :failed. That cost a full debugging cycle.
+            launcherr = "runcapture could not launch: " * sprint(showerror, e) * "\n"
+        end
         out = isfile(to) ? read(to, String) : ""
         err = isfile(te) ? read(te, String) : ""
         tryrm(to); tryrm(te)
-        return (t, p === nothing ? -1 : p.exitcode, out, err) end
+        isempty(launcherr) || printstyled("  ", launcherr; color=:magenta)
+        return (t, p === nothing ? -1 : p.exitcode, out, launcherr * err) end
 
         # Both CakeML checkers exit 0 on a FAILED check and print their diagnostics on
         # stderr. "s VERIFIED" on stdout is the only success signal either of them gives.
@@ -600,8 +615,8 @@
             printstyled("  cake_pb not found at $cakepbpath — skipping cake\n"; color=:yellow)
             logstage(ins, "cake $tag", "MISSING"); return (-1, :missing)
         end
-        (t, code, out, err) = runcapture(cakeenv(`$cakepbpath $o $elab`), _cfg[].caketimeout, elab;
-                                         stage="cake $tag", ins=ins)
+        (t, code, out, err) = runcapture(`$cakepbpath $o $elab`, _cfg[].caketimeout, elab;
+                                         stage="cake $tag", ins=ins, env=cakeenv())
         st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".$tag.cake.err", out*err)
         logstage(ins, "cake $tag", uppercase(string(st)))
@@ -618,9 +633,9 @@
         patfile, tarfile = parsegraphfiles(ins)
         (patfile === nothing || !isfile(patfile) || !isfile(tarfile)) &&
             (logstage(ins, "cakeiso full", "MISSING"); return)
-        (t, code, out, err) = runcapture(cakeenv(`$cakeisopath $patfile $tarfile $elab`),
+        (t, code, out, err) = runcapture(`$cakeisopath $patfile $tarfile $elab`,
                                          _cfg[].caketimeout, elab*".iso";
-                                         stage="cakeiso", ins=ins)
+                                         stage="cakeiso", ins=ins, env=cakeenv())
         st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".cakeiso.err", out*err)
         logstage(ins, "cakeiso full", uppercase(string(st)))
