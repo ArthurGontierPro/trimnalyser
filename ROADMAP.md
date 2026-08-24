@@ -843,12 +843,21 @@ trim                      12 s     [error] rup failed at 62480
 veripb -e (smol)           0 s     FAILED
 ```
 
+(LVg10g12 is the *failing* case; see below — most LAD instances trim cleanly.)
+
 So the solve, full-verify and both Cake cells are producible today, and the trimmed cells are
 not. **The trimmer cannot verify one of LAD's RUP steps**, and `getcone!` `return`s on that
 failure (`trimmer.jl:348`) with the cone half-built; `writeconedel` then renumbers against an
 incomplete cone, so every antecedent that was never reached is emitted as constraint id `0` and
 VeriPB rejects the result at line 3 ("Trying to access constraint with ID 0"). The `0`s are the
 symptom; the RUP failure is the bug.
+
+**It is not universal.** In the 2026-08-24 smoke run (116 LV instances, 50-60 nodes, timeouts
+at 1/60) ten `lad-*-pl` rows reached the trim, and **8 of the 10 trimmed proofs verified and
+were Cake-certified**. Only `LVg10g12` failed, and it failed under both `lad-alldiff-pl` and
+`lad-fc-pl` (at different step numbers, 23968 and 62480). So this is a specific gap in the
+propagation engine on some LAD RUP steps, not a format-level incompatibility — and `LVg10g12`
+is a ready-made reproducer.
 
 This is `smol FAILED + full VERIFIED`, i.e. the one combination worth debugging. What is known:
 LAD's proof uses exactly two rules, `rup` (28,108) and `pol` (26,187), with no deletions, no
