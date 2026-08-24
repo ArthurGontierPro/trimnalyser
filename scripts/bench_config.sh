@@ -74,6 +74,16 @@ case "$(hostname)" in
     fataepyc*|*dcs.gla.ac.uk*) CLUSTER=1 ;;
     *)                         CLUSTER=0 ;;
 esac
+# Pin the binaries, cluster only — cluster_env.sh points everything at node-local /scratch,
+# which does not exist on the laptop. Sourced rather than duplicated so a column launched
+# by hand gets exactly what run_grid.sh gives it, and sourced HERE because it must be in
+# the environment before julia starts: SOLVER_CONFIGS is a const dict built at module load,
+# so gssbin() reads $GLASGOW_SUBGRAPH_SOLVER_<rev> exactly once. Values already exported
+# win, so an explicit override on the command line still takes effect.
+if [[ $CLUSTER -eq 1 && -f scripts/cluster_env.sh ]]; then
+    # shellcheck source=/dev/null
+    source scripts/cluster_env.sh
+fi
 if [[ $CLUSTER -eq 1 ]]; then
     SOLVER_GSS="${GLASGOW_SUBGRAPH_SOLVER:-/scratch/arthur/glasgow_subgraph_solver}"
     SOLVER_LAD="${LAD_SOLVER:-/scratch/arthur/lad}"
