@@ -496,7 +496,7 @@ const _LOGNAME = r"^(.*)\.(gss|lad)\.([^.]+)\.out$"
 # report one config's OOMs and timeouts against all fourteen. Recover the root here so each
 # row can resolve its own proofs dir; returns "" when proofdir is not a namespaced path
 # (pre-M7 flat layout, or an archived run), in which case we keep the old behaviour.
-function proofroot_of(proofdir::String)
+function proofroot_of(proofdir::AbstractString)
     p = rstrip(proofdir, '/')
     isempty(basename(p)) && return ""
     parent = dirname(p)
@@ -505,7 +505,11 @@ end
 
     # The proofs dir for one row. Falls back to the dir we were given whenever the row is
     # untagged (flat pre-M7 log) or its sibling dir is absent — never silently to a wrong one.
-function proofdir_for(proofdir::String, root::String, solver::String, config::String)
+    # AbstractString, not String: solver and config come out of a regex match on the log
+    # file name and are SubStrings. This only ever fires when the logs dir holds more than
+    # one configuration, which is the normal state of a grid run.
+function proofdir_for(proofdir::AbstractString, root::AbstractString,
+                      solver::AbstractString, config::AbstractString)
     (isempty(root) || isempty(solver) || isempty(config)) && return proofdir
     d = joinpath(root, solver, config)
     isdir(d) ? d : proofdir
