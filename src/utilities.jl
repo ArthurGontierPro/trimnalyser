@@ -11,6 +11,34 @@ function available_memory()
     end
     return Sys.free_memory() end # fallback for non-Linux
 
+    # ── Admission gate ────────────────────────────────────────────────────────────────
+    # Block until the node has `minmem=` free before launching a memory-hungry child.
+    #
+    # This is the ONLY whole-node protection there is. The OOM monitor is per-process: it
+    # kills a child that individually exceeds `maxmem=`, which does nothing about ninety
+    # well-behaved children adding up to more RAM than the node has. Every stage that
+    # spawns a heavyweight process must pass through here — solve, verif, cake and trim —
+    # or it is admitted regardless of what the other threads are already holding.
+    #
+    # Deliberately unbounded: waiting is always better than being OOM-killed by the kernel,
+    # which picks its victim by its own heuristic and would just as happily take the
+    # orchestrator as the child. `stage` and `ins` only feed the one-line notice, which is
+    # printed once per wait rather than once per poll so a long queue stays readable.
+function wait_for_memory(stage::AbstractString="", ins::AbstractString="")
+    _cfg[].minfreemem <= 0 && return
+    available_memory() >= _cfg[].minfreemem && return
+    t0 = time()
+    printstyled("  ", isempty(ins) ? "" : "$ins ", "waiting for memory",
+                isempty(stage) ? "" : " ($stage)",
+                ": ", round(available_memory() / 1024^3; digits=1), " GB free < ",
+                _cfg[].minfreemem ÷ 1024^3, " GB\n"; color=:yellow)
+    while available_memory() < _cfg[].minfreemem
+        sleep(5)
+    end
+    printstyled("  ", isempty(ins) ? "" : "$ins ", "resumed after ",
+                round(Int, time() - t0), "s\n"; color=:yellow)
+    return end
+
     # Read the resident set size of a subprocess from /proc/PID/status (Linux only).
     # Returns GB; 0.0 if the process already exited or on non-Linux.
 function process_rss_gb(pid::Int)

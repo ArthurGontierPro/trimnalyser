@@ -228,9 +228,7 @@
         return list end
 
     function run_trim_subprocess(ins, subargs, script)
-        while available_memory() < _cfg[].minfreemem
-            sleep(5)
-        end
+        wait_for_memory("trim", ins)
         subout = _cfg[].proofs * ins * ".subout"
         suberr = _cfg[].proofs * ins * ".suberr"
         use_sysimage = isfile(_sysimage)
@@ -625,7 +623,45 @@
         # Independent OOM monitor: scans all trimnalyser.jl subprocesses every 10s and kills OOM ones.
         # Runs on :interactive thread so worker saturation can't starve it.
         Threads.@spawn :interactive begin
-            solver_name = basename(solverconfig().binary)
+            # ── Registered process types ──────────────────────────────────────────────
+            # Three now, each (match, extract-instance). Add a type here rather than
+            # bolting another branch onto the loop below.
+            #
+            # The solver is matched on its FULL PATH, not basename(). For a lad-* config
+            # basename is the three-character string "lad", and `occursin("lad", cmdline)`
+            # matches any command line containing it anywhere — /scratch/arthur/ladbench/…,
+            # ~/ladveri/… — so the monitor could kill unrelated processes. A full path is
+            # what we actually launched, and per-revision Glasgow binaries
+            # (glasgow_subgraph_solver_39ca857) match it just as well.
+            solver_bin  = solverconfig().binary
+            # Glasgow: `--prove <proofs><instance>`      basename IS the instance
+            # LAD:     `-P <proofs><instance>.pbp`       basename carries an extension
+            # LAD was previously scanned for --prove, which it never emits (solver.jl:237),
+            # so every LAD OOM got inst_name "?" — appending to a junk "<proofs>?.err" and,
+            # because of the `inst_name == "?"` guard, never writing a .memoutNNN sentinel.
+            # LAD memouts were re-solved from scratch on every subsequent run.
+            solver_flag = solverconfig().kind == "lad" ? "-P" : "--prove"
+            # Strip only KNOWN suffixes: an instance name is not guaranteed dot-free, so
+            # splitext could truncate one. Longest first — ".smol.opb" before ".opb".
+            _sufs = (smol_pbp, smol_opb, pbp, opb)
+            function strip_suffix(b)
+                for sfx in _sufs
+                    endswith(b, sfx) && return b[1:end - length(sfx)]
+                end
+                return b
+            end
+            function inst_after(cmdargs, flag)
+                i = findfirst(==(flag), cmdargs)
+                (i === nothing || i >= length(cmdargs)) && return "?"
+                b = strip_suffix(basename(cmdargs[i + 1]))
+                isempty(b) ? "?" : String(b)
+            end
+            function inst_from_opb(cmdargs)      # veripb -e <elab> <opb> <pbp>
+                i = findfirst(a -> endswith(a, opb), cmdargs)
+                i === nothing && return "?"
+                b = strip_suffix(basename(cmdargs[i]))
+                isempty(b) ? "?" : String(b)
+            end
             while monitor_active[]
                 sleep(10)
                 try
@@ -638,29 +674,38 @@
                         isfile(cmdline_path) || continue
                         cmdline = read(cmdline_path, String)
                         is_trimmer = occursin("trimnalyser.jl", cmdline)
-                        is_solver  = !is_trimmer && occursin(solver_name, cmdline)
-                        (is_trimmer || is_solver) || continue
+                        is_solver  = !is_trimmer && occursin(solver_bin, cmdline)
+                        # veripb is neither self-limiting nor otherwise bounded: it is a
+                        # native binary that grows with the proof and nothing stopped it.
+                        # cake is deliberately absent — CakeML preallocates a fixed heap
+                        # (see cake_heap_mb in output.jl) and exits with "heap space
+                        # exhausted" rather than growing, so it cannot OOM the node.
+                        is_veripb  = !is_trimmer && !is_solver && occursin(veripbpath, cmdline)
+                        (is_trimmer || is_solver || is_veripb) || continue
                         # Extract instance name from cmdline (args are \0-separated)
                         cmdargs = split(cmdline, '\0')
+                        stage = is_trimmer ? "trim" : is_solver ? "solve" : "verif"
                         inst_name = if is_trimmer
                             idx = findfirst(is_instance_name, cmdargs)
-                            idx !== nothing ? cmdargs[idx] : "?"
+                            idx !== nothing ? String(cmdargs[idx]) : "?"
+                        elseif is_solver
+                            inst_after(cmdargs, solver_flag)
                         else
-                            prove_idx = findfirst(==("--prove"), cmdargs)
-                            prove_idx !== nothing && prove_idx < length(cmdargs) ?
-                                basename(cmdargs[prove_idx + 1]) : "?"
+                            inst_from_opb(cmdargs)
                         end
                         rss = process_rss_gb(pid)
                         rss == 0.0 && continue
                         if rss > _cfg[].maxinstmem_gb
                             try
                                 run(`kill -9 $pid`)
-                                msg = "OOM KILL $inst_name (pid=$pid): $(round(rss; digits=1)) GB > $(_cfg[].maxinstmem_gb) GB"
+                                msg = "OOM KILL $inst_name ($stage, pid=$pid): $(round(rss; digits=1)) GB > $(_cfg[].maxinstmem_gb) GB"
                                 printstyled("  $msg\n"; color=:red)
-                                # Record OOM kill in .err file
+                                # Record OOM kill in .err file. The "OOM at <n>G" prefix is
+                                # load-bearing — was_oom_killed (pipeline.jl) greps it — so
+                                # the stage goes after it, never before.
                                 try
                                     open(_cfg[].proofs*inst_name*".err", "a") do f
-                                        println(f, "OOM at $(round(rss; digits=1))G (limit $(_cfg[].maxinstmem_gb)G)")
+                                        println(f, "OOM at $(round(rss; digits=1))G (limit $(_cfg[].maxinstmem_gb)G, stage $stage)")
                                     end
                                     inst_name == "?" || touch(memout_sentinel(inst_name))
                                 catch
@@ -670,7 +715,7 @@
                                 printstyled("  OOM KILL FAILED $inst_name (pid=$pid): $(round(rss; digits=1)) GB - $(sprint(showerror, e))\n"; color=:magenta)
                             end
                         elseif rss > _cfg[].maxinstmem_gb * 0.9
-                            printstyled("  MEM WATCH $inst_name (pid=$pid): $(round(rss; digits=1)) GB / $(_cfg[].maxinstmem_gb) GB\n"; color=:yellow)
+                            printstyled("  MEM WATCH $inst_name ($stage, pid=$pid): $(round(rss; digits=1)) GB / $(_cfg[].maxinstmem_gb) GB\n"; color=:yellow)
                         end
                     end
                 catch e

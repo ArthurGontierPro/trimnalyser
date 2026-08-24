@@ -180,6 +180,7 @@
         options = solverflags()   # per-config; see SOLVER_CONFIGS in config.jl
         local exitcode = 0
         tryrm(solveroutpath(out_prefix))   # truncate: the verdict grep must not see a previous run's
+        wait_for_memory("solve", out_prefix)
         open(solveroutpath(out_prefix), "a") do fout
             open(errfile, "a") do ferr
                 proveargs = prove ? ["--prove", _cfg[].proofs*out_prefix] : String[]
@@ -232,6 +233,7 @@
         if prove
             tryrm(_cfg[].proofs*out_prefix*pbp); tryrm(_cfg[].proofs*out_prefix*opb)
         end
+        wait_for_memory("solve", out_prefix)
         open(solveroutpath(out_prefix), "a") do fout
             open(errfile, "a") do ferr
                 proveargs = prove ? ["-P", _cfg[].proofs*out_prefix*pbp,

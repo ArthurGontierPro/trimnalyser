@@ -530,9 +530,38 @@
     const cakepbpath  = get(ENV, "CAKE_PB",
         _cluster ? "/scratch/arthur/cake_pb"     : "/home/arthur_gla/CakePB-dev/cake_pb")
 
+        # CakeML reads these from the ENVIRONMENT at startup, in megabytes. They are not
+        # command-line flags — passing `--CML_HEAP_SIZE=8192` makes cake treat the flag as
+        # the input filename — and they are not compile-time constants. Left unset, cake
+        # runs at CakeML's built-in default, and any proof needing more exits with
+        # "CakeML heap space exhausted", which cakestatus reports as :memout. That made a
+        # too-small default indistinguishable from a genuine resource limit.
+        #
+        # CakeML mallocs heap+stack UP FRONT and aborts with "failed to allocate sufficient
+        # CakeML heap and stack space" if the allocation is refused — it is not lazily
+        # mapped, so these cannot simply be set to maxmem=. Resident use stays far below
+        # the reservation (LVg10g12 verifies in ~300 MB either way), but the reservation
+        # still has to succeed, and 32 GB is already refused on an 8 GB laptop.
+        #
+        # 8192/4096 are therefore fixed defaults, not a function of maxmem=, and are capped
+        # by maxmem= so cake can never reserve more than a stage's budget. This bound is
+        # also why cake needs no entry in the OOM monitor: it cannot grow past these
+        # numbers, it exits instead.
+        # An explicit CML_HEAP_SIZE / CML_STACK_SIZE in the environment still wins.
+    _cake_budget_mb() = max(512, round(Int, _cfg[].maxinstmem_gb * 1024))
+    cake_heap_mb()  = parse(Int, get(ENV, "CML_HEAP_SIZE",
+                                     string(min(8192, _cake_budget_mb()))))
+    cake_stack_mb() = parse(Int, get(ENV, "CML_STACK_SIZE",
+                                     string(min(4096, _cake_budget_mb() ÷ 2))))
+    cakeenv(cmd) = addenv(cmd, "CML_HEAP_SIZE"  => string(cake_heap_mb()),
+                               "CML_STACK_SIZE" => string(cake_stack_mb()))
+
         # Runs `cmd` under `timeout tl`, capturing both streams via temp files next to
         # `stem`. Returns (seconds, exitcode, stdout, stderr); never throws.
-    function runcapture(cmd, tl, stem)
+        # Every caller here (veripb, cake_pb, cake_pb_iso) is a heavyweight child, so this
+        # is where they meet the admission gate — see wait_for_memory in utilities.jl.
+    function runcapture(cmd, tl, stem; stage::AbstractString="", ins::AbstractString="")
+        wait_for_memory(stage, ins)
         to = stem*".tmpout"; te = stem*".tmperr"
         p = nothing
         t = @elapsed try
@@ -571,7 +600,8 @@
             printstyled("  cake_pb not found at $cakepbpath — skipping cake\n"; color=:yellow)
             logstage(ins, "cake $tag", "MISSING"); return (-1, :missing)
         end
-        (t, code, out, err) = runcapture(`$cakepbpath $o $elab`, _cfg[].caketimeout, elab)
+        (t, code, out, err) = runcapture(cakeenv(`$cakepbpath $o $elab`), _cfg[].caketimeout, elab;
+                                         stage="cake $tag", ins=ins)
         st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".$tag.cake.err", out*err)
         logstage(ins, "cake $tag", uppercase(string(st)))
@@ -588,8 +618,9 @@
         patfile, tarfile = parsegraphfiles(ins)
         (patfile === nothing || !isfile(patfile) || !isfile(tarfile)) &&
             (logstage(ins, "cakeiso full", "MISSING"); return)
-        (t, code, out, err) = runcapture(`$cakeisopath $patfile $tarfile $elab`,
-                                         _cfg[].caketimeout, elab*".iso")
+        (t, code, out, err) = runcapture(cakeenv(`$cakeisopath $patfile $tarfile $elab`),
+                                         _cfg[].caketimeout, elab*".iso";
+                                         stage="cakeiso", ins=ins)
         st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".cakeiso.err", out*err)
         logstage(ins, "cakeiso full", uppercase(string(st)))
@@ -625,7 +656,8 @@
         end
         elab = ins2*"."*tag*".elab"*pbp
         tryrm(elab)
-        (vt, vcode, vout, verr) = runcapture(`$veripbpath -e $elab $o $p`, _cfg[].veriftimeout, elab)
+        (vt, vcode, vout, verr) = runcapture(`$veripbpath -e $elab $o $p`, _cfg[].veriftimeout, elab;
+                                             stage="verif $tag", ins=ins)
         # "s VERIFIED" on stdout, not the elaborated file's existence: `veripb -e` writes
         # the header of the elaboration BEFORE it checks anything, so a proof rejected at
         # step 1 still leaves a 40-byte file on disk. Sizing the file was how a trimmed

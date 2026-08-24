@@ -33,7 +33,7 @@
 #
 # Environment:
 #   THREADS   julia --threads value            (default 92,1)
-#   MAXMEM    per-instance memory cap, GB      (default 50)
+#   MAXMEM    per-instance memory cap, GB      (default 32)
 #   MINNODES / MAXNODES   instance size filter (default: unset = all)
 #   EXTRA     extra args passed to ./trimnalyser (e.g. "nosys overwrite")
 #   DRYRUN=1  print the command and exit
@@ -64,7 +64,7 @@ STNOPL=$(div $BASE_STNOPL); ST=$(div $BASE_ST); TT=$(div $BASE_TT)
 VT=$TT; CT=$TT
 
 THREADS="${THREADS:-92,1}"
-MAXMEM="${MAXMEM:-50}"
+MAXMEM="${MAXMEM:-32}"
 
 # ── Preflight ─────────────────────────────────────────────────────────────────────────
 # Every one of these fails SOFTLY at run time — a missing veripb prints one yellow line
