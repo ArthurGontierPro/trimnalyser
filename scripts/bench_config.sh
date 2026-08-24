@@ -105,6 +105,24 @@ mkdir -p "$LOGS"
 if [[ "$KIND" == "lad" ]]; then need "cake_pb_iso" "$CAKE_PB_ISO"; fi
 [[ $fail -eq 0 ]] || { echo "preflight failed — see CLAUDE.md for how to rebuild these" >&2; exit 1; }
 
+# Nine of the fourteen columns pin a Glasgow revision (SOLVER_CONFIGS calls gssbin(<rev>),
+# which reads $GLASGOW_SUBGRAPH_SOLVER_<rev>). With that variable unset every one of them
+# silently falls back to the single global binary, and the table's revision columns then
+# all measure whatever happens to be built. Loud, because it cannot be seen in the output.
+if [[ "$KIND" == "gss" ]]; then
+    REV=$(grep -oP "^\s*\"$CONFIG\"\s*=>\s*SolverConfig\(\"gss\",\s*gssbin\(\"\K[0-9a-f]+" src/config.jl || true)
+    if [[ -n "$REV" ]]; then
+        VAR="GLASGOW_SUBGRAPH_SOLVER_$REV"
+        if [[ -z "${!VAR:-}" ]]; then
+            echo "WARNING: $CONFIG pins glasgow revision $REV but \$$VAR is unset;" >&2
+            echo "         it will run whatever is at $SOLVER_GSS" >&2
+        else
+            need "glasgow $REV" "${!VAR}"
+            [[ $fail -eq 0 ]] || exit 1
+        fi
+    fi
+fi
+
 # ── Assemble ──────────────────────────────────────────────────────────────────────────
 ARGS=(solve resolv verif cake "config=$CONFIG"
       "stnopl=$STNOPL" "st=$ST" "tt=$TT" "vt=$VT" "ct=$CT" "maxmem=$MAXMEM")

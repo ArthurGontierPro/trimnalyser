@@ -545,8 +545,15 @@
 
         # Both CakeML checkers exit 0 on a FAILED check and print their diagnostics on
         # stderr. "s VERIFIED" on stdout is the only success signal either of them gives.
-    cakestatus(code, out) = code == 124 ? :timeout : code == 137 ? :memout :
-                            occursin("s VERIFIED", out) ? :verified : :failed
+        # Running out of heap is the one thing they do exit non-zero for, and it is a
+        # resource limit rather than a rejection: CakeML's heap is fixed at compile time
+        # (CML_HEAP_SIZE), so it cannot OOM the node but it also cannot grow into a proof
+        # that needs more. Reported as :memout so a rebuild with a larger heap is
+        # distinguishable from a proof the checker actually refuses.
+    cakestatus(code, out, err) = code == 124 ? :timeout :
+                                 code == 137 ? :memout  :
+                                 occursin("heap space exhausted", err) ? :memout :
+                                 occursin("s VERIFIED", out) ? :verified : :failed
 
     function printcertify(ins, tag, t, status)
         t >= 0 || return
@@ -565,7 +572,7 @@
             logstage(ins, "cake $tag", "MISSING"); return (-1, :missing)
         end
         (t, code, out, err) = runcapture(`$cakepbpath $o $elab`, _cfg[].caketimeout, elab)
-        st = cakestatus(code, out)
+        st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".$tag.cake.err", out*err)
         logstage(ins, "cake $tag", uppercase(string(st)))
         logstage(ins, "cake $tag TIME", trunc(Int, t))
@@ -583,7 +590,7 @@
             (logstage(ins, "cakeiso full", "MISSING"); return)
         (t, code, out, err) = runcapture(`$cakeisopath $patfile $tarfile $elab`,
                                          _cfg[].caketimeout, elab*".iso")
-        st = cakestatus(code, out)
+        st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".cakeiso.err", out*err)
         logstage(ins, "cakeiso full", uppercase(string(st)))
         logstage(ins, "cakeiso full TIME", trunc(Int, t))
