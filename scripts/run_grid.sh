@@ -74,6 +74,38 @@ launch)
     [[ $bad -eq 0 ]] || { echo -e "\npreflight failed — nothing launched." >&2
                           echo "fix with: bash scripts/setup_all_nodes.sh" >&2; exit 1; }
 
+
+    # ── Sysimage ─────────────────────────────────────────────────────────────────
+    # Every path in TrimAnalyser.jl is `const X = get(ENV, "VAR", default)`, evaluated at
+    # module load — which under --sysimage means when the image was BUILT. So the sysimage
+    # must be rebuilt with cluster_env.sh sourced, or all nine columns resolve the baked
+    # fallback and the grid measures one binary nine times.
+    #
+    # Three reasons this is done here, once, up front, rather than left to ./trimnalyser:
+    #   1. build_sysimage.jl's staleness check is mtime-only. The env is invisible to it,
+    #      so an image built with the wrong environment reports "up to date" forever.
+    #      Hence the rm: the rebuild has to be unconditional.
+    #   2. $HOME is shared NFS. Nine columns starting at once would race on one .so.
+    #   3. check_sysimage_env() (orchestrator.jl) exits 2 on a mismatch, so a stale image
+    #      does not corrupt the run — it kills all nine columns a minute after launch.
+    #      Better to find out before anything is launched.
+    if [[ "${SKIP_SYSIMAGE:-0}" != "1" ]]; then
+        bn="${NODEARR[0]}"
+        echo "── sysimage (on $bn; \$HOME is shared, so once is enough) ────────"
+        ssh "$bn" "bash -lc 'cd $REPO && source scripts/cluster_env.sh \
+            && rm -f trimnalyser.so trimnalyser.so.juliaversion \
+            && julia +1.12.2 --startup-file=no build_sysimage.jl'" 2>&1 | sed 's/^/  /'
+        # Verify with the run-time guard itself, not a proxy: same function, same
+        # comparison, before a single column is launched.
+        if ! ssh "$bn" "bash -lc 'cd $REPO && source scripts/cluster_env.sh \
+                && julia +1.12.2 --startup-file=no --sysimage trimnalyser.so --project=. \
+                   -e \"using TrimAnalyser; TrimAnalyser.check_sysimage_env(); println(\\\"SYSIMAGE OK\\\")\"'" \
+             2>&1 | sed 's/^/  /' | grep -q 'SYSIMAGE OK'; then
+            echo -e "\nsysimage does not agree with cluster_env.sh — nothing launched." >&2
+            exit 1
+        fi
+        echo "  sysimage ok"
+    fi
     echo
     echo "── launching ────────────────────────────────────────────────────"
     mkdir -p "$BENCHLOGS" 2>/dev/null || true
