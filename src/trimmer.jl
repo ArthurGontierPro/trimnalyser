@@ -316,9 +316,24 @@
 
         cone[firstcontradiction] = true
         if systemlink[firstcontradiction - nbopb][1] == -2   # contradiction is a pol: antecedents explicit in link
-            for j in systemlink[firstcontradiction - nbopb]
-                j > 0 && push_frontier!(frontier, on_frontier, cone, j)
+            # Treat it exactly like any other pol step. Two things this branch used to skip:
+            #  * fixante instead of a bare `j > 0` scan — a pol link stores multiplicands and
+            #    divisors as positive numbers too, and those are not constraint ids.
+            #  * fixconelits — it is what marks the antecedents' cancelling literals
+            #    (poslits ∩ neglits) as needed. Without it another cone step is free to
+            #    literal-trim one of them, and writeeqconelits drops the literal *and* lowers
+            #    the degree by its coefficient. The cancellation that let this pol derive
+            #    `>= 1` with an empty left-hand side then no longer happens, and VeriPB
+            #    rejects `conclusion UNSAT : -1` with "not contradicting, as specified by the
+            #    hint". LAD hits this because its final pol is a big weighted sum over the
+            #    at-most-one constraints; Glasgow's contradiction is always a rup.
+            ante_clear!(ante)
+            fixante(systemlink, ante, firstcontradiction - nbopb)
+            let lnk = sl_get_mut!(systemlink, firstcontradiction - nbopb)
+                fixconelits(sys, conelits, firstcontradiction, ante, lnk)
+                removetrivialantecedents(sys, ante, conelits, lnk, firstcontradiction)
             end
+            ante_into_frontier!(ante, frontier, on_frontier, cone)
         else                                           # contradiction is rup/ia: RUP-check it to find antecedents
             # Same path for UNSAT and BOUNDS. For UNSAT the contradiction is the empty ">= 1"
             # constraint, so reversing it in process_eq! is a no-op (slack_rev = rhs-1 = 0, no
