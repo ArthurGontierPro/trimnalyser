@@ -61,6 +61,11 @@ const CSV_COLUMNS = [
     # M7: per-configuration solve verdicts and the trusted-checker column
     "solve_verdict", "solve_time", "nopl_verdict", "nopl_time",
     "veri_full_status", "cake_full_status", "cake_full_time", "cake_elab_size",
+    # M7.6: the trimmed proof gets the same two checkers as the full one, so a row can be
+    # read as "certified untrimmed? certified trimmed?" — the rescue result. cakeiso_* is
+    # the trusted end-to-end claim and is only ever populated for lad-* configurations.
+    "veri_smol_status", "cake_smol_status", "cake_smol_time", "cake_smol_elab_size",
+    "cakeiso_full_status", "cakeiso_full_time",
     # Solver stats (if available)
     "pattern_vertices", "target_vertices", "runtime_ms", "status", "solver_nodes", "solver_propagations",
     # UNSAT core statistics (if core files exist)
@@ -345,12 +350,24 @@ function parse_out_file(filepath)
         let m = match(r"^solve TIME ([\d.]+)", line);   m !== nothing && (data["solve_time"]    = m.captures[1]); end
         let m = match(r"^nopl VERDICT (\S+)", line);   m !== nothing && (data["nopl_verdict"]  = m.captures[1]); end
         let m = match(r"^nopl TIME ([\d.]+)", line);    m !== nothing && (data["nopl_time"]     = m.captures[1]); end
-        let m = match(r"^veri full (\S+)", line);      m !== nothing && (data["veri_full_status"] = m.captures[1]); end
-        let m = match(r"^cake full ([A-Z_]+)$", line); m !== nothing && (data["cake_full_status"] = m.captures[1]); end
-        let m = match(r"^cake full TIME (\d+)", line); m !== nothing && (data["cake_full_time"] = m.captures[1]); end
-        let m = match(r"^cake ELAB SIZE (\d+)", line); m !== nothing && (data["cake_elab_size"] = m.captures[1]); end
-        # Special cases that don't fit a table pattern
-        line == "veri smol VERIFIED"     && (data["veri_smol_verified"] = 1)
+        # "veri <tag> <STATUS>" — the status word is never TIME: the full proof's time is
+        # logged under the legacy key "veri TIME", the trimmed one's under "veri smol TIME".
+        let m = match(r"^veri full ([A-Z]+)$", line); m !== nothing && (data["veri_full_status"] = m.captures[1]); end
+        let m = match(r"^veri smol ([A-Z]+)$", line); m !== nothing && (data["veri_smol_status"] = m.captures[1]); end
+        let m = match(r"^cake (full|smol) ([A-Z_]+)$", line)
+            m !== nothing && (data["cake_$(m.captures[1])_status"] = m.captures[2]); end
+        let m = match(r"^cake (full|smol) TIME (\d+)", line)
+            m !== nothing && (data["cake_$(m.captures[1])_time"] = m.captures[2]); end
+        # Pre-M7.6 logs wrote a single untagged "cake ELAB SIZE"; it was always the full proof.
+        let m = match(r"^cake (?:(full|smol) )?ELAB SIZE (\d+)", line)
+            m !== nothing && (data[m.captures[1] == "smol" ? "cake_smol_elab_size" : "cake_elab_size"] = m.captures[2]); end
+        let m = match(r"^cakeiso full ([A-Z_]+)$", line); m !== nothing && (data["cakeiso_full_status"] = m.captures[1]); end
+        let m = match(r"^cakeiso full TIME (\d+)", line); m !== nothing && (data["cakeiso_full_time"] = m.captures[1]); end
+        # veri_smol_verified is the legacy 0/1 flag. It must stay 0 for every outcome that
+        # is not VERIFIED — FAILED, TIMEOUT and MEMOUT all used to fall through to an empty
+        # cell, which is indistinguishable from "the stage never ran".
+        let m = match(r"^veri smol ([A-Z]+)$", line)
+            m !== nothing && (data["veri_smol_verified"] = m.captures[1] == "VERIFIED" ? 1 : 0); end
         line == "veri smol NOT VERIFIED" && (data["veri_smol_verified"] = 0)
         let m = match(r"^status\s*=\s*(\w+)", line); m !== nothing && (data["status"] = m.captures[1]); end
         let m = match(r"^resolv ITER \d+ PAT (\d+) TAR (\d+)$", line)
@@ -592,7 +609,9 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             push!(row, veri_pbp !== nothing ? veri_pbp : "")
             push!(row, veri_total !== nothing ? veri_total : "")
             for k in ("solve_verdict", "solve_time", "nopl_verdict", "nopl_time",
-                      "veri_full_status", "cake_full_status", "cake_full_time", "cake_elab_size")
+                      "veri_full_status", "cake_full_status", "cake_full_time", "cake_elab_size",
+                      "veri_smol_status", "cake_smol_status", "cake_smol_time",
+                      "cake_smol_elab_size", "cakeiso_full_status", "cakeiso_full_time")
                 push!(row, get(data, k, ""))
             end
 

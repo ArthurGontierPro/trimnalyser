@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """M3.5.4 feasibility assessment. Stdlib + pandas/numpy only, no scipy.
 
-Answers 5 questions per family, for BOTH runs (6-29 eager, 8-3 lazy):
+Answers 5 questions per family, for BOTH runs (6-29 default adjacency, 8-3 lazy):
   1. base rate of gNadj>0 + majority-class baseline
   2. effective n (distinct patterns / targets / pairs)
   3. between-DISTINCT-GRAPH variance of candidate predictors

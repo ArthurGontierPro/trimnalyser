@@ -19,7 +19,7 @@ Ce plan vise à comprendre les gains de `--staged`, puis à explorer si une gran
 
 | Mode | Supplémentaux construits | Granularité |
 |---|---|---|
-| **Eager (défaut)** | Tous, avant tout search | Globale, au démarrage |
+| **Défaut** | Tous, avant tout search | Globale, au démarrage |
 | **`--staged`** | Tous, après le premier restart (si nécessaire) | Globale, différée |
 | **Per-node lazy** | Uniquement pour les nœuds touchés par le search | Par nœud, à la demande |
 
@@ -75,7 +75,7 @@ Pour une liste fixe et representatife d'instances utiliser celles listees dans `
 
 Pour chaque instance, mesurer les 3 configurations suivantes (baseline) :
 
-1. **default** : comportement actuel de Glasgow (eager, pas de staged)
+1. **default** : comportement actuel de Glasgow (tout au démarrage, pas de staged)
 2. **`--staged`** : mode staged existant, budget défaut 100 backtracks
 3. **`--no-supplementals`** : supplémentaux désactivés complètement (borne inférieure, pour quantifier la valeur des supplémentaux, pas pour la proposer comme solution)
 
@@ -194,7 +194,7 @@ Avant d'implémenter, noter :
 
 Première implémentation sous `--lazy-supplementals` : correcte sur les résultats (823/823 instances, même status que default), mais deux erreurs structurelles :
 
-**Bug 1 — Target side non-lazy.** `ensure_all_target_supplementals()` construit TOUS les rows target en une passe (même coût que eager). La bonne implémentation est `ensure_target_supplementals(t)` appelée par valeur dans la boucle du domaine de p : ne construire que les rows des t effectivement présents dans dom(p).
+**Bug 1 — Target side non-lazy.** `ensure_all_target_supplementals()` construit TOUS les rows target en une passe (même coût que le mode défaut). La bonne implémentation est `ensure_target_supplementals(t)` appelée par valeur dans la boucle du domaine de p : ne construire que les rows des t effectivement présents dans dom(p).
 
 **Bug 2 — NDS supprimé silencieusement.** `supplemental_degree_ok` ne vérifie que le degré. `tighten_domains_with_supplementals` (la référence dans staged) vérifie aussi NDS. NDS requiert `pattern_degree(g, q)` pour q ∈ N_g(p) et `target_degree(g, u)` pour u ∈ N_g(t). Si les supplémentaux de q ou u ne sont pas encore construits, leurs degrés sont 0 → pruning incorrect (faux-positifs ou faux-négatifs). Correct fix : ne pas appliquer NDS dans le mode lazy pour l'instant, ou construire aussi les supplémentaux des voisins g=0 de p avant le check NDS. À faire en Variante 2 v2.
 

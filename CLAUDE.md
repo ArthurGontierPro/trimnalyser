@@ -22,6 +22,9 @@
 ./trimnalyser LVg10g12 overwrite resolv verif cake config=gss-lazy               # one grid configuration (M7)
 ./trimnalyser --threads 92,1 solve resolv verif allgraphs minnodes=50 maxnodes=200 st=18 tt=600 rand  # cluster run
 julia scripts/aggregate_results.jl /scratch/arthur/proofs/gss/gss-lazy cluster_results.csv /cluster/arthur/logs  # aggregate → CSV
+bash scripts/bench_config.sh gss-lazy                                            # one grid column, specified timeouts
+bash scripts/bench_config.sh gss-lazy 60 LVg10g12                               # ...at 1/60 timeouts, one instance
+bash scripts/bench_all.sh 60                                                    # smoke-test all fourteen columns
 bash scripts/lad_bench.sh lad_results.csv                                       # LAD columns (route 1, via ladveri)
 julia scripts/merge_lad_results.jl cluster_results.csv lad_results.csv combined.csv
 julia scripts/graph_features.jl /scratch/arthur/proofs/ graph_features.csv       # static graph features
@@ -54,12 +57,22 @@ one per column of the paper's appendix tables. Default `gss-lazy` = the old hard
   SATISFIABLE.
 - **Two-tier solve:** a non-logging solve at `stnopl=` runs first. A `proves=false` config
   stops there (that solve is its table cell); for the others it gates the logging solve.
-- **`cake` checks the FULL proof only.** `cake_pb_iso` takes the two LAD graphs and rebuilds
-  the encoding itself — it cannot be given our trimmed `.smol.opb`, so the trimmed proof is
-  logged `cake smol UNSUPPORTED`, not as a rejection. It also **exits 0 on failure** and
-  prints to stderr; `s VERIFIED` on stdout is the only success signal.
-- **`lad-*` configs hard-error** in this harness (LAD writes no OPB). Use `scripts/lad_bench.sh`
-  then `scripts/merge_lad_results.jl`. `bio` is excluded outright for every LAD configuration.
+- **`cake` checks both proofs, with two different binaries.** `cake_pb <opb> <elab>` is generic
+  and takes the OPB as given, so it checks the full *and* the trimmed proof of either solver;
+  it claims only "this OPB is unsatisfiable" (encoding trusted, not checked). `cake_pb_iso
+  <pat> <tar> <elab>` rebuilds the encoding from the graphs and makes the trusted end-to-end
+  claim, but only works where the solver's model IS that encoding — LAD's `-O`, never Glasgow's,
+  whose emission order differs. It is logged under a separate `cakeiso` key and run for `lad-*`
+  only. Both **exit 0 on failure** and print to stderr; `s VERIFIED` on stdout is the only
+  success signal. Cake needs the *elaborated* proof — the raw `.pbp` still carries `rup`.
+- **`veripb -e` writes the elaboration's header before it checks anything**, so a rejected proof
+  still leaves a ~40-byte file. The verdict must come from `VERIFIED` on stdout, never from the
+  file's existence (`certify`, `src/output.jl`).
+- **`lad-*` configs run through the same pipeline** since 2026-08-24 (`runladsolver`, dispatched
+  by `runsolver`). Solve, full-verify and both Cake stages work; the **trim stage fails** on LAD
+  proofs (`rup failed at ...` → cone half-built → constraint id `0` in the output). See ROADMAP
+  M7.5. `bio` is excluded outright for every LAD configuration. LAD exits 0 even on its own
+  timeout, so the verdict is grepped out of stdout (`Run completed: N solutions`).
 
 ### Cluster commands
 

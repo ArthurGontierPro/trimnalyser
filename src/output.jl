@@ -512,122 +512,138 @@
             println(f, prefix, " SIZE ",       filesize(_cfg[].proofs*ins*smol_opb) + filesize(_cfg[].proofs*ins*smol_pbp))
         end end
 
-    function writeout_verif(ins, smol_verif_time, full_verif_time)
-        smol_verif_time < 0 && full_verif_time < 0 && return
-        logopen(ins) do f
-            smol_verif_time >= 0 && println(f, "veri smol TIME ", smol_verif_time)
-            full_verif_time >= 0 && println(f, "veri TIME ",      full_verif_time)
-        end end
-
     const veripbpath = get(ENV, "VERIPB",
         _cluster ? "/scratch/arthur/veripb" : "/home/arthur_gla/veriPB/trim/VeriPB/target/release/veripb")
 
-    function verify(ins)
-        if !isfile(veripbpath)
-            printstyled("  veripb not found at $veripbpath — skipping verif\n"; color=:yellow)
-            return -1, :missing, -1, :missing
-        end
-        ins2 = _cfg[].proofs*ins
-        outfile = logpath(ins)
-        function run_verif(opb, pbp, tag)
-            tmp_out = opb*".veriptmp"; tmp_err = opb*".veriptmperr"
-            proc = nothing
-            t = @elapsed try
-                proc = run(pipeline(ignorestatus(`timeout $(_cfg[].veriftimeout) $veripbpath $opb $pbp`),
-                                   stdout=tmp_out, stderr=tmp_err))
-            catch e end
-            exitcode = proc !== nothing ? proc.exitcode : -1
-            status = if exitcode == 124; :timeout
-                     elseif exitcode == 137; :memout
-                     elseif isfile(tmp_out) && occursin("VERIFIED", read(tmp_out, String)); :verified
-                     else; :failed
-                     end
-            open(outfile, "a") do f; println(f, "veri $tag ", uppercase(string(status))) end
-            isfile(tmp_out) && tryrm(tmp_out)
-            if isfile(tmp_err)
-                s = read(tmp_err, String)
-                isempty(strip(s)) ? tryrm(tmp_err) : (write(ins2*".$tag.veripberr", s); tryrm(tmp_err))
-            end
-            return trunc(Int, t), status
-        end
-        if !isfile(ins2*smol_opb) || !isfile(ins2*smol_pbp)
-            open(outfile, "a") do f; println(f, "veri smol MISSING") end
-            return 0, :missing, -1, :missing
-        end
-        smol_time, smol_status = run_verif(ins2*smol_opb, ins2*smol_pbp, "smol")
-        full_time, full_status = (isfile(ins2*opb) && isfile(ins2*pbp)) ? run_verif(ins2*opb, ins2*pbp, "full") : (-1, :missing)
-        return smol_time, smol_status, full_time, full_status end
-
-    const cakepath = get(ENV, "CAKE_PB_ISO",
+        # The two trusted CakeML checkers make two different claims:
+        #   cake_pb     <opb> <elab>        "this OPB is unsatisfiable"
+        #   cake_pb_iso <pat> <tar> <elab>  "no subgraph isomorphism exists"
+        # cake_pb_iso rebuilds the encoding from the two graphs and never reads an OPB, so
+        # it can only check a proof written against *its* constraint numbering. That is
+        # LAD's `-O` model (byte-identical to it) but not Glasgow's, whose emission order
+        # differs — same constraint multiset, different ids, see scripts/opb_vs_iso.py —
+        # and it cannot check a trimmed proof at all, whose id space is our own. cake_pb
+        # takes the OPB as given and therefore checks both proofs of both solvers, at the
+        # price of trusting the encoding instead of checking it.
+    const cakeisopath = get(ENV, "CAKE_PB_ISO",
         _cluster ? "/scratch/arthur/cake_pb_iso" : "/home/arthur_gla/CakePB-dev/graph/cake_pb_iso")
+    const cakepbpath  = get(ENV, "CAKE_PB",
+        _cluster ? "/scratch/arthur/cake_pb"     : "/home/arthur_gla/CakePB-dev/cake_pb")
 
-        # Elaborates the full proof with VeriPB and re-checks it with the trusted CakeML
-        # checker, which the tables report separately from VeriPB's own verdict.
-        #
-        # Full proof only, by construction: cake_pb_iso takes the two LAD graphs and rebuilds
-        # the PB encoding itself — it has no way to accept a supplied OPB. Our .smol.opb is a
-        # *trimmed* constraint set with its own id space, so pointing Cake at the trimmed
-        # proof does not check what it appears to check. Recorded as UNSUPPORTED rather than
-        # as a failure, so it can never be mistaken for a Cake rejection.
-        #
-        # The elaborated proof is the largest artefact in the pipeline and has no later use:
-        # it is deleted as soon as its check returns.
-    function cakecheck(ins)
-        _cfg[].cake || return (-1, :missing)
-        logstage(ins, "cake smol UNSUPPORTED", "encoder_rebuilds_model")
-        if !isfile(cakepath)
-            printstyled("  cake_pb_iso not found at $cakepath — skipping cake\n"; color=:yellow)
-            return (-1, :missing)
-        end
-        if !isfile(veripbpath)
-            printstyled("  veripb not found at $veripbpath — skipping cake\n"; color=:yellow)
-            return (-1, :missing)
-        end
+        # Runs `cmd` under `timeout tl`, capturing both streams via temp files next to
+        # `stem`. Returns (seconds, exitcode, stdout, stderr); never throws.
+    function runcapture(cmd, tl, stem)
+        to = stem*".tmpout"; te = stem*".tmperr"
+        p = nothing
+        t = @elapsed try
+            p = run(pipeline(ignorestatus(`timeout $tl $cmd`), stdout=to, stderr=te))
+        catch e end
+        out = isfile(to) ? read(to, String) : ""
+        err = isfile(te) ? read(te, String) : ""
+        tryrm(to); tryrm(te)
+        return (t, p === nothing ? -1 : p.exitcode, out, err) end
+
+        # Both CakeML checkers exit 0 on a FAILED check and print their diagnostics on
+        # stderr. "s VERIFIED" on stdout is the only success signal either of them gives.
+    cakestatus(code, out) = code == 124 ? :timeout : code == 137 ? :memout :
+                            occursin("s VERIFIED", out) ? :verified : :failed
+
+    function printcertify(ins, tag, t, status)
+        t >= 0 || return
+        printstyled("  $ins $tag veri $(t)s $(uppercase(string(status)))\n";
+                    color = status === :verified ? :green : status === :failed ? :red : :yellow) end
+
+        # cake_pb on <tag>'s own OPB and the elaborated proof. This is the checker that
+        # makes the full and trimmed rows comparable: it is the same binary, the same
+        # claim, and the only difference between the two calls is which constraint file
+        # and which proof it is handed.
+    function cakecheck_generic(ins, tag, elab)
         ins2 = _cfg[].proofs*ins
-        (isfile(ins2*opb) && isfile(ins2*pbp)) || (logstage(ins, "cake full", "MISSING"); return (-1, :missing))
+        o = tag == "smol" ? ins2*smol_opb : ins2*opb
+        if !isfile(cakepbpath)
+            printstyled("  cake_pb not found at $cakepbpath — skipping cake\n"; color=:yellow)
+            logstage(ins, "cake $tag", "MISSING"); return (-1, :missing)
+        end
+        (t, code, out, err) = runcapture(`$cakepbpath $o $elab`, _cfg[].caketimeout, elab)
+        st = cakestatus(code, out)
+        st !== :verified && !isempty(strip(out*err)) && write(ins2*".$tag.cake.err", out*err)
+        logstage(ins, "cake $tag", uppercase(string(st)))
+        logstage(ins, "cake $tag TIME", trunc(Int, t))
+        printstyled("  $ins cake $tag $(trunc(Int,t))s $(uppercase(string(st)))\n";
+                    color = st === :verified ? :green : st === :failed ? :red : :yellow)
+        return (trunc(Int, t), st) end
+
+        # cake_pb_iso on the full proof: the trusted end-to-end claim, reported in its own
+        # `cakeiso` log key so it is never confused with the generic checker's verdict.
+    function cakecheck_iso(ins, elab)
+        ins2 = _cfg[].proofs*ins
+        isfile(cakeisopath) || (logstage(ins, "cakeiso full", "MISSING"); return)
         patfile, tarfile = parsegraphfiles(ins)
         (patfile === nothing || !isfile(patfile) || !isfile(tarfile)) &&
-            (logstage(ins, "cake full", "MISSING"); return (-1, :missing))
+            (logstage(ins, "cakeiso full", "MISSING"); return)
+        (t, code, out, err) = runcapture(`$cakeisopath $patfile $tarfile $elab`,
+                                         _cfg[].caketimeout, elab*".iso")
+        st = cakestatus(code, out)
+        st !== :verified && !isempty(strip(out*err)) && write(ins2*".cakeiso.err", out*err)
+        logstage(ins, "cakeiso full", uppercase(string(st)))
+        logstage(ins, "cakeiso full TIME", trunc(Int, t))
+        printstyled("  $ins cakeiso $(trunc(Int,t))s $(uppercase(string(st)))\n";
+                    color = st === :verified ? :green : st === :failed ? :red : :yellow)
+        return end
 
-        elab = ins2*".elab"*pbp
-        tmp_out = elab*".tmpout"; tmp_err = elab*".tmperr"
-        status = :failed
-        t = @elapsed begin
-            ep = nothing
-            try
-                ep = run(pipeline(ignorestatus(`timeout $(_cfg[].veriftimeout) $veripbpath -e $elab $(ins2*opb) $(ins2*pbp)`),
-                                  stdout=tmp_out, stderr=tmp_err))
-            catch e end
-            ecode = ep !== nothing ? ep.exitcode : -1
-            if ecode == 124;      status = :elab_timeout
-            elseif ecode == 137;  status = :elab_memout
-            elseif !isfile(elab); status = :elab_failed
-            else
-                logstage(ins, "cake ELAB SIZE", filesize(elab))
-                cp = nothing
-                try
-                    cp = run(pipeline(ignorestatus(`timeout $(_cfg[].caketimeout) $cakepath $patfile $tarfile $elab`),
-                                      stdout=tmp_out, stderr=tmp_err))
-                catch e end
-                ccode = cp !== nothing ? cp.exitcode : -1
-                # cake_pb_iso exits 0 even when the check fails and prints its diagnostics
-                # on stderr — the "s VERIFIED" line on stdout is the only success signal.
-                out = isfile(tmp_out) ? read(tmp_out, String) : ""
-                err = isfile(tmp_err) ? read(tmp_err, String) : ""
-                status = ccode == 124 ? :timeout :
-                         ccode == 137 ? :memout  :
-                         occursin("s VERIFIED", out) ? :verified : :failed
-                if status !== :verified && !isempty(strip(out * err))
-                    write(ins2*".cake.err", out * err)
-                end
-            end
+        # One certification pass over a proof pair. `tag` is "full" (<ins>.opb/.pbp) or
+        # "smol" (<ins>.smol.opb/.smol.pbp). Returns (veri_time, veri_status, cake_time,
+        # cake_status).
+        #
+        # A single `veripb -e` serves both stages. It is a complete verification in its own
+        # right AND the only form CakePB accepts — the raw .pbp still carries `rup` steps,
+        # which the CakeML checker does not implement. Elaborating twice, once for the
+        # VeriPB verdict and once for Cake, would double VeriPB's cost on every instance.
+        #
+        # The elaborated proof is the largest artefact the pipeline produces and has no
+        # later use: it is deleted as soon as the Cake checks return, including on the
+        # failure paths.
+    function certify(ins, tag)
+        ins2 = _cfg[].proofs*ins
+        o, p = tag == "smol" ? (ins2*smol_opb, ins2*smol_pbp) : (ins2*opb, ins2*pbp)
+        # The legacy key for the full proof's time is "veri TIME", not "veri full TIME":
+        # "veri full <X>" is the status line, and aggregate_results.jl reads its first word.
+        timekey = tag == "smol" ? "veri smol TIME" : "veri TIME"
+        if !isfile(veripbpath)
+            printstyled("  veripb not found at $veripbpath — skipping verif\n"; color=:yellow)
+            return (-1, :missing, -1, :missing)
         end
-        tryrm(elab); tryrm(tmp_out); tryrm(tmp_err)
-        logstage(ins, "cake full", uppercase(string(status)))
-        logstage(ins, "cake full TIME", trunc(Int, t))
-        color = status === :verified ? :green : status === :failed ? :red : :yellow
-        printstyled("  $ins cake $(trunc(Int,t))s $(uppercase(string(status)))\n"; color=color)
-        return trunc(Int, t), status end
+        if !isfile(o) || !isfile(p)
+            logstage(ins, "veri $tag", "MISSING"); return (-1, :missing, -1, :missing)
+        end
+        elab = ins2*"."*tag*".elab"*pbp
+        tryrm(elab)
+        (vt, vcode, vout, verr) = runcapture(`$veripbpath -e $elab $o $p`, _cfg[].veriftimeout, elab)
+        # "s VERIFIED" on stdout, not the elaborated file's existence: `veripb -e` writes
+        # the header of the elaboration BEFORE it checks anything, so a proof rejected at
+        # step 1 still leaves a 40-byte file on disk. Sizing the file was how a trimmed
+        # LAD proof that VeriPB rejects outright first got logged as VERIFIED.
+        vstatus = vcode == 124 ? :timeout : vcode == 137 ? :memout :
+                  (occursin("VERIFIED", vout) && isfile(elab) && filesize(elab) > 0) ?
+                      :verified : :failed
+        logstage(ins, "veri $tag", uppercase(string(vstatus)))
+        logstage(ins, timekey, trunc(Int, vt))
+        printcertify(ins, tag, trunc(Int, vt), vstatus)
+        if vstatus !== :verified
+            !isempty(strip(verr)) && write(ins2*".$tag.veripberr", verr)
+            tryrm(elab)
+            return (trunc(Int, vt), vstatus, -1, :missing)
+        end
+        logstage(ins, "cake $tag ELAB SIZE", filesize(elab))
+        ct, cstatus = -1, :missing
+        if _cfg[].cake
+            ct, cstatus = cakecheck_generic(ins, tag, elab)
+            # Only where the solver's model IS the iso encoding. On Glasgow it would record
+            # a rejection that says nothing about the proof — the ids simply do not line up.
+            tag == "full" && solverconfig().kind == "lad" && cakecheck_iso(ins, elab)
+        end
+        tryrm(elab)
+        return (trunc(Int, vt), vstatus, ct, cstatus) end
 
     function verif_ok(ins)
         outfile = logpath(ins)
@@ -652,14 +668,6 @@
         # True when output can't use cursor positioning: either multiple threads in the same process
         # (would interleave), or a single-threaded subprocess handling one instance in a batch run.
     par() = Threads.nthreads() > 1 || _cfg[].inst !== nothing
-
-    function printverif(ins, smol_time, smol_status, full_time, full_status)
-        smol_time >= 0 || return
-        smol_color = smol_status === :verified ? :green : smol_status === :failed ? :red : :yellow
-        printstyled("  $ins smol veri $(smol_time)s $(uppercase(string(smol_status)))\n"; color=smol_color)
-        full_time >= 0 || return
-        full_color = full_status === :verified ? :green : full_status === :failed ? :red : :yellow
-        printstyled("  $ins full veri $(full_time)s $(uppercase(string(full_status)))\n"; color=full_color) end
 
     function printabline(f)
         par() && return  # parallel: skip placeholder, full line printed atomically in printabline2

@@ -147,7 +147,7 @@ Per-family supplemental usage now quantified (see M3 cluster run table). Key fin
 
 That is the effective sample size in images-CVIU11 — the *only* one of the four families where the outcome varies at all *and* the candidate predictors are non-constant. 2827 rows collapse to 43 distinct pattern graphs (ICC by pattern = 0.836, design effect 55). A per-family decision tree of depth ≤ 3 has more free parameters than that supports, and the "per-family precision ≥ 0.80" target was never well-posed in three of the four families.
 
-Assessed on **both** full runs — 8-3 (lazy, `lazy-adjacency-relabelled`) as primary because it is the branch all current characterisation results sit on, and 6-29 (eager, `labels-for-analysis`) as a control. **The answer does not flip.** Lazy adjacency roughly doubles the base rates (images 0.44 → 0.72, LV 0.015 → 0.026) but changes no conclusion below: same degenerate families, same effective n, same collinearity, same partial correlations within noise. `.coreN` resolv-iteration rows excluded (14,479 of them) — they are re-solves of a graph pair already in the data, so they inflate row count without adding a graph. No `core_*` column from `graph_features.csv` used.
+Assessed on **both** full runs — 8-3 (lazy, `lazy-adjacency-relabelled`) as primary because it is the branch all current characterisation results sit on, and 6-29 (default adjacency, `labels-for-analysis`) as a control. **The answer does not flip.** Lazy adjacency roughly doubles the base rates (images 0.44 → 0.72, LV 0.015 → 0.026) but changes no conclusion below: same degenerate families, same effective n, same collinearity, same partial correlations within noise. `.coreN` resolv-iteration rows excluded (14,479 of them) — they are re-solves of a graph pair already in the data, so they inflate row count without adding a graph. No `core_*` column from `graph_features.csv` used.
 
 **Q1 — base rates and the baseline every rule must beat** (8-3; 6-29 in brackets)
 
@@ -503,7 +503,7 @@ rebuilt and copied inside the `for p / for q / for t` nest. On g77, `two_away_fr
 `LVg8g77` (pattern 30 nodes): ≤ 870 ordered pairs × 610 targets ≈ 5·10⁵ closures ≈ **150 GB** of
 intended retention; the process is killed at 60 GB, ~40 % in — matching the measured "crosses 50 GB
 at t≈166 s, before model build finishes". The `.pbp` line for the same constraint is ~5 KB, so the
-290 KB / 5 KB ratio *is* the measured ~21× eager-disk-to-lazy-RAM exchange rate. Eager builds the
+290 KB / 5 KB ratio *is* the measured ~21× default-disk-to-lazy-RAM exchange rate. The default path builds the
 same vectors and discards them each iteration — hence flat 1 GB RSS at +3.3 MB/s.
 
 **Fix.** The closure only needs `(slot, p, q, t)`. `ProcessedGraphsData` is alive for the whole search,
@@ -533,7 +533,7 @@ vectors are rebuilt at materialisation time from the `ProcessedGraphsData`, with
 `t`** — one materialisation batch is one `(p,t)` antecedent, so the memo hits for the whole batch while
 retaining one target's data. One subtlety the plan did not anticipate: `build_supplemental_graphs` strips
 the `g=0` self-loops for the duration of the build and restores them afterwards, so the rebuild has to
-re-strip them (`loop_stripped_target_row`) or it would not reproduce what the eager path saw.
+re-strip them (`loop_stripped_target_row`) or it would not reproduce what the default path saw.
 
 **M4.2a as built.** `active_graphs` on the model (all slots until `build_supplemental_graphs` narrows it),
 iterated by the searcher's `g`-loop and by the three degree/NDS loops. Guarded to exact-path runs, where
@@ -614,7 +614,7 @@ controls; the win cases alone would have shipped the regression.**
 1. Cluster: re-run the `scripts/ab_dense_targets.sh` arms on the 405 dense-target instances; success =
    truncated count back to ~0 while keeping lazy's 1.7 GB → 0.5 GB median proof gain.
 2. ~~Cluster: measure search-node throughput for M4.2a~~ — done locally, +20 % on g84 (see above). Cluster would only add breadth.
-3. If both land, re-open the M4.1 adoption decision: lazy would then be strictly better than eager.
+3. If both land, re-open the M4.1 adoption decision: lazy would then be strictly better than the default path.
 4. Decide whether to push to `ciaranm/glasgow-subgraph-solver` or keep the two commits local.
 
 **Longer-term, not scheduled.** The degenerate case says `N_g(t)` takes only *two* distinct values over
@@ -712,19 +712,21 @@ Lightweight graph-feature probe at Glasgow startup selects heuristic config. Sub
 
 ---
 
-## M7 — Configuration-grid bench harness (appendix tables) ✅ implemented 2026-08-20, cluster run pending
+## M7 — Configuration-grid bench harness (appendix tables) ⚠️ built 2026-08-20, not yet conformant
 
-**Status.** M7.0–M7.5 are implemented and tested on LVg10g12 in both drivers; no cluster run
-has been made yet. Three things came out different from the plan below:
+**Status.** M7.0–M7.6 are implemented and tested on LVg10g12 in both drivers. The cluster run
+is no longer gated on conformance; run it with `scripts/bench_config.sh` / `scripts/bench_all.sh`,
+which pin the specified timeouts. Three things came out different from the plan below:
 
 - **M7.0 (new, prerequisite).** The prologue shared by `run_instance_full` and
   `run_instance_batch` was extracted into `prepare_instance` *first* — M7.1, M7.2 and M7.4
   each edit it, and two copies would have drifted.
-- **M7.3 is partial by construction.** `cake_pb_iso` takes the two LAD graphs and rebuilds
-  the PB encoding itself; it cannot be handed our trimmed `.smol.opb`, whose id space is its
-  own. The trimmed-proof Cake column is therefore not producible this way (logged
-  `cake smol UNSUPPORTED`), and the coreN recursion is **not** gated on Cake as planned.
-  Deciding what the trimmed-proof column should contain is open work.
+- ~~**M7.3 is partial by construction.**~~ **Resolved 2026-08-24 — it was the wrong binary.**
+  `cake_pb_iso` cannot take a supplied OPB, but CakePB also ships a *generic* `cake_pb
+  <opb> <proof>` frontend, which checks a trimmed proof against our own `.smol.opb` without
+  complaint. It makes the weaker claim — "this OPB is unsatisfiable", encoding trusted
+  rather than checked — so the two are reported under separate log keys, `cake` and
+  `cakeiso`. See M7.6 below, which is now implemented.
 - **M7.5 route 1 is cheaper than described.** `~/ladveri/proof/bench/results` already holds
   real LV benchmark data (8,495 rows, 2026-08-17), including the 4,247-pair `-P` set — the
   "pilot-only, never run a real benchmark instance" caveat below is out of date.
@@ -746,16 +748,16 @@ Fourteen configurations, transcribed from the three tables. Names are the harnes
 
 | # | Key | Solver | Flags | Proof | Table |
 |---|---|---|---|---|---|
-| 1 | `gss-default` | Glasgow | clique detection on, no `--staged` | no | gss col 1 |
-| 2 | `gss-noclique` | Glasgow | `--no-clique-detection`, no `--staged` | no | gss col 2 |
-| 3 | `gss-eager` | Glasgow `2180663` | `--staged --no-clique-detection --prove` | yes | gss col 3 |
+| 1 | `gss` | Glasgow `2180663` | clique detection on, no `--staged` | no | gss col 1 |
+| 2 | `gss-noclique` | Glasgow `2180663` | `--no-clique-detection`, no `--staged` | no | gss col 2 |
+| 3 | `gss-proof` | Glasgow `2180663` | `--staged --no-clique-detection --prove` | yes | gss col 3 |
 | 4 | `gss-lazy` | Glasgow `1ff87ba` | `--staged --no-clique-detection --prove` | yes | gss col 4 |
 | 5 | `gss-lazy-base` | Glasgow `39ca857` | `--staged --no-clique-detection --prove` | yes | ablations baseline |
 | 6 | `gss-nostaged` | Glasgow `39ca857` | drop `--staged` | yes | ablation |
 | 7 | `gss-nosupp` | Glasgow `39ca857` | `--no-supplementals` | yes | ablation |
 | 8 | `gss-norestarts` | Glasgow `39ca857` | `--restarts none` | yes | ablation |
 | 9 | `gss-cliques` | Glasgow `39ca857` | `--cliques` | yes | ablation |
-| 10 | `lad-default` | LAD | `-f 2 -c 4` | no | lad col 1 |
+| 10 | `lad` | LAD | `-f 2 -c 4` | no | lad col 1 |
 | 11 | `lad-clique` | LAD | `-f 0 -c 2` | no | lad col 2 |
 | 12 | `lad-noclique` | LAD | `-f 0 -c 0` | no | lad col 3 |
 | 13 | `lad-alldiff-pl` | LAD | `-f 0 -c 0 -P` | yes | lad col 4 |
@@ -792,7 +794,7 @@ This closes a gap the paper already documents: the `§`-marked columns of both t
 
 ~20 lines, but note `run_instance_full` and `run_instance_batch` (`src/orchestrator.jl:338` and `:422`) are near-duplicate ~90-line bodies. Factor the shared solve/conclusion/size-guard prologue into one function before editing, or the change has to be made twice and will drift.
 
-### M7.3 — Elaborate + CakeML check ⚠️ full proof only
+### M7.3 — Elaborate + CakeML check ✅ DONE 2026-08-24 (both proofs)
 
 `verify` (`src/output.jl:525`) runs bare `veripb $opb $pbp` on the smol proof and then the full proof. The tables need the trusted checker as well — the LAD caption already reports "VeriPB's figures... The trusted CakeML checker accepts fewer, 67.6% and 5.8%", numbers that did not come from this harness.
 
@@ -814,7 +816,7 @@ Add explicit `err`, `timeout` and `memout` fields per stage. The OOM monitor wri
 
 ~15 lines plus the call-site sweep.
 
-### M7.5 — LAD arm ✅ route 1
+### M7.5 — LAD arm ✅ route 2 built 2026-08-24; the trim stage fails
 
 Depends on M5-proof; read that section first, and `~/ladveri/PROOF_TODO.md`, before planning any run. The constraints there are hard ones and several of them shape the table:
 
@@ -823,9 +825,39 @@ Depends on M5-proof; read that section first, and `~/ladveri/PROOF_TODO.md`, bef
 - **Clique instances silently produce no proof** — the shortcut fires before logging starts. Classify as `no-proof(clique)`, count separately, never as a failure. `LVg2g4` does this on real data.
 - ~~**LAD writes no OPB.**~~ **Resolved 2026-08-21:** LAD's `-O FILE` emits the model itself, byte-identical to the encoder (ladveri TODO #9, commit `2a9884b`). `runsipsolver`'s `isfile(opb) && isfile(pbp)` test needs no encoder step. See M5-proof-trim above for the trust caveat.
 - **Proofs have no deletions and grow with search length**, so `images` and `meshes` are `‡` in the table — not yet reachable. Do not schedule them; the LV encoder output alone projects to 10.4 TB uncapped, and the paper's `-P` column is restricted to the 4,247 pairs under a 250 MB encoder cap.
-- **Cake's LAD parser is stricter than LAD's own** — no trailing blank line, degree counts matching successor counts, edges in both directions. Our `writecoreladfile` output (`src/solver.jl`) has never been checked against it, and the resolv loop feeds exactly that output back into the solver. Check before enabling `resolv` on any `lad-*` config.
+- **Cake's LAD parser is stricter than LAD's own** — no trailing blank line, degree counts matching successor counts, edges in both directions. Our `writecoreladfile` output (`src/solver.jl`) has never been checked against it, and the resolv loop feeds exactly that output back into the solver. Check before enabling `resolv` on any `lad-*` config. In practice `recurse_ok` (`orchestrator.jl`) never lets a `lad-*` run reach it today, because it gates the recursion on the trimmed proof being certified and the trim currently fails — see the update below.
+- **The bare `-P` in the two `lad-*-pl` configs was a bug and is gone** (2026-08-24). `-P` takes a FILE argument, so as an inline flag it swallowed the real path. `runladsolver` supplies `-P <pbp> -O <opb>` itself and `proves` alone selects logging. The same bug is still live in `scripts/lad_bench.sh:37-38` — see W6.
+- **`-s` is LAD's own real-time limit and defaults to 100 s.** `runladsolver` passes `st=` through to it; without that every LAD solve would silently cap at 100 s whatever `st=` said. LAD exits 0 on its own alarm and prints `Real time exceeded`, so the timeout is read out of stdout, never out of the exit code.
 
-Two implementation routes, and the choice is worth making deliberately:
+**Update 2026-08-24 — route 2 is built, and it stops one stage short of the cone.**
+`runladsolver` (`src/solver.jl`) is a sibling of `runsipsolver` and `runsolver` dispatches on
+`solverconfig().kind`, so a `lad-*` config now goes through the same pipeline as Glasgow.
+On LVg10g12, `lad-fc-pl`:
+
+```
+solve                      0.1 s   UNSAT
+veripb -e (full)           3 s     VERIFIED
+cake_pb (full)            10 s     VERIFIED
+cake_pb_iso (full)         9 s     VERIFIED   <- the trusted end-to-end claim, first time
+trim                      12 s     [error] rup failed at 62480
+veripb -e (smol)           0 s     FAILED
+```
+
+So the solve, full-verify and both Cake cells are producible today, and the trimmed cells are
+not. **The trimmer cannot verify one of LAD's RUP steps**, and `getcone!` `return`s on that
+failure (`trimmer.jl:348`) with the cone half-built; `writeconedel` then renumbers against an
+incomplete cone, so every antecedent that was never reached is emitted as constraint id `0` and
+VeriPB rejects the result at line 3 ("Trying to access constraint with ID 0"). The `0`s are the
+symptom; the RUP failure is the bug.
+
+This is `smol FAILED + full VERIFIED`, i.e. the one combination worth debugging. What is known:
+LAD's proof uses exactly two rules, `rup` (28,108) and `pol` (26,187), with no deletions, no
+`red` and no subproofs, and it references model constraints **by label** (`pol @adj0_18_1
+@adj0_18_6 + @inj15 + s`) where Glasgow uses numeric ids — `pol.jl` resolves labels through
+`ctrmap` on both operand paths, so that is not obviously it. The failing step is an ordinary
+two-literal `rup 1 ~x6_14 1 ~x20_3 >= 1`. Not diagnosed further. Track it under M5-proof-trim.
+
+Two implementation routes, and the choice was worth making deliberately:
 
 1. **Shell out to `~/ladveri/proof/bench/bench.py`** (already exists, resumable, emits one CSV row per instance named as we name instances, and hard-errors on bio) and join its CSV on `instance`. Cheapest path to the no-logging columns 10–12.
 2. **A `runladsolver` sibling to `runsipsolver`**, so LAD proofs enter the same trim/verif/resolv pipeline as Glasgow's. Needed for M5-proof-trim regardless, and the only route that fills the cone half of the logging cells — which the caption currently records as a dot, "because no LAD proof has been through our trimmer yet".
@@ -834,9 +866,160 @@ Route 1 for the table, route 2 as the M5-proof-trim work — and **route 2's sta
 
 ~60 lines for `runladsolver`; the encoder step is no longer needed (`-O`).
 
+### M7.6 — Pipeline conformance ✅ DONE 2026-08-24
+
+M7.1–M7.5 built the *pieces* the tables need. They do not yet run in the order, or under the
+timeouts, that the benchmark is specified as. This is the normative shape, per (instance ×
+configuration):
+
+```
+tl 60   solve without proof logging
+if succeeded
+  tl 600  solve with proof logging
+  if succeeded
+    tl 6k  veripb --elaborate
+    if succeeded
+      tl 6k  cakePB on the elaborated proof
+    delete elaborated proof
+    tl 6k  trimnalyser
+    delete original proof
+    if succeeded
+      tl 6k  veripb --elaborate on the trimmed proof
+      if succeeded
+        tl 6k  cakePB on the trimmed elaborated proof
+      delete trimmed elaborated proof
+      if cakePB and the trimnalyser resolve both succeeded
+        restart the pipeline on the reduced instance (coreN)
+```
+
+Read it as three commitments, in decreasing order of how much code they move: **elaboration is
+the verification** (there is no separate bare `veripb` pass), **the full proof is checked before
+it is trimmed**, and **the coreN recursion is gated on Cake plus the resolve**, not on VeriPB
+alone.
+
+Mind the indentation when reading the block: the `if succeeded` under the full elaboration gates
+**only the cakePB line**. `delete elaborated proof` and `tl 6k trimnalyser` are siblings of the
+elaboration, not children of its success test — so **the trim runs whatever VeriPB said about the
+full proof**, and a `full FAILED` instance still yields a trimmed proof and a trimmed-proof
+verdict. That is deliberate: `smol FAILED + full VERIFIED` is the only combination worth
+debugging, and you cannot classify a row into it without both halves. The only gates in the whole
+block are nopl→pl, pl→everything, each elaboration→its own cake, trim→the trimmed checks, and
+cake+resolve→the recursion.
+
+#### What landed
+
+Every row of the block above is now in `certify` (`src/output.jl`) and the two drivers
+(`src/orchestrator.jl`). Read this as the map from the drawing to the code:
+
+| Step | Where |
+|---|---|
+| tl 60 no-logging solve | `prepare_instance`, `stnopl=` |
+| tl 600 logging solve | `prepare_instance` tier 2, `st=` |
+| tl 6k `veripb --elaborate` on full | `certify(ins, "full")` — one elaboration, and it *is* the VeriPB cell |
+| tl 6k cakePB on elaborated | `cakecheck_generic` (+ `cakecheck_iso` for lad-*) |
+| delete elaborated proof | `certify`, on every path including the failure ones |
+| tl 6k trimnalyser | `run_trim_subprocess` / `trimnalyse`, a sibling of the full check |
+| delete original proof | both drivers, immediately after the trim |
+| tl 6k `veripb --elaborate` on trimmed | `certify(ins, "smol")` |
+| tl 6k cakePB on trimmed | `cakecheck_generic(ins, "smol", …)` — see the correction below |
+| delete trimmed elaborated proof | `certify` |
+| coreN recursion gate | `recurse_ok` (`orchestrator.jl`), and each coreN iteration repeats the whole chain |
+
+Timeouts are still not defaults (`tt=45`, `vt=tt`, `ct=vt`, `st=5`); the bench scripts supply
+`stnopl=60 st=600 tt=6000 vt=6000 ct=6000` and divide them all by an optional scale factor, so
+a smoke test cannot silently run a different pipeline shape than the real one.
+
+**One trap found while implementing W1.** `veripb -e` writes the elaboration's header *before*
+it checks anything, so a proof rejected at step 1 still leaves a 40-byte file on disk. Deciding
+`:verified` from the file's existence therefore reports every rejection as a pass. The verdict
+must come from `VERIFIED` on stdout. This is what first logged a trimmed LAD proof that VeriPB
+rejects outright as `veri smol VERIFIED`.
+
+#### Work items
+
+- **W1 — one elaboration, shared.** Fold `verify` and `cakecheck` into a single staged
+  `check_proof(ins, which)` that elaborates once (`veripb -e <elab> <opb> <pbp>`), reports the
+  elaboration verdict as the VeriPB cell, hands `<elab>` to Cake, and deletes it. `run_verif`'s
+  exit-code mapping (`:timeout`/`:memout`/`:verified`/`:failed`) carries over verbatim. This
+  halves full-proof checking cost across all nine Glasgow configurations, which is the single
+  largest saving available in the grid run. **Sound to do:** `-e` only adds RUP hints to what the
+  bare check already does, so anything it accepts the bare check accepts — the elaborating pass
+  is a superset and can stand in for both (confirmed 2026-08-21).
+- **W2 — reorder to check-then-trim.** In both drivers: full check → trim → trimmed check. Note
+  this buys no *skipped work* — the trim is ungated either way (see the indentation note above) —
+  so the case for it is disk, not time. The elaborated proof is the largest artefact in the
+  pipeline; ordered as specified it is written and deleted before `.smol.*` exists, so peak
+  footprint is `max(full+elab, full+smol)` instead of today's `full+smol+elab`. It also makes the
+  pass over the full proof single-shot: elaborate, cake, trim, delete, with no later reader.
+  Fixes the `run_instance_full`/`run_instance_batch` duplication at the same time (see *Known
+  Design Flaws*), since the two bodies only differ in how the trim step is spawned; that is one
+  strategy parameter, and W2 has to touch both bodies anyway.
+- **W3 — trimmed-proof elaboration.** `check_proof(ins, :smol)`, deleting its `.elab.pbp` on
+  return. Independent of the Cake blocker: the elaborated *VeriPB* verdict on the trimmed proof
+  is producible today and is a table cell in its own right.
+- **W4 — gate the recursion.** `run_resolv_loop` proceeds when the trimmed proof is Cake-accepted
+  **and** `writeunsatcore` produced a strictly smaller core. Each coreN iteration then runs the
+  full pipeline, including the tl 60 no-logging solve it currently skips (`orchestrator.jl:310`
+  goes straight to the logging solve) and the `cakecheck` it never calls.
+- **W5 — pin the timeouts.** Make the specified values the defaults for a grid run rather than
+  something every invocation must remember, or hard-error when `config=` is given without them.
+- **W6 — three bugs found in the 2026-08-21 audit**, all cheap:
+  - `scripts/lad_bench.sh:37-38` — the two `+proof` specs pass `-P` in their inline flags *and*
+    `bench.py:271` appends its own `-P <path>`. LAD's getopt consumes the literal string `-P` as
+    the proof filename and the real path falls through as an ignored positional, so
+    `lad-alldiff-pl` and `lad-fc-pl` write **no proof at all**. The adjacent comment ("`-P` pins
+    restarts to infinity") is also wrong: `-P FILE` is the proof output path (`ladveri/main.c:308`).
+    The same stray `-P` sits in `config.jl`'s two `lad-*-pl` entries — inert there only because
+    `check_lad_route` hard-errors first.
+  - `stnopl=0` disables tier 1, but tier 2 always passes `prove=true` — so a `proves=false`
+    configuration would run with `--prove`. Either forbid the combination or make tier 2 honour
+    `solverconfig().proves`.
+  - The OOM monitor extracts the instance name from the `--prove` argv (`orchestrator.jl:623`).
+    The tier-1 solve has no `--prove`, so an OOM there yields `inst_name = "?"`, appends to a file
+    literally named `<proofs>?.err`, and writes no `.memout` sentinel — the instance is re-solved
+    from scratch on every resumed run.
+
+#### Correction — cakePB on the trimmed proof is not blocked
+
+The earlier claim that this stage "cannot be built as specified" was about the wrong binary.
+`cake_pb_iso` does rebuild the encoding from the two graphs and has no argument for a supplied
+OPB, so it can never check a trimmed proof — that part stands. But CakePB also builds a generic
+`cake_pb <opb> <proof>` frontend (`~/CakePB-dev/README`; the binary is not in the repo, `make`
+produces it from `cake_pb.S`), and that one takes the OPB as given. Verified on LVg10g12:
+
+```
+veripb -e smol.elab.pbp smol.opb smol.pbp   → VERIFIED
+cake_pb smol.opb smol.elab.pbp              → s VERIFIED UNSATISFIABLE
+```
+
+The two checkers make different claims and are logged separately:
+
+| binary | arguments | claim | usable on |
+|---|---|---|---|
+| `cake_pb` | `<opb> <elab>` | this OPB is unsatisfiable — **encoding trusted, not checked** | full and trimmed, both solvers |
+| `cake_pb_iso` | `<pat> <tar> <elab>` | no subgraph isomorphism exists — the trusted end-to-end claim | full proofs whose model *is* the iso encoding, i.e. LAD's `-O` |
+
+`cake_pb_iso` is therefore run only for `lad-*` configurations. It is not run for Glasgow, whose
+`.opb` holds the **same constraint multiset in a different emission order** (`scripts/opb_vs_iso.py`
+checks exactly this, and shows the permutation is computable from the constraint labels alone):
+pointing it at a Glasgow proof only ever records a rejection at the first id reference, which says
+nothing about the proof. Zero Glasgow proofs have ever been CakeML-certified, and the old
+`cake full FAILED` lines in the logs are that, not a Glasgow bug.
+
+Cost on LVg10g12, for sizing the grid run: `cake_pb` is roughly 8x VeriPB's time and 10x its
+memory (full proof 0.75 s / 304 MB against 0.13 s / 31 MB), and the trimmed proof is about 10x
+cheaper than the full one on both axes. Cake's heap is bounded by `CML_HEAP_SIZE`, so unlike
+VeriPB it cannot OOM the node.
+
 ### Sequencing and parallelisation
 
 M7.1 → M7.2 → M7.4 are the critical path and are all Glasgow-side; M7.3 is independent of them; M7.5 depends on M5-proof Run A. Land M7.1 and M7.4 together, since namespacing the proof directory and moving the log out of it are the same decision seen twice.
+
+**M7.6 came after all of them and before the cluster run**, and has landed (2026-08-24). Its W1
+(one shared elaboration) was the item with a schedule consequence rather than a correctness one:
+at nine Glasgow configurations x ~25.6k instances, the duplicated full-proof verification was a
+second 6k-capped VeriPB pass on every certified instance in the grid. That duplication is gone —
+`certify` elaborates once and the elaboration verdict *is* the VeriPB cell.
 
 The nine Glasgow configurations are independent runs over the same instance set and split cleanly across fataepyc nodes, one configuration per node. They share nothing but the read-only benchmark graphs — with M7.1's namespaced proof directories there is no write contention — so the split needs no coordination beyond assigning `config=` per node. Budget against the 2026-07-27 baseline: 25,584 instances took 71 h 23 min at 75 in flight for a single configuration.
 
@@ -868,12 +1051,19 @@ M1 → M2 → M2.5 → M3 (taxonomy) ✅
                                                   │     └─ M5-proof-trim (LAD proofs through the cone/resolv loop)
                                                   └─ M6 (integration)
 
-M2.5 ─→ M7 (configuration-grid bench harness) ✅ implemented — fills the paper's appendix tables
+M2.5 ─→ M7 (configuration-grid bench harness) ⚠️ built, not conformant — fills the paper's appendix tables
           ├─ M7.0 (shared prologue extraction) ✅
           ├─ M7.1 (config axis + namespaced proof dir)  ✅
           │     └─ M7.2 (two-tier solve → no-logging columns) ✅
           │           └─ M7.4 (append-only log in /cluster/arthur/logs) ✅
-          ├─ M7.3 (elaborate + CakeML check) ⚠️ full proof only — trimmed proof not checkable
-          └─ M7.5 (LAD arm) ✅ route 1; bio excluded, images/meshes not reachable
-                └─ NEXT: the nine Glasgow configurations, one per fataepyc node
+          ├─ M7.3 (elaborate + CakeML check) ✅ both proofs, via the generic cake_pb
+          ├─ M7.5 (LAD arm) ✅ route 1; bio excluded, images/meshes not reachable
+          └─ M7.6 (pipeline conformance) ✅ DONE 2026-08-24
+                ├─ W1 one shared elaboration (halves full-proof checking cost)
+                ├─ W2 reorder to check-then-trim (unifies the two drivers)
+                ├─ W3 elaborate the trimmed proof
+                ├─ W4 gate coreN on Cake + resolve — partly blocked: Cake cannot take .smol.opb
+                ├─ W5 pin stnopl=60 st=600 tt=vt=ct=6000
+                └─ W6 three audit bugs (lad -P collision, stnopl=0, OOM "?" instance)
+                      └─ THEN: the nine Glasgow configurations, one per fataepyc node
 ```

@@ -159,6 +159,12 @@
         c = read(solveroutpath(ins), String)
         # Glasgow reports the verdict as "status = true|false" (true = a mapping was found);
         # it never prints the word SATISFIABLE. Other builds/solvers may, so accept both.
+        # LAD prints "Run completed: N solutions; ..." — or "Real time exceeded: ..." when
+        # its own alarm fires. It exits 0 either way, so stdout is the ONLY verdict it gives.
+        let m = match(r"^Run completed:\s+(\d+) solutions"m, c)
+            m !== nothing && return parse(Int, m.captures[1]) == 0 ? :unsat : :sat
+        end
+        occursin("Real time exceeded", c) && return :unknown
         m = match(r"^status\s*=\s*(\w+)"m, c)
         m !== nothing && m.captures[1] == "true"  && return :sat
         m !== nothing && m.captures[1] == "false" && return :unsat
@@ -200,6 +206,71 @@
         ok = prove ? (isfile(_cfg[].proofs*out_prefix*opb) && isfile(_cfg[].proofs*out_prefix*pbp)) :
                      (exitcode == 0)
         return (ok, false) end
+
+        # LAD sibling of runsipsolver. Four differences matter:
+        #  * proof logging is two flags, not one: -P writes the .pbp, -O writes the .opb.
+        #    That OPB is LAD's own re-encoding — byte-identical to cake_pb_iso's — and it
+        #    is the model the proof's constraint ids refer to, so the trimmer must read it
+        #    and not some other encoding of the same instance.
+        #  * LAD always exits 0. On its own alarm it prints "Real time exceeded" and quits
+        #    cleanly, so the timeout is read out of stdout, never out of the exit code.
+        #    The outer `timeout` is only a backstop for an alarm that cannot fire.
+        #  * -s is LAD's real-time limit and defaults to 100s; leaving it unset would cap
+        #    every solve at 100s regardless of st=.
+        #  * a clique pattern or target is refuted before the proof stream is ever opened
+        #    (main.c calls cliqueTarget/cliquePattern ahead of proofStart), so a completed
+        #    UNSAT run can legitimately leave no .pbp at all. That is not a truncated proof
+        #    and must not be sentinelled as a memout.
+    function runladsolver(out_prefix, pat_lad, tar_lad; prove::Bool=true,
+                          timeout::Int=_cfg[].solvertimeout)
+        binary = solverconfig().binary
+        isfile(binary) || (printstyled("  solver not found: $binary\n"; color=:red); return (false, false))
+        errfile = _cfg[].proofs*out_prefix*".err"
+        options = solverconfig().flags
+        local exitcode = 0
+        tryrm(solveroutpath(out_prefix))   # truncate: the verdict grep must not see a previous run's
+        if prove
+            tryrm(_cfg[].proofs*out_prefix*pbp); tryrm(_cfg[].proofs*out_prefix*opb)
+        end
+        open(solveroutpath(out_prefix), "a") do fout
+            open(errfile, "a") do ferr
+                proveargs = prove ? ["-P", _cfg[].proofs*out_prefix*pbp,
+                                     "-O", _cfg[].proofs*out_prefix*opb] : String[]
+                p = run(pipeline(
+                    ignorestatus(`timeout $(timeout + 30) $binary
+                        -p $pat_lad -t $tar_lad -s $timeout $options $proveargs`),
+                    stdout=fout, stderr=ferr))
+                exitcode = p.exitcode
+            end
+        end
+        if exitcode in (124, 137)
+            isfile(errfile) && filesize(errfile) == 0 && tryrm(errfile)
+            return (false, true)
+        end
+        if isfile(errfile)
+            err = read(errfile, String)
+            if !isempty(strip(err))
+                printstyled("  $out_prefix solver stderr: $err"; color=:red)
+            else
+                tryrm(errfile)
+            end
+        end
+        verdict = solve_verdict(out_prefix)
+        verdict === :unknown && return (false, true)
+        prove || return (exitcode == 0, false)
+        if !isfile(_cfg[].proofs*out_prefix*pbp)
+            logstage(out_prefix, "solve ERR", "lad_no_proof")
+            printstyled("  $out_prefix LAD concluded without writing a proof " *
+                        "(clique special case) — no cell\n"; color=:yellow)
+            return (false, false)
+        end
+        return (isfile(_cfg[].proofs*out_prefix*opb), false) end
+
+        # Dispatches on the active configuration's solver. Both arms take the same
+        # arguments and return the same (ok, timed_out) pair, so every call site is
+        # solver-agnostic.
+    runsolver(args...; kwargs...) = solverconfig().kind == "lad" ?
+        runladsolver(args...; kwargs...) : runsipsolver(args...; kwargs...)
 
     function writeunsatcore(ins, sys::PBSystem, cone::BitVector,
                             conelits::Dict{Int,Set{Int}}, varmap_inv::Vector{String}, nbopb::Int)

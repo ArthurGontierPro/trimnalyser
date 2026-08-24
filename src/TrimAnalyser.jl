@@ -27,7 +27,7 @@ const sipsolverpath = get(ENV, "GLASGOW_SUBGRAPH_SOLVER",
 const logroot = get(ENV, "TRIMNALYSER_LOGS",
     _cluster ? "/cluster/arthur/logs/" : abspath_base*"logs/")
 const ladsolverpath = get(ENV, "LAD_SOLVER",
-    _cluster ? "/scratch/arthur/lad" : "/home/arthur_gla/ladveri/lad")
+    _cluster ? "/scratch/arthur/lad" : "/home/arthur_gla/ladveri/main")
 
 # ── Optional profiler ─────────────────────────────────────────────────────────
 const _HAS_PROFILER = try; @eval using StatProfilerHTML; true; catch; false; end

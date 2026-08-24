@@ -16,9 +16,9 @@ const _gss_base = ["--staged", "--no-clique-detection"]
 
 const SOLVER_CONFIGS = Dict{String,SolverConfig}(
     # ── tab:configs-gss ──
-    "gss-default"    => SolverConfig("gss", gssbin("head"),    String[],                                    false),
-    "gss-noclique"   => SolverConfig("gss", gssbin("head"),    ["--no-clique-detection"],                   false),
-    "gss-eager"      => SolverConfig("gss", gssbin("2180663"), _gss_base,                                   true),
+    "gss"            => SolverConfig("gss", gssbin("2180663"), String[],                                    false),
+    "gss-noclique"   => SolverConfig("gss", gssbin("2180663"), ["--no-clique-detection"],                   false),
+    "gss-proof"      => SolverConfig("gss", gssbin("2180663"), _gss_base,                                   true),
     "gss-lazy"       => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
     # ── tab:configs-gss-ablations (all against 39ca857, deliberately pre-OOM-fix) ──
     "gss-lazy-base"  => SolverConfig("gss", gssbin("39ca857"), _gss_base,                                   true),
@@ -27,11 +27,13 @@ const SOLVER_CONFIGS = Dict{String,SolverConfig}(
     "gss-norestarts" => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--restarts"; "none"],           true),
     "gss-cliques"    => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--cliques"],                    true),
     # ── tab:configs-lad (M7.5; bio is hard-excluded for every lad-* key) ──
-    "lad-default"    => SolverConfig("lad", ladsolverpath, ["-f", "2", "-c", "4"],                          false),
+    "lad"            => SolverConfig("lad", ladsolverpath, ["-f", "2", "-c", "4"],                          false),
     "lad-clique"     => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "2"],                          false),
     "lad-noclique"   => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "0"],                          false),
-    "lad-alldiff-pl" => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "0", "-P"],                    true),
-    "lad-fc-pl"      => SolverConfig("lad", ladsolverpath, ["-f", "1", "-c", "0", "-P"],                    true),
+    # `proves` alone selects proof logging: runladsolver supplies -P/-O with the file
+    # names, so the bare -P must NOT appear here (it takes a FILE argument).
+    "lad-alldiff-pl" => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "0"],                          true),
+    "lad-fc-pl"      => SolverConfig("lad", ladsolverpath, ["-f", "1", "-c", "0"],                          true),
 )
 
 const default_config = "gss-lazy"   # current hardcoded behaviour: --staged --no-clique-detection --prove

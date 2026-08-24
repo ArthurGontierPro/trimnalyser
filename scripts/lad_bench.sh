@@ -31,7 +31,7 @@ FAMILIES="${2:-LV,phase,sf,si}"
 # The paper's grid, rows 10-14. `-c 0` is forced for the proof-logging pair: clique
 # filtering emits no justification. `-P` pins restarts to infinity.
 CONFIGS=(
-  'lad-default=lad -f 2 -c 4'
+  'lad=lad -f 2 -c 4'
   'lad-clique=lad -f 0 -c 2'
   'lad-noclique=lad -f 0 -c 0'
   'lad-alldiff-pl=lad -f 0 -c 0 -P +proof'

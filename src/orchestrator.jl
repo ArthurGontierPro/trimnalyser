@@ -307,7 +307,7 @@
             open(outfile, "a") do f; println(f, "resolv ITER $iter PAT $np TAR $nt") end
             core_ins = ins * ".core$iter"
             tryrm(_cfg[].proofs*core_ins*".err")
-            t = @elapsed (ok, timed_out) = runsipsolver(core_ins, cur_pat, cur_tar)
+            t = @elapsed (ok, timed_out) = runsolver(core_ins, cur_pat, cur_tar)
             if !ok
                 stop = timed_out ? "solver_timeout" : "solver_failed"
                 open(outfile, "a") do f; println(f, "resolv STOP $stop") end
@@ -322,6 +322,9 @@
                 return
             end
             printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
+            # Each iteration repeats the whole certification chain of the top-level
+            # instance: certify the reduced proof, trim it, certify the trimmed proof.
+            _cfg[].verif && certify(core_ins, "full")
             if use_subprocess
                 trim_status = run_trim_subprocess(core_ins, subargs, script)
                 if trim_status !== :ok
@@ -336,26 +339,25 @@
                     end
                     return
                 end
-                smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(core_ins) : (-1,:missing,-1,:missing)
-                writeout_verif(core_ins, smol_vt, full_vt)
-                printverif(core_ins, smol_vt, smol_vs, full_vt, full_vs)
             else
                 printabline(core_ins)
                 parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
-                smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(core_ins) : (-1,:missing,-1,:missing)
                 printabline2(core_ins, parse_time, trim_time, write_time, cone_stats)
                 !isempty(coremsg) && println(coremsg)
-                writeout_verif(core_ins, smol_vt, full_vt)
-                printverif(core_ins, smol_vt, smol_vs, full_vt, full_vs)
             end
             if !_cfg[].keepraw
                 tryrm(_cfg[].proofs * core_ins * pbp)
                 tryrm(_cfg[].proofs * core_ins * opb)
-                if _cfg[].verif && smol_vs === :verified
-                    tryrm(_cfg[].proofs * core_ins * smol_pbp)
-                    tryrm(_cfg[].proofs * core_ins * smol_opb)
-                end
             end
+            smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(core_ins, "smol") :
+                                                             (-1,:missing,-1,:missing)
+            if !_cfg[].keepraw && smol_vs === :verified
+                tryrm(_cfg[].proofs * core_ins * smol_pbp)
+                tryrm(_cfg[].proofs * core_ins * smol_opb)
+            end
+            # recurse_ok logs its own "resolv STOP <reason>" line.
+            recurse_ok(core_ins, smol_vs, smol_cs) ||
+                (tryrm(cur_pat); tryrm(cur_tar); return)
             cur_pat = _cfg[].proofs * "vis/" * core_ins * ".core.pat.lad"
             cur_tar = _cfg[].proofs * "vis/" * core_ins * ".core.tar.lad"
         end end
@@ -392,7 +394,7 @@
                 # write no proof at all and this solve IS their table cell; for the rest it
                 # is the gate that keeps expensive logging runs off hopeless instances.
                 if _cfg[].nopltimeout > 0
-                    t0 = @elapsed runsipsolver(ins, patfile, tarfile; prove=false,
+                    t0 = @elapsed runsolver(ins, patfile, tarfile; prove=false,
                                                timeout=_cfg[].nopltimeout)
                     v0 = solve_verdict(ins)
                     logstage(ins, "nopl VERDICT", uppercase(string(v0)))
@@ -414,7 +416,7 @@
                     end
                 end
                 # ── Tier 2: the logging solve.
-                t = @elapsed (ok, timed_out) = runsipsolver(ins, patfile, tarfile)
+                t = @elapsed (ok, timed_out) = runsolver(ins, patfile, tarfile)
                 if !ok
                     if solve_verdict(ins) === :sat
                         touch(_cfg[].proofs * ins * ".sat")
@@ -471,8 +473,32 @@
         end
         return :ok end
 
+        # Gate on the recursion into the reduced instance. A coreN chain built on a proof
+        # that was never certified is not evidence of anything, so the loop is entered only
+        # when the trimmed proof passed every checker that is switched on: VeriPB always,
+        # and Cake too when `cake` is set.
+    function recurse_ok(ins, smol_vs, smol_cs)
+        _cfg[].resolv || return false
+        _cfg[].verif  || return true
+        if smol_vs !== :verified
+            logstage(ins, "resolv STOP", "smol_$(smol_vs)"); return false
+        end
+        if _cfg[].cake && smol_cs !== :verified
+            logstage(ins, "resolv STOP", "smolcake_$(smol_cs)"); return false
+        end
+        return true end
+
     function run_instance_batch(ins, subargs, script)
         prepare_instance(ins) === :ok || return
+        # The full proof is certified BEFORE the trim, and its elaboration is deleted
+        # before the trimmer starts. The order matters twice: it is what lets a run report
+        # "the untrimmed proof could not be certified, the trimmed one could" as a fact
+        # about one and the same solve, and it keeps the elaborated full proof — the
+        # largest file the pipeline ever writes — off disk while the trimmer works.
+        _cfg[].verif && certify(ins, "full")
+        # The trim is a SIBLING of that certification, not its child: it runs whatever
+        # VeriPB said. An instance the full checker times out on is exactly the case the
+        # rescue result is about, so it must not be skipped here.
         trim_status = run_trim_subprocess(ins, subargs, script)
         if trim_status !== :ok
             if trim_status === :timeout || trim_status === :memout
@@ -483,21 +509,18 @@
             end
             return
         end
-        smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
-        writeout_verif(ins, smol_vt, full_vt)
-        printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
-        cakecheck(ins)
         if !_cfg[].keepraw
             tryrm(_cfg[].proofs * ins * pbp)
             tryrm(_cfg[].proofs * ins * opb)
         end
-        grim_verif_ok = smol_vs === :verified
-        if !_cfg[].keepraw && grim_verif_ok
+        smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(ins, "smol") :
+                                                         (-1,:missing,-1,:missing)
+        if !_cfg[].keepraw && smol_vs === :verified
             tryrm(_cfg[].proofs * ins * smol_pbp)
             tryrm(_cfg[].proofs * ins * smol_opb)
             touch(_cfg[].proofs * ins * ".done")
         end
-        _cfg[].resolv && run_resolv_loop(ins, true, subargs, script) end
+        recurse_ok(ins, smol_vs, smol_cs) && run_resolv_loop(ins, true, subargs, script) end
 
     function run_instance_full(ins)
         if !_cfg[].overwrite && smol_complete(ins)
@@ -519,24 +542,26 @@
         prepare_instance(ins) === :ok || return
         grim_verif_ok = false
         if !_cfg[].nonorm
+            _cfg[].verif && certify(ins, "full")
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
-            smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
             printabline2(ins,parse_time,trim_time,write_time,cone_stats)
             !isempty(coremsg) && println(coremsg)
-            writeout_verif(ins,smol_vt,full_vt)
-            printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
-            cakecheck(ins)
+            # After printabline2, which reads the raw proof's sizes for the table row.
+            if !_cfg[].keepraw && !_cfg[].clit
+                tryrm(_cfg[].proofs * ins * pbp)
+                tryrm(_cfg[].proofs * ins * opb)
+            end
+            smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(ins, "smol") :
+                                                             (-1,:missing,-1,:missing)
             grim_verif_ok = smol_vs === :verified
-            _cfg[].resolv && run_resolv_loop(ins, false)
+            recurse_ok(ins, smol_vs, smol_cs) && run_resolv_loop(ins, false)
         end
         if _cfg[].clit
             printabline(ins)
             parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
-            smol_vt,smol_vs,full_vt,full_vs = _cfg[].verif ? verify(ins) : (-1,:missing,-1,:missing)
             printabline2(ins,parse_time,trim_time,write_time,cone_stats)
-            writeout_verif(ins,smol_vt,full_vt)
-            printverif(ins, smol_vt, smol_vs, full_vt, full_vs)
+            _cfg[].verif && certify(ins, "smol")
         end
         if !_cfg[].keepraw && grim_verif_ok
             tryrm(_cfg[].proofs * ins * pbp)
@@ -546,15 +571,16 @@
             touch(_cfg[].proofs * ins * ".done")
         end end
 
-        # Route 2 (a runladsolver sibling to runsipsolver, feeding LAD proofs into the same
-        # trim/verif/resolv pipeline) is M5-proof-trim work and is not implemented. The
-        # no-logging LAD columns come from ladveri's own bench.py — see scripts/lad_bench.sh.
+        # Route 2 is implemented: runladsolver feeds LAD proofs into the same
+        # trim/verif/resolv pipeline as Glasgow's, using LAD's own -O model as the OPB.
+        # What is still missing is a Cake-clean writecoreladfile (ROADMAP M7.5), so resolv
+        # on a lad-* configuration re-enters the solver with LAD-format files this harness
+        # writes and Cake's stricter parser has never been shown to accept.
     function check_lad_route(args)
         solverconfig().kind == "lad" || return
-        (_cfg[].solve || _cfg[].resolv || _cfg[].verif) || return
-        error("config=$(_cfg[].config) is a LAD configuration and this harness cannot run it: " *
-              "LAD writes no OPB and has no runladsolver path yet (ROADMAP M7.5, route 2). " *
-              "Produce these cells with scripts/lad_bench.sh, then merge with scripts/merge_lad_results.jl.")
+        isfile(solverconfig().binary) ||
+            error("config=$(_cfg[].config) needs the LAD binary at $(solverconfig().binary) " *
+                  "(override with \$LAD_SOLVER)")
     end
 
     function _run_main(args)
