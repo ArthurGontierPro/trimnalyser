@@ -34,8 +34,14 @@ export LAD_SOLVER="$SCRATCH/lad"
 export VERIPB="$SCRATCH/veripb"
 export CAKE_PB="$SCRATCH/cake_pb"
 export CAKE_PB_ISO="$SCRATCH/cake_pb_iso"
-export TRIMNALYSER_GRAPHS="$SCRATCH/newSIPbenchmarks"
+export TRIMNALYSER_GRAPHS="$SCRATCH/newSIPbenchmarks/"
 
+# TRAILING SLASHES ARE LOAD-BEARING on the two directory variables below. The code
+# concatenates without a separator (`SIPgraphpath * family * "/" * name`, `logroot * ins`),
+# and the defaults in src/TrimAnalyser.jl end in "/". Omitting it here produced
+# "/scratch/arthur/newSIPbenchmarksLV/g10: unable to open file" — the solver failing on
+# every instance, reported as "did not conclude in 60s".
+#
 # Logs must NOT be node-local: they are the run's only surviving record once the proof
 # tree is deleted, and a nine-node run has to aggregate into one place.
-export TRIMNALYSER_LOGS="${TRIMNALYSER_LOGS:-/cluster/arthur/logs}"
+export TRIMNALYSER_LOGS="${TRIMNALYSER_LOGS:-/cluster/arthur/logs/}"

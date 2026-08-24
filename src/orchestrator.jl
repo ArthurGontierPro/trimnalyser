@@ -795,8 +795,53 @@
         println("%Wall time: ", round(wall; digits=1), "s")
     end
 
+        # ── Stale-sysimage guard ──────────────────────────────────────────────────────
+        # Every path in TrimAnalyser.jl and output.jl is `const X = get(ENV, "VAR", default)`,
+        # evaluated at MODULE LOAD — which, under --sysimage, means when the sysimage was
+        # BUILT, not when the run starts. Exporting GLASGOW_SUBGRAPH_SOLVER_39ca857 and then
+        # launching against a sysimage built without it silently runs the baked value, and
+        # nothing in the output says so: the nine-column grid would quietly measure one
+        # binary nine times, which is the exact failure scripts/cluster_env.sh exists to
+        # prevent. Verified with a sentinel: the env is ignored, the baked value wins.
+        #
+        # So: compare each baked constant against the environment as it is NOW, and refuse
+        # to start on a mismatch. Cheap, and it converts an invisible wrong result into a
+        # loud one-line failure with the fix in it.
+    function check_sysimage_env()
+        stale = String[]
+        chk(var, baked) = (v = get(ENV, var, ""); !isempty(v) && v != baked &&
+                           push!(stale, "  $var\n    env:   $v\n    baked: $baked"))
+        chk("TRIMNALYSER_GRAPHS", SIPgraphpath)
+        chk("TRIMNALYSER_LOGS",   logroot)
+        chk("TRIMNALYSER_BASE",   abspath_base)
+        chk("GLASGOW_SUBGRAPH_SOLVER", sipsolverpath)
+        chk("LAD_SOLVER",         ladsolverpath)
+        chk("VERIPB",             veripbpath)
+        chk("CAKE_PB",            cakepbpath)
+        chk("CAKE_PB_ISO",        cakeisopath)
+        # Per-revision Glasgow pins: every GLASGOW_SUBGRAPH_SOLVER_<rev> that is exported
+        # must be the binary some configuration actually resolved to.
+        bins = Set(c.binary for c in values(SOLVER_CONFIGS))
+        for (k, v) in ENV
+            startswith(k, "GLASGOW_SUBGRAPH_SOLVER_") || continue
+            v in bins || push!(stale, "  $k\n    env:   $v\n    baked: (no configuration resolves to it)")
+        end
+        isempty(stale) && return
+        printstyled("\nSTALE SYSIMAGE — the environment and trimnalyser.so disagree:\n";
+                    color=:red, bold=true)
+        for m in stale; printstyled(m, "\n"; color=:red); end
+        printstyled("""
+These paths are baked into the sysimage at build time. Rebuild it with the same
+environment, or run with `nosys`:
+
+    source scripts/cluster_env.sh && julia --project=. build_sysimage.jl
+
+""", color=:yellow)
+        exit(2) end
+
     function main(args=ARGS)
         parse_config!(args)
+        haskey(ENV, "TRIMNALYSER_SYSIMAGE") && check_sysimage_env()
         # SIGTERM handler only in subprocess mode: exits with 124 so the outer timeout command can detect it.
         # Interactive mode uses normal Julia signal handling.
         if _cfg[].subprocess
