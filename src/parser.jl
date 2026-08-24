@@ -141,19 +141,34 @@
         return length(varmap) end
 
     readeq(st,varmap) = readeq(st,varmap,1:2:length(st))
-    function readeq(st,varmap,r)
+
+        # Everything downstream (slack, propagation, the writer) assumes >=. OPB and VeriPB both
+        # allow <=, and LAD writes its at-most-one constraints that way (Glasgow never does), so a
+        # <= constraint is negated on the way in:  sum c*l <= B  ==  sum -c*l >= -B.
+        # push_eq_normalized! then folds the negative coefficients back onto flipped literals.
+        # Negate BEFORE merge: b_corr is computed from the coefficients and negates with them.
+    @inline function readeq_parts(st, varmap, r)
         lits = readlits(st,varmap,r.start:r.step:(r.stop-2))
-        lits,b_corr = merge(lits)
-        return Eq(lits, parse_int_bytes(st[r.start+2length(r)-1])-b_corr) end
+        isle = tok_eq(st[r.start+2length(r)-2], "<=")
+        if isle
+            @inbounds for i in eachindex(lits)
+                lits[i] = Lit(-lits[i].coef, lits[i].sign, lits[i].var)
+            end
+        end
+        lits, b_corr = merge(lits)
+        b = parse_int_bytes(st[r.start+2length(r)-1])
+        return lits, (isle ? -b : b) - b_corr end
+
+    function readeq(st,varmap,r)
+        lits, b = readeq_parts(st, varmap, r)
+        return Eq(lits, b) end
 
         # Like readeq but pushes directly into the store without allocating an Eq.
         # Used in readopb and hot proof-step paths where the eq is never needed as an object.
         # Always pushes — an empty equation (no lits) IS the contradiction (e.g. >= 1 with no vars)
         # and must occupy a slot in the store so that store and systemlink stay in sync.
     function readeq_push!(store::FlatEqStore, st, varmap, r)
-        lits = readlits(st, varmap, r.start:r.step:(r.stop-2))
-        lits, b_corr = merge(lits)
-        b = parse_int_bytes(st[r.start+2length(r)-1]) - b_corr
+        lits, b = readeq_parts(st, varmap, r)
         if isempty(lits) && b != 1
             printstyled("  warning: unexpected empty eq with b=$b (expected contradiction b=1)\n"; color=:yellow)
         end

@@ -163,6 +163,24 @@ Note the name clash: `writecoreladfile` (`src/solver.jl`) writes the LAD *graph 
 
 Files read via `Mmap.mmap` → byte array. `tokenize!` produces `ByteSpan` tokens (no copies). `varmap::Dict{Vector{UInt8},Int}` with `ByteSpan` keys (same hash as `Vector{UInt8}`) for zero-allocation lookups. New variables copy bytes once and are kept permanently.
 
+**`<=` constraints — FIXED 2026-08-24, do not reintroduce.** `readeq`/`readeq_push!` used to read
+the rhs token and never look at the operator token beside it, i.e. every constraint was assumed to
+be `>=`. Glasgow emits `>=` exclusively so this was invisible for a year; **LAD writes its 41
+at-most-one constraints (`@am*`) as `<=`**, and they were parsed as at-*least*-one — the same
+literals, the opposite meaning, and the loss of by far the strongest propagator in the formula.
+Consequence chain on `LVg10g12`/`lad-fc-pl`: a `rup` step that needs at-most-one is not derivable
+by unit propagation → `trimmer.jl:348` prints `rup failed at 62480` and **returns from `getcone!`
+with the cone half-built** → `writeconedel` only assigns `index[i]` for cone constraints, so every
+unreached one keeps `index == 0` → `writepol` emits `pol 0 0 + ...` → VeriPB rejects the trimmed
+proof at `.smol.pbp:3` with *"Trying to access constraint with ID 0 that has already been
+deleted"*. The `0`s were the symptom two stages downstream of the parse.
+
+Now `readeq_parts` negates on the way in (`sum c*l <= B` == `sum -c*l >= -B`), **before** `merge`,
+since `b_corr` is computed from the coefficients and negates with them; `push_eq_normalized!`
+already folded negative coefficients onto flipped literals. The trimmed OPB therefore carries
+`1 ~x20_0 ... >= 47` where the input had `1 x20_0 ... <= 1` — equivalent, not identical. A `>=`
+input takes exactly the old path, so Glasgow output is unchanged.
+
 ### Trimming algorithm
 
 `getcone!` does backward reachability from the UNSAT contradiction, accumulating the minimal cone of proof steps needed to justify it.
