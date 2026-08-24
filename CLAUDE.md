@@ -74,6 +74,42 @@ one per column of the paper's appendix tables. Default `gss-lazy` = the old hard
   M7.5. `bio` is excluded outright for every LAD configuration. LAD exits 0 even on its own
   timeout, so the verdict is grepped out of stdout (`Run completed: N solutions`).
 
+### Multi-node setup (fataepyc-01 … 09)
+
+**Filesystem topology drives everything here.** `$HOME` (`/users/grad/arthur`) and `/cluster`
+are shared NFS across all nine nodes; `/scratch` and `/tmp` are **node-local and volatile**.
+So: build once into shared storage, copy to every node's `/scratch`.
+
+```bash
+bash scripts/cluster_dist.sh                 # ONCE, on any node: build + stage -> /cluster/arthur/dist
+bash scripts/setup_all_nodes.sh              # reachability, dist, then all nodes in parallel
+bash scripts/setup_all_nodes.sh --verify     # verify only, change nothing
+bash scripts/run_grid.sh launch [scale]      # one column per node, under tmux
+bash scripts/run_grid.sh status|tail <cfg>|stop
+```
+
+**Node-to-node SSH does not work** — each node's own key is not in the shared
+`authorized_keys`, so `ssh fataepyc-01` *from* a node gives `Permission denied
+(publickey,password)`. `setup_all_nodes.sh` and `run_grid.sh` must therefore be driven
+from a machine that has working SSH to the nodes (the laptop), not from a node.
+`cluster_dist.sh` is the exception: it touches only shared storage, so it runs on one node.
+
+**`gssbin(rev)` falls back silently.** It reads `$GLASGOW_SUBGRAPH_SOLVER_<rev>` and returns
+the single global `sipsolverpath` when that is unset — so eight of the nine Glasgow columns
+measured the *same* binary as `gss-lazy` until `scripts/cluster_env.sh` existed. `bench_config.sh`
+warns but does not abort. `SOLVER_CONFIGS` is a `const` dict built at module load, so the
+variables must be exported **before julia starts**; `bench_config.sh` sources `cluster_env.sh`
+itself (cluster only — it points at `/scratch`, which the laptop lacks).
+
+`setup_node.sh` verifies what fails softly at run time: every binary executes (the Glasgow
+builds carry an rpath into `~/local` for libgmpxx), checksums match `dist/MANIFEST`, every
+pinned revision resolves to its own file, and **no two revisions hash the same** — that last
+one is the check that catches a duplicated column, which is otherwise invisible in the output.
+
+`cake_pb`/`cake_pb_iso` had been built only on fataepyc-07's node-local `/scratch` and existed
+nowhere else; they are now staged in `dist`. Rebuild sources for `cluster_dist.sh` to find:
+`~/veripb-dev/target/release/veripb`, `~/ladveri/main`, `/scratch/arthur/cake_pb*`.
+
 ### Cluster commands
 
 ```bash
