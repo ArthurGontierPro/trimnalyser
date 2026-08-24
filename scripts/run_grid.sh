@@ -114,7 +114,12 @@ launch)
         log="$BENCHLOGS/$c.$n.\$(date +%Y%m%d-%H%M%S).log"
         # cluster_env.sh must be sourced BEFORE julia starts: SOLVER_CONFIGS is a const
         # dict built at module load, so gssbin() reads the environment exactly once.
-        inner="cd $REPO && source scripts/cluster_env.sh && bash scripts/bench_config.sh $c $SCALE"
+        # EXTRA reaches bench_config.sh through the environment, and ssh does not carry
+        # it, so it is written into the command. Needed for `overwrite`: a smoke run leaves
+        # .done/.sat sentinels behind, and without it the real run skips exactly the
+        # instances the smoke test already touched, leaving its short-timeout numbers
+        # standing as the last log block.
+        inner="cd $REPO && source scripts/cluster_env.sh && EXTRA=\"${EXTRA:-}\" bash scripts/bench_config.sh $c $SCALE"
         ssh "$n" "bash -lc 'mkdir -p $BENCHLOGS; tmux new-session -d -s $s \"$inner 2>&1 | tee $log\"'" \
             && printf '  %-14s %-16s -> tmux:%s\n' "$n" "$c" "$s" \
             || printf '  %-14s %-16s LAUNCH FAILED\n' "$n" "$c" >&2
