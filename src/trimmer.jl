@@ -330,8 +330,10 @@
             ante_clear!(ante)
             fixante(systemlink, ante, firstcontradiction - nbopb)
             let lnk = sl_get_mut!(systemlink, firstcontradiction - nbopb)
-                fixconelits(sys, conelits, firstcontradiction, ante, lnk)
-                removetrivialantecedents(sys, ante, conelits, lnk, firstcontradiction)
+                if !_cfg[].nolittrim
+                    fixconelits(sys, conelits, firstcontradiction, ante, lnk)
+                    removetrivialantecedents(sys, ante, conelits, lnk, firstcontradiction)
+                end
             end
             ante_into_frontier!(ante, frontier, on_frontier, cone)
         else                                           # contradiction is rup/ia: RUP-check it to find antecedents
@@ -367,8 +369,10 @@
                         ante_clear!(ante)
                         fixante(systemlink, ante, i - nbopb)
                         let lnk = sl_get_mut!(systemlink, i - nbopb)
-                            fixconelits(sys, conelits, i, ante, lnk)
-                            removetrivialantecedents(sys, ante, conelits, lnk, i)
+                            if !_cfg[].nolittrim
+                                fixconelits(sys, conelits, i, ante, lnk)
+                                removetrivialantecedents(sys, ante, conelits, lnk, i)
+                            end
                         end
                         ante_into_frontier!(ante, frontier, on_frontier, cone)
                     elseif rule_type == -10                         # end of red subproof

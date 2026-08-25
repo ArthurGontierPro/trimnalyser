@@ -182,7 +182,7 @@
                 if cone[i]
                     lastindex += 1
                     index[i] = lastindex
-                    cl = get(conelits, i, nothing)
+                    cl = _cfg[].nolittrim ? nothing : get(conelits, i, nothing)
                     if cl !== nothing; writeeqconelits(f, sys, i, varmap, cl)
                     else              writeeq(f, sys, i, varmap) end
                 end
@@ -207,7 +207,7 @@
                     index[i] = lastindex
                     rule_type = systemlink[i - nbopb][1]
                     if rule_type == -1               # rup
-                        cl = get(conelits, i, nothing)
+                        cl = _cfg[].nolittrim ? nothing : get(conelits, i, nothing)
                         if cl !== nothing; writeuconelits(f, sys, i, varmap, cl)
                         else              writeu(f, sys, i, varmap) end
                         if !isempty(eqrange(sys, i))
@@ -217,7 +217,7 @@
                         writepol(f, systemlink[i - nbopb], index, varmap)
                         writedel(f, systemlink, i, succ, index, nbopb, dels)
                     elseif rule_type == -3           # ia
-                        cl = get(conelits, i, nothing)
+                        cl = _cfg[].nolittrim ? nothing : get(conelits, i, nothing)
                         if cl !== nothing; writeiaconelits(f, sys, i, systemlink[i - nbopb][2], index, varmap, cl)
                         else              writeia(f, sys, i, systemlink[i - nbopb][2], index, varmap) end
                         writedel(f, systemlink, i, succ, index, nbopb, dels)
