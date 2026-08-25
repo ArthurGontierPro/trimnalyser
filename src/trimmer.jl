@@ -91,6 +91,21 @@
             cj !== nothing && (myconelit = myconelit ∪ cj)  # inherit cone lits from antecedent
         end
         myconelit = myconelit ∪ (poslits ∩ neglits)   # vars with both signs are needed (resolution)
+        # ...and every variable that is in an antecedent but NOT in this step's result. It
+        # left through cancellation (or an explicit `w`), which is what lowered the result's
+        # degree. `poslits ∩ neglits` only sees cancellation between two *direct* antecedents;
+        # this also catches it when one side arrives inside a nested pol's result. Dropping
+        # such a literal removes the cancellation but keeps the degree drop, and the `ia`
+        # downstream then fails its implication check — measured on LVg11g58, where the hint
+        # goes from 81 literals at degree 4 to 118 at degree 148.
+        if _cfg[].iaprop
+            avars = Set{Int}()
+            for j in ante.list
+                ante.flags[j] || continue
+                union!(avars, eqvars(sys, j))
+            end
+            myconelit = myconelit ∪ setdiff(avars, ivars)
+        end
         conelits[i] = myconelit ∩ ivars               # restrict to vars actually in this constraint
         for j in ante.list
             ante.flags[j] || continue
@@ -393,6 +408,15 @@
                                 keepwhole!(keep, sys, conelits, ante)
                             elseif _cfg[].iakeep && (rule_type == -3 || keep[i])
                                 keepwhole!(keep, sys, conelits, ante)
+                                conelits[i] = eqvars(sys, i)
+                            elseif _cfg[].iaprop && rule_type == -3
+                                # `ia C : H` compares H against C literal by literal, so H
+                                # itself has to stay whole. Everything H is built from is
+                                # handled by fixconelits' cancellation term, not by keep-all.
+                                for j in ante.list
+                                    ante.flags[j] || continue
+                                    conelits[j] = eqvars(sys, j)
+                                end
                                 conelits[i] = eqvars(sys, i)
                             else
                                 fixconelits(sys, conelits, i, ante, lnk)
