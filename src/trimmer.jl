@@ -77,18 +77,6 @@
             # end
             # return
         # end
-        if _cfg[].polkeep
-            # A `pol` result is computed by the checker, never re-derived, so weakening any
-            # input silently changes it — and the `ia` step that consumes it still has to
-            # pass an explicit implication check against a target we did NOT weaken. Keeping
-            # every pol/ia antecedent whole is the cheapest rule that cannot break that.
-            for j in ante.list
-                ante.flags[j] || continue
-                conelits[j] = eqvars(sys, j)
-            end
-            conelits[i] = get(conelits, i, eqvars(sys, i))
-            return
-        end
         ivars     = eqvars(sys, i)
         cl        = get(conelits, i, nothing)
         myconelit = cl !== nothing ? cl : ivars            # start from known cone lits, or all vars
@@ -107,6 +95,19 @@
         for j in ante.list
             ante.flags[j] || continue
             conelits[j] = myconelit ∩ eqvars(sys, j)  # propagate back to each antecedent
+        end end
+
+        # `ia C : H` is the one rule with an explicit implication side condition: the
+        # checker must see that H implies C. H is a pol result, which the checker computes
+        # rather than re-derives, so weakening anything H is built from silently changes it
+        # — and CakeML then rejects the step VeriPB waved through. Mark H, and transitively
+        # everything H is computed from, as untouchable; rup and plain pol steps keep the
+        # literal trimming, since those results are re-checked rather than compared.
+    function keepwhole!(keep::BitVector, sys::PBSystem, conelits, ante::Ante)
+        for j in ante.list
+            ante.flags[j] || continue
+            keep[j] = true
+            conelits[j] = eqvars(sys, j)
         end end
 
     function removetrivialantecedents(sys::PBSystem, ante::Ante, conelits, link, init::Int)
@@ -314,6 +315,7 @@
         end
 
         ante = Ante(n)
+        keep = falses(n)                               # constraints an `ia` hint is built from
         rs   = RupState(n, length(sys.var_ptr) - 1)   # reusable scratch buffers for rup/conflict analysis
         mode isa Clit && compute_essentials!(rs.essentials, sys)  # forward pass: essential vars per constraint
         frontier = BinaryMaxHeap{Int}()                # max-heap: process highest-indexed eq first (backwards)
@@ -342,7 +344,11 @@
             ante_clear!(ante)
             fixante(systemlink, ante, firstcontradiction - nbopb)
             let lnk = sl_get_mut!(systemlink, firstcontradiction - nbopb)
-                if !_cfg[].nolittrim
+                if _cfg[].nolittrim
+                    # feature off entirely
+                elseif _cfg[].polkeep
+                    keepwhole!(keep, sys, conelits, ante)
+                else
                     fixconelits(sys, conelits, firstcontradiction, ante, lnk)
                     removetrivialantecedents(sys, ante, conelits, lnk, firstcontradiction)
                 end
@@ -381,7 +387,14 @@
                         ante_clear!(ante)
                         fixante(systemlink, ante, i - nbopb)
                         let lnk = sl_get_mut!(systemlink, i - nbopb)
-                            if !_cfg[].nolittrim
+                            if _cfg[].nolittrim
+                                # feature off entirely
+                            elseif _cfg[].polkeep
+                                keepwhole!(keep, sys, conelits, ante)
+                            elseif _cfg[].iakeep && (rule_type == -3 || keep[i])
+                                keepwhole!(keep, sys, conelits, ante)
+                                conelits[i] = eqvars(sys, i)
+                            else
                                 fixconelits(sys, conelits, i, ante, lnk)
                                 removetrivialantecedents(sys, ante, conelits, lnk, i)
                             end
