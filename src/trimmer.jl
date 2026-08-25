@@ -77,6 +77,18 @@
             # end
             # return
         # end
+        if _cfg[].polkeep
+            # A `pol` result is computed by the checker, never re-derived, so weakening any
+            # input silently changes it — and the `ia` step that consumes it still has to
+            # pass an explicit implication check against a target we did NOT weaken. Keeping
+            # every pol/ia antecedent whole is the cheapest rule that cannot break that.
+            for j in ante.list
+                ante.flags[j] || continue
+                conelits[j] = eqvars(sys, j)
+            end
+            conelits[i] = get(conelits, i, eqvars(sys, i))
+            return
+        end
         ivars     = eqvars(sys, i)
         cl        = get(conelits, i, nothing)
         myconelit = cl !== nothing ? cl : ivars            # start from known cone lits, or all vars
