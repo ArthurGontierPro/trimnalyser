@@ -36,6 +36,10 @@
 #   MAXMEM    per-instance memory cap, GB      (default 32)
 #   MINNODES / MAXNODES   instance size filter (default: unset = all)
 #   EXTRA     extra args passed to ./trimnalyser (e.g. "nosys overwrite")
+#   INSTFILE  run only the instance names listed in this file, one per line, instead of
+#             enumerating the whole benchmark set. Mutually exclusive with `allgraphs`,
+#             which wins in the orchestrator (orchestrator.jl:614), so this branch must
+#             drop it rather than add `instfile=` alongside it.
 #   DRYRUN=1  print the command and exit
 # ══════════════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
@@ -138,6 +142,10 @@ ARGS=(solve resolv verif cake "config=$CONFIG"
       "stnopl=$STNOPL" "st=$ST" "tt=$TT" "vt=$VT" "ct=$CT" "maxmem=$MAXMEM")
 if [[ -n "$INSTANCE" ]]; then
     ARGS=("$INSTANCE" "${ARGS[@]}")
+elif [[ -n "${INSTFILE:-}" ]]; then
+    [[ -s "$INSTFILE" ]] || { echo "INSTFILE is empty or missing: $INSTFILE" >&2; exit 1; }
+    ARGS=(--threads "$THREADS" "${ARGS[@]}" "instfile=$INSTFILE" rand)
+    echo "instfile: $(grep -cve '^\s*$' -e '^#' "$INSTFILE") instance(s) from $INSTFILE"
 else
     ARGS=(--threads "$THREADS" "${ARGS[@]}" allgraphs rand)
     [[ -n "${MINNODES:-}" ]] && ARGS+=("minnodes=$MINNODES")

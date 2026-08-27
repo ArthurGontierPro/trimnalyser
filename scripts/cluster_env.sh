@@ -19,22 +19,38 @@
 : "${SCRATCH:=/scratch/arthur}"
 export SCRATCH
 
+# Every pin below is `:=`, not `=`: a value already exported on the command line WINS.
+# bench_config.sh has always documented that ("Values already exported win, so an explicit
+# override on the command line still takes effect") but plain `export VAR=...` made it
+# false, so `CAKE_PB=/path/to/fixed ... bench_config.sh` silently ran the old binary. An
+# unset variable still resolves to the /scratch default, so the anti-fallback guarantee
+# that this file exists for is unchanged.
+
 # The three pinned Glasgow revisions. Keep in sync with `gssbin(...)` in src/config.jl;
 # scripts/cluster_dist.sh greps the same list out of that file, so they cannot drift.
-export GLASGOW_SUBGRAPH_SOLVER_2180663="$SCRATCH/glasgow_subgraph_solver_2180663"
-export GLASGOW_SUBGRAPH_SOLVER_39ca857="$SCRATCH/glasgow_subgraph_solver_39ca857"
-export GLASGOW_SUBGRAPH_SOLVER_1ff87ba="$SCRATCH/glasgow_subgraph_solver_1ff87ba"
+: "${GLASGOW_SUBGRAPH_SOLVER_2180663:=$SCRATCH/glasgow_subgraph_solver_2180663}"
+export GLASGOW_SUBGRAPH_SOLVER_2180663
+: "${GLASGOW_SUBGRAPH_SOLVER_39ca857:=$SCRATCH/glasgow_subgraph_solver_39ca857}"
+export GLASGOW_SUBGRAPH_SOLVER_39ca857
+: "${GLASGOW_SUBGRAPH_SOLVER_1ff87ba:=$SCRATCH/glasgow_subgraph_solver_1ff87ba}"
+export GLASGOW_SUBGRAPH_SOLVER_1ff87ba
 
 # The un-suffixed fallback. Deliberately the same file as 1ff87ba (= gss-lazy, the default
 # config) so that an unpinned code path degrades to the documented default rather than to
 # whatever was built last.
-export GLASGOW_SUBGRAPH_SOLVER="$SCRATCH/glasgow_subgraph_solver"
+: "${GLASGOW_SUBGRAPH_SOLVER:=$SCRATCH/glasgow_subgraph_solver}"
+export GLASGOW_SUBGRAPH_SOLVER
 
-export LAD_SOLVER="$SCRATCH/lad"
-export VERIPB="$SCRATCH/veripb"
-export CAKE_PB="$SCRATCH/cake_pb"
-export CAKE_PB_ISO="$SCRATCH/cake_pb_iso"
-export TRIMNALYSER_GRAPHS="$SCRATCH/newSIPbenchmarks/"
+: "${LAD_SOLVER:=$SCRATCH/lad}"
+export LAD_SOLVER
+: "${VERIPB:=$SCRATCH/veripb}"
+export VERIPB
+: "${CAKE_PB:=$SCRATCH/cake_pb}"
+export CAKE_PB
+: "${CAKE_PB_ISO:=$SCRATCH/cake_pb_iso}"
+export CAKE_PB_ISO
+: "${TRIMNALYSER_GRAPHS:=$SCRATCH/newSIPbenchmarks/}"
+export TRIMNALYSER_GRAPHS
 
 # TRAILING SLASHES ARE LOAD-BEARING on the two directory variables below. The code
 # concatenates without a separator (`SIPgraphpath * family * "/" * name`, `logroot * ins`),
