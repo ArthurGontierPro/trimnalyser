@@ -121,7 +121,9 @@ function parse_config!(args=ARGS)
     defaultproofs = proofroot * SOLVER_CONFIGS[config_val].kind * "/" * config_val * "/"
     proofs_dir = begin
         i = findfirst(x -> isdir(x), args)
-        i !== nothing ? args[i] : defaultproofs
+        # every path is built as proofs*ins*ext, so a dir given without its trailing
+        # slash silently writes <dir><ins>.opb *beside* the directory instead of in it.
+        i !== nothing ? (endswith(args[i], "/") ? args[i] : args[i] * "/") : defaultproofs
     end
     inst_val = begin
         i = findfirst(x -> isfile(proofs_dir*x*pbp) && isfile(proofs_dir*x*opb), args)
