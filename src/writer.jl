@@ -69,9 +69,40 @@
         writewitness(f, witness, varmap)
         print(f, beg, "\n") end
 
-    function writepol(f::IO, link, index, varmap)
+        # Literal token encoding (see solvepol_flat!): a weakening operand is -100v-99,
+        # a literal axiom is -100v-99-(sign ? 0 : 1). So the low two digits carry the sign
+        # and borrow from the variable id when the literal is negative.
+    @inline polsign(t) = mod((-t), 100) != 0
+    @inline polvar(t)  = polsign(t) ? ((-t) ÷ 100) : ((-t) ÷ 100 - 1)
+
+        # Every variable that can appear on the pol stack: the kept literals of each
+        # constraint the link references, plus any literal pushed as an axiom. A `w` on
+        # anything else weakens a term whose coefficient is 0 — legal, but a no-op.
+    function polstackvars(sys::PBSystem, conelits, link)
+        vs = Set{Int}()
+        for k in 2:length(link)
+            t = link[k]
+            if t > 0 && isid(link, k)
+                cl = get(conelits, t, nothing)
+                for j in eqrange(sys, t)
+                    v = Int(sys.vars[j])
+                    (cl === nothing || v in cl || -v in cl) && push!(vs, v)
+                end
+            elseif t <= -100 && !(k < length(link) && link[k+1] == -5)
+                push!(vs, polvar(t))       # literal axiom operand
+            end
+        end
+        return vs end
+
+        # `sys`/`conelits` are optional: without them nothing is filtered and the link is
+        # copied verbatim (justifydeg builds a link that has no `w` at all).
+    function writepol(f::IO, link, index, varmap, sys=nothing, conelits=nothing)
         print(f, "pol")
+        stackvars = (sys === nothing || conelits === nothing) ? nothing :
+                    polstackvars(sys, conelits, link)
+        skipnext = false
         for i in 2:length(link)
+            if skipnext; skipnext = false; continue end
             t = link[i]
             if t == -1;      print(f, " +")
             elseif t == -2;  print(f, " *")
@@ -82,8 +113,14 @@
                 if link[i+1] in [-2, -3]; print(f, " ", t)
                 else                       print(f, " ", index[t]) end
             elseif t <= -100
-                sign = mod((-t), 100) != 0
-                print(f, sign ? " " : " ~", varmap[(-t) ÷ 100])
+                v = polvar(t)
+                # literal trimming removed this variable from every operand: drop the
+                # whole `<lit> w` pair rather than weakening something that is not there.
+                if stackvars !== nothing && i < length(link) && link[i+1] == -5 && !(v in stackvars)
+                    skipnext = true
+                    continue
+                end
+                print(f, polsign(t) ? " " : " ~", varmap[v])
             end
         end
         print(f, " ;\n") end
@@ -214,7 +251,7 @@
                             writedel(f, systemlink, i, succ, index, nbopb, dels)
                         end
                     elseif rule_type == -2           # pol
-                        writepol(f, systemlink[i - nbopb], index, varmap)
+                        writepol(f, systemlink[i - nbopb], index, varmap, sys, conelits)
                         writedel(f, systemlink, i, succ, index, nbopb, dels)
                     elseif rule_type == -3           # ia
                         cl = get(conelits, i, nothing)
@@ -228,7 +265,7 @@
                         print(f, "    "); writeu(f, sys, i, varmap)
                         push!(todel, i)
                     elseif rule_type == -6           # pol in subproof
-                        print(f, "    "); writepol(f, systemlink[i - nbopb], index, varmap)
+                        print(f, "    "); writepol(f, systemlink[i - nbopb], index, varmap, sys, conelits)
                         push!(todel, i)
                     elseif rule_type == -9           # red with begin (reversed initial equation)
                         writered(f, sys, i, varmap, redwitness[i], " ; begin"; reversed=true)
