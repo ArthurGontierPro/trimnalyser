@@ -1,8 +1,15 @@
-# Failing instance–config pairs — M7 grid, snapshot 2026-08-25 12:25
+# Failing instance–config pairs — M7 grid, snapshot 2026-08-27 13:11
 
-Snapshot of the grid launched 2026-08-24 19:13 (commits `184043a`, `3e8740f`), taken
-17.2 h in, with seven of nine columns still running. **These are partial columns** — the
-counts will grow, but the *shape* of each category is already stable.
+Snapshot of the grid launched 2026-08-24 19:13 (commits `184043a`, `3e8740f`), taken 66 h in.
+**Six of nine columns are complete** (`gss`, `gss-noclique`, `gss-lazy`, `gss-lazy-base`,
+`gss-nostaged`, `gss-norestarts` — all 25590 instances). `gss-proof` is at 98.5 %, `gss-nosupp`
+at 92.7 %, `gss-cliques` at 41.9 %. The five `lad-*` columns sit at ~3.4 % and were never
+relaunched, so **their last `=== RUN` block predates the 2026-08-24 `<=` parse fix** — see the
+warning under category A.
+
+Progress must be counted from the per-instance logs, never from the `[N/25590]` line in a
+benchlog: that counter is block-buffered and was 17 h stale on one node and 66 h stale on
+another while the columns ran normally.
 
 ## Method, and one caveat that matters
 
@@ -28,100 +35,103 @@ Reproduce with the scripts left in `/cluster/arthur/scan/` on the cluster.
 | | veri full | veri smol | cake smol | pairs | meaning |
 |---|---|---|---|---|---|
 | **A** | VERIFIED | **FAILED** | — | **33** | we broke a good proof — *the only true trimmer bug* |
-| **B** | VERIFIED | VERIFIED | **FAILED** | **1179** | VeriPB accepts our trim, CakeML rejects it |
-| **C** | FAILED | FAILED | — | **249** | solver's proof already bad; trim inherits it |
-| **D** | **FAILED** | **VERIFIED** | VERIFIED | **571** | trimming *rescued* a proof VeriPB rejected |
+| **B** | VERIFIED | VERIFIED | **FAILED** | **3815** | VeriPB accepts our trim, CakeML rejects it |
+| **C** | FAILED | FAILED | — | **896** | solver's proof already bad; trim inherits it |
+| **D** | **FAILED** | **VERIFIED** | VERIFIED | **1945** | trimming *rescued* a proof VeriPB rejected |
 
-Category D is the paper-positive result, not a defect. C is upstream of us.
+Out of 214410 pair-records. Category D is the paper-positive result, not a defect; C is upstream
+of us.
 
 ---
 
 ## A — trimmer broke a verifiable proof · 33 pairs · `A_smol-failed_full-verified.tsv`
 
-**Every one is LAD. Zero Glasgow.**
+**Every genuine one is LAD. Zero Glasgow, across ~200,000 Glasgow pair-records.**
 
 ```
 lad-alldiff-pl   17
 lad-fc-pl        16
-gss-*             0     <- across ~60,000 trimmed Glasgow proofs
+gss-*             0
 ```
 
-16 of the 17 instances are common to both configs, and all are small `LVg*`. So this is
-**instance-determined, not config-determined** — one bug in the LAD trim path, reached by a
-graph property rather than by a solver flag.
+The file also carries two rows with instance names `D` and `LVgIED`. Those are torn NFS
+appends, not instances — do not chase them.
 
-`LVg10g12` is in the list, which is the standard local test instance. That makes this
-directly reproducible off-cluster:
+> **These 33 are almost certainly stale, and are NOT a live bug.** The `lad-*` columns were
+> never relaunched after the 2026-08-24 `<=` parse fix, so the last `=== RUN` block in their
+> logs is still a pre-fix run. A separate check found 33/33 passing at HEAD. Treat this
+> category as **unmeasured for LAD** until those columns are re-run — do not open a bug from it.
 
-```bash
-./trimnalyser LVg10g12 overwrite resolv verif config=lad-alldiff-pl nosys
-```
+The real conclusion from A is about Glasgow, and it is a strong one: **zero** trimmer-induced
+verification failures across every completed Glasgow column.
 
-This is the **only** category worth debugging as a trimmer defect, and it is the highest
-priority in this report despite being the smallest. Note it survives the 2026-08-24 `<=`
-parse fix, so it is a *second*, distinct LAD problem — do not assume that fix covers it.
-
-## B — CakeML rejects a trim VeriPB accepted · 1179 pairs / 790 instances · `B_cake-smol-failed.tsv`
+## B — CakeML rejects a trim VeriPB accepted · 3815 pairs · `B_cake-smol-failed.tsv`
 
 ```
-gss-nostaged    400        cviu11_*   1168  (99.1%)
-gss-norestarts  243        LVg*         11
-gss-lazy        224
-gss-lazy-base   216
-gss-proof        96
-gss-cliques       0
-gss-nosupp        0
+gss-nostaged    1230
+gss-lazy         710
+gss-lazy-base    702
+gss-norestarts   692
+gss-proof        479
+gss-cliques        2
+gss-nosupp         0
 ```
 
-Not instance-determined — 504 of the 790 instances fail in exactly one config:
+The largest open question in the grid, and it is **Glasgow-only**. Two checkers disagree about
+the same trimmed proof: VeriPB accepts it, CakeML rejects it. One of them is wrong, and which
+one matters for the end-to-end claim.
+
+`gss-nosupp` scoring 0 while `gss-nostaged` scores 1230 is itself a lead — whatever CakeML
+objects to appears to be absent from proofs built without supplementals.
+
+## C — both proofs fail · 896 pairs · `C_both-failed.tsv`
 
 ```
-fails in 1 config: 504    4 configs:  16
-            2:     201    5 configs:   1
-            3:      68
+gss-nosupp     768        gss-nostaged     5
+gss-cliques    105        lad-alldiff-pl   2
+gss-lazy-base    8        gss-proof        2
+gss-norestarts   6
 ```
 
-So the same instance trimmed under a different flag set yields a proof CakeML accepts. That
-points at **proof content**, not graph structure — consistent with the known cviu11 pathology
-(Glasgow emitting unjustified `@elimnds* rup` helper lemmas), but the disagreement here is
-*between the two checkers*, which is new. Worth a single-instance diff of what `cake_pb`
-objects to versus what `veripb` waved through.
+The solver's own proof does not certify, so the trim cannot. Upstream of the trimmer, and
+concentrated in the two configurations that strip inference (`--no-supplementals`, `--cliques`).
+`gss-lazy` contributes **zero**.
 
-Both `gss-nosupp` and `gss-cliques` score zero here, but both are also behind on progress —
-treat their zeroes as **not yet observed**, not as clean.
-
-## C — both proofs fail · 249 pairs · `C_both-failed.tsv`
+## D — trimming rescued the proof · 1945 pairs · `D_smol-rescued-full.tsv`
 
 ```
-gss-nosupp     199        cviu11_*  206
-gss-cliques     41        LVg*       43
-gss-lazy-base    3
-gss-nostaged     2
-gss-norestarts   2
-lad-alldiff-pl   2
+gss-nosupp     1910       gss-lazy-base    9
+gss-nostaged     12       gss-cliques      3
+gss-norestarts    9       gss-proof        2
 ```
 
-The solver's own proof does not certify, so the trim cannot. Upstream of the trimmer.
-`gss-lazy` and `gss-proof` contribute **zero**.
-
-## D — trimming rescued the proof · 571 pairs · `D_smol-rescued-full.tsv`
-
-```
-gss-nosupp     554        cviu11_*  570
-gss-lazy-base    7        LVg*        1
-gss-nostaged     6
-gss-norestarts   3
-gss-cliques      1
-```
-
-C and D are near-disjoint (1 instance in both), so on `gss-nosupp` a rejected full proof is
-**74 % likely to be rescued by trimming** (554 of 753). Keep this pair of numbers together —
-it is the strongest single result in the snapshot.
+On `gss-nosupp`, 1910 of 2678 rejected full proofs (**71 %**) are rescued by trimming. Keep that
+pair of numbers together — it is the strongest single result in the grid, and it says the
+trimmed proof certifies where the solver's own proof does not.
 
 ---
 
+## Per-config health
+
+```
+config           pairs  vfullTO  vfullFAIL  trimmed
+gss-cliques      13218     4.6%       1.1%    80.9%
+gss-lazy         33887     0.4%       0.0%    85.8%
+gss-lazy-base    33534     0.3%       0.1%    85.9%
+gss-norestarts   33521     0.3%       0.1%    85.8%
+gss-nostaged     30950     0.4%       0.2%    82.2%
+gss-nosupp       33839     0.6%      11.3%    93.9%
+gss-proof        32732     0.4%       0.0%    83.7%
+```
+
+`gss-nosupp`'s 11.3 % full-proof rejection rate is 50-100x every other column and drives all of
+C and D. `gss-cliques`'s 4.6 % full-verify timeout rate is ~12x the others and is why that
+column is the slowest by a wide margin (VeriPB p90 on its proofs is 569 s against 24-37 s
+elsewhere, at comparable proof size — structure, not volume).
+
 ## Debug priority
 
-1. **A (33, LAD)** — a real trimmer bug, reproducible on `LVg10g12` locally, no cluster needed.
-2. **B (1179, cviu11)** — checker disagreement; pick one instance and diff the two verdicts.
+1. **B (3815, Glasgow)** — checker disagreement. Now the top item: it is real, current, large,
+   and it bears directly on the end-to-end CakeML claim. Pick one instance, diff the verdicts.
+2. **A (LAD)** — re-run the `lad-*` columns post-fix before concluding anything.
 3. **C / D** — upstream Glasgow proof defects. Not trimmer work; D is a result to report.
