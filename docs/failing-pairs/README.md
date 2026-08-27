@@ -37,10 +37,15 @@ Reproduce with the scripts left in `/cluster/arthur/scan/` on the cluster.
 | **A** | VERIFIED | **FAILED** | — | **33** | we broke a good proof — *the only true trimmer bug* |
 | **B** | VERIFIED | VERIFIED | **FAILED** | **3815** | VeriPB accepts our trim, CakeML rejects it |
 | **C** | FAILED | FAILED | — | **896** | solver's proof already bad; trim inherits it |
-| **D** | **FAILED** | **VERIFIED** | VERIFIED | **1945** | trimming *rescued* a proof VeriPB rejected |
+| **D** | **FAILED** | **VERIFIED** | VERIFIED | **1945** | **solver bug** — it emitted a proof that does not certify |
 
-Out of 214410 pair-records. Category D is the paper-positive result, not a defect; C is upstream
-of us.
+Out of 214410 pair-records.
+
+**C and D are both solver bugs, and they are ours.** We maintain Glasgow, so a proof that VeriPB
+rejects is our defect, not an external constraint. That the trimmed proof happens to certify in
+category D is *not* a positive result — it means the solver emitted something unsound or
+unjustified, and trimming removed the offending steps by accident. The bug is still there and
+still needs fixing; D just measures how often trimming hides it. Do not report D as a win.
 
 ---
 
@@ -97,7 +102,7 @@ The solver's own proof does not certify, so the trim cannot. Upstream of the tri
 concentrated in the two configurations that strip inference (`--no-supplementals`, `--cliques`).
 `gss-lazy` contributes **zero**.
 
-## D — trimming rescued the proof · 1945 pairs · `D_smol-rescued-full.tsv`
+## D — solver emitted a proof that does not certify · 1945 pairs · `D_smol-rescued-full.tsv`
 
 ```
 gss-nosupp     1910       gss-lazy-base    9
@@ -105,9 +110,14 @@ gss-nostaged     12       gss-cliques      3
 gss-norestarts    9       gss-proof        2
 ```
 
-On `gss-nosupp`, 1910 of 2678 rejected full proofs (**71 %**) are rescued by trimming. Keep that
-pair of numbers together — it is the strongest single result in the grid, and it says the
-trimmed proof certifies where the solver's own proof does not.
+On `gss-nosupp`, 2678 full proofs are rejected by VeriPB; trimming makes 1910 of them (**71 %**)
+certify. Read that as a **solver defect with a 71 % masking rate**, not as a trimmer win — the
+trim is deleting steps Glasgow should never have emitted.
+
+Combined with C, `gss-nosupp` emits a non-certifying proof on **11.3 %** of instances. That is
+the single largest bug surfaced by this grid and it belongs upstream, in Glasgow. See
+[[project-glasgow-unjustified-rups]] — `@elimnds` was fixed in `1ff87ba`, `@binback` is known and
+still unfixed, and these numbers are the scale of what remains.
 
 ---
 
@@ -125,7 +135,7 @@ gss-proof        32732     0.4%       0.0%    83.7%
 ```
 
 `gss-nosupp`'s 11.3 % full-proof rejection rate is 50-100x every other column and drives all of
-C and D. `gss-cliques`'s 4.6 % full-verify timeout rate is ~12x the others and is why that
+C and D. It is a Glasgow bug, not a property of the benchmark. `gss-cliques`'s 4.6 % full-verify timeout rate is ~12x the others and is why that
 column is the slowest by a wide margin (VeriPB p90 on its proofs is 569 s against 24-37 s
 elsewhere, at comparable proof size — structure, not volume).
 
@@ -134,4 +144,5 @@ elsewhere, at comparable proof size — structure, not volume).
 1. **B (3815, Glasgow)** — checker disagreement. Now the top item: it is real, current, large,
    and it bears directly on the end-to-end CakeML claim. Pick one instance, diff the verdicts.
 2. **A (LAD)** — re-run the `lad-*` columns post-fix before concluding anything.
-3. **C / D** — upstream Glasgow proof defects. Not trimmer work; D is a result to report.
+3. **C + D together (2841 pairs)** — Glasgow emits proofs that do not certify. Ours to fix, and
+   the biggest defect in the grid by volume. `gss-nosupp` alone accounts for 2678 of them.
