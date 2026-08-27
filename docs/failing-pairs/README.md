@@ -35,7 +35,7 @@ Reproduce with the scripts left in `/cluster/arthur/scan/` on the cluster.
 | | veri full | veri smol | cake smol | pairs | meaning |
 |---|---|---|---|---|---|
 | **A** | VERIFIED | **FAILED** | — | **33** | we broke a good proof — *the only true trimmer bug* |
-| **B** | VERIFIED | VERIFIED | **FAILED** | **3815** | ~~our trim~~ — **CakeML bug, fixed upstream 2026-08-26** |
+| **B** | VERIFIED | VERIFIED | **FAILED** | **3815** | ~~our trim~~ — **CakeML bug, fixed upstream 2026-08-26 and worked around in `writepol`** |
 | **C** | FAILED | FAILED | — | **896** | solver's proof already bad; trim inherits it |
 | **D** | **FAILED** | **VERIFIED** | VERIFIED | **1945** | **solver bug** — it emitted a proof that does not certify |
 
@@ -119,11 +119,26 @@ old cake_pb  ->  Checking failed ... line 67977 ... imply-add for constraint id
 new cake_pb  ->  s VERIFIED
 ```
 
-**Two things still owed.** The fixed binary is built only at `/scratch/arthur/cakefix/cake_pb`
-on node 01 — it is **not** in `/cluster/arthur/dist`, so every column still runs the old one.
-And only the one reproducer is confirmed: the other 3814 pairs cannot be rechecked from disk
-(the `.opb`/`.pbp` are deleted after verification), so confirming the category as a whole means
-re-running them with the new binary staged.
+**Fixed on our side too, and that is the one that matters.** `writepol` no longer emits a
+`<lit> w` pair when the variable cannot be on the pol stack at all (`4977151`). The trimmed
+proof therefore never contains the construct, so it no longer depends on how a checker treats a
+vacuous weakening. Measured on `LVg11g58`/`gss-lazy-base`, same solved proof in both arms:
+
+```
+                          arm A (main)   arm B (4977151)
+w tokens in .smol.pbp            7560              6804     -10 %
+.smol.pbp                  11 182 146        11 176 098
+.smol.opb                        identical
+veripb                   VERIFIED UNSAT    VERIFIED UNSAT
+cake_pb (old, unfixed)   FAILED @67977     VERIFIED UNSAT
+cake_pb (new, c41ce52)          -          VERIFIED UNSAT
+```
+
+**The old binary now accepts it.** Staging the rebuilt `cake_pb` into `/cluster/arthur/dist` is
+therefore no longer on the critical path for this category — worth doing, but the grid can clear
+B without it. Only the one instance is confirmed: the other 3814 pairs cannot be rechecked from
+disk (the `.opb`/`.pbp` are deleted after verification), so confirming the category as a whole
+still means re-running them.
 
 `gss-nosupp` scoring 0 while `gss-nostaged` scores 1230 is consistent with this — long `w`
 chains over supplemental-derived constraints are the shape that triggers it — but that link
@@ -188,5 +203,5 @@ elsewhere, at comparable proof size — structure, not volume).
 1. **C + D together (2841 pairs)** — Glasgow emits proofs that do not certify. Ours to fix, and
    now the biggest defect in the grid by volume. `gss-nosupp` alone accounts for 2678 of them.
 2. **A (LAD)** — re-run the `lad-*` columns post-fix before concluding anything.
-3. **B (3815)** — cause found and fixed upstream. What remains is bookkeeping: stage the
-   rebuilt `cake_pb` into `dist` and re-run the category to confirm it empties.
+3. **B (3815)** — cause found, fixed upstream *and* worked around in `writepol`. What remains
+   is bookkeeping: re-run the category to confirm it empties. The old `cake_pb` suffices.
