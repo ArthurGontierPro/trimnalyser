@@ -97,15 +97,6 @@
             conelits[j] = myconelit ∩ eqvars(sys, j)  # propagate back to each antecedent
         end end
 
-        # Diagnostic escape hatch for the literal trimming: keep every pol/ia antecedent
-        # whole instead of weakening it down to the variables the cone uses. Reached only
-        # under the `polkeep` flag; `nolittrim` turns the feature off outright.
-    function keepwhole!(sys::PBSystem, conelits, ante::Ante)
-        for j in ante.list
-            ante.flags[j] || continue
-            conelits[j] = eqvars(sys, j)
-        end end
-
     function removetrivialantecedents(sys::PBSystem, ante::Ante, conelits, link, init::Int)
         for i in ante.list
             ante.flags[i] || continue
@@ -339,14 +330,8 @@
             ante_clear!(ante)
             fixante(systemlink, ante, firstcontradiction - nbopb)
             let lnk = sl_get_mut!(systemlink, firstcontradiction - nbopb)
-                if _cfg[].nolittrim
-                    # feature off entirely
-                elseif _cfg[].polkeep
-                    keepwhole!(sys, conelits, ante)
-                else
-                    fixconelits(sys, conelits, firstcontradiction, ante, lnk)
-                    removetrivialantecedents(sys, ante, conelits, lnk, firstcontradiction)
-                end
+                fixconelits(sys, conelits, firstcontradiction, ante, lnk)
+                removetrivialantecedents(sys, ante, conelits, lnk, firstcontradiction)
             end
             ante_into_frontier!(ante, frontier, on_frontier, cone)
         else                                           # contradiction is rup/ia: RUP-check it to find antecedents
@@ -382,14 +367,8 @@
                         ante_clear!(ante)
                         fixante(systemlink, ante, i - nbopb)
                         let lnk = sl_get_mut!(systemlink, i - nbopb)
-                            if _cfg[].nolittrim
-                                # feature off entirely
-                            elseif _cfg[].polkeep
-                                keepwhole!(sys, conelits, ante)
-                            else
-                                fixconelits(sys, conelits, i, ante, lnk)
-                                removetrivialantecedents(sys, ante, conelits, lnk, i)
-                            end
+                            fixconelits(sys, conelits, i, ante, lnk)
+                            removetrivialantecedents(sys, ante, conelits, lnk, i)
                         end
                         ante_into_frontier!(ante, frontier, on_frontier, cone)
                     elseif rule_type == -10                         # end of red subproof

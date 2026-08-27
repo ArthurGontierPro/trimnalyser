@@ -35,7 +35,7 @@ Reproduce with the scripts left in `/cluster/arthur/scan/` on the cluster.
 | | veri full | veri smol | cake smol | pairs | meaning |
 |---|---|---|---|---|---|
 | **A** | VERIFIED | **FAILED** | — | **33** | we broke a good proof — *the only true trimmer bug* |
-| **B** | VERIFIED | VERIFIED | **FAILED** | **3815** | VeriPB accepts our trim, CakeML rejects it |
+| **B** | VERIFIED | VERIFIED | **FAILED** | **3815** | ~~our trim~~ — **CakeML bug, fixed upstream 2026-08-26** |
 | **C** | FAILED | FAILED | — | **896** | solver's proof already bad; trim inherits it |
 | **D** | **FAILED** | **VERIFIED** | VERIFIED | **1945** | **solver bug** — it emitted a proof that does not certify |
 
@@ -70,7 +70,7 @@ appends, not instances — do not chase them.
 The real conclusion from A is about Glasgow, and it is a strong one: **zero** trimmer-induced
 verification failures across every completed Glasgow column.
 
-## B — CakeML rejects a trim VeriPB accepted · 3815 pairs · `B_cake-smol-failed.tsv`
+## B — CakeML rejects a trim VeriPB accepted · 3815 pairs · RESOLVED · `B_cake-smol-failed.tsv`
 
 ```
 gss-nostaged    1230
@@ -82,12 +82,56 @@ gss-cliques        2
 gss-nosupp         0
 ```
 
-The largest open question in the grid, and it is **Glasgow-only**. Two checkers disagree about
-the same trimmed proof: VeriPB accepts it, CakeML rejects it. One of them is wrong, and which
-one matters for the end-to-end claim.
+**RESOLVED 2026-08-27 — a CakeML bug, not ours. VeriPB was right and no code change was
+needed on our side.**
 
-`gss-nosupp` scoring 0 while `gss-nostaged` scores 1230 is itself a lead — whatever CakeML
-objects to appears to be absent from proofs built without supplementals.
+**The defect.** Weakening (`w`) removes a variable's terms from a constraint and lowers the
+degree by its coefficient. If the variable is not in the constraint its coefficient is 0, so
+the step is a **no-op** — legal, and the same situation as the duplicate-weakening case the
+CakeML author had seen before. CakeML did not treat it as a no-op: it skipped or misaligned,
+and built a *different* constraint from the one VeriPB built. Nothing failed at the `w` itself.
+The divergence surfaced much later, at the first `ia` — the only rule with an explicit
+implication side condition, so the only place where a silently wrong constraint gets compared
+against anything.
+
+**Why our proofs and only ours.** The trimmer drops literals the cone does not need and lowers
+the degree to match, but Glasgow's `w` tokens are copied through `writepol` verbatim. A trimmed
+proof therefore routinely weakens literals that are no longer there. The untrimmed proof never
+does, which is why `veri full` passes on all 3815.
+
+**Verified sound on the reproducer** (`LVg11g58`, `gss-lazy-base`). Constraint `112` loses
+`x0_94 x1_94 x2_94 x6_94` to the trim; the first `pol` weakens all four. The degree compensates
+exactly:
+
+```
+trimmed    112: 38 lits, deg 37;  36 of the 40 w's hit  ->  ~x3_94 ~x4_94 >= 37-36 = 1
+untrimmed  112: 42 lits, deg 41;  40 of the 40 w's hit  ->  ~x3_94 ~x4_94 >= 41-40 = 1
+```
+
+Identical. The literals the trim removed were the ones about to be weakened away regardless.
+
+**Fixed upstream.** Reported 2026-08-26 with a 1.1 MB reproducer (`/cluster/arthur/repro/`, a
+literal truncated prefix of `LVg11g58.smol.pbp` — nothing renumbered); fixed the same day in
+`cakepb-dev` `c41ce52` *"fix a bug in weakening"* on `develop`. Rebuilt and rechecked:
+
+```
+old cake_pb  ->  Checking failed ... line 67977 ... imply-add for constraint id
+new cake_pb  ->  s VERIFIED
+```
+
+**Two things still owed.** The fixed binary is built only at `/scratch/arthur/cakefix/cake_pb`
+on node 01 — it is **not** in `/cluster/arthur/dist`, so every column still runs the old one.
+And only the one reproducer is confirmed: the other 3814 pairs cannot be rechecked from disk
+(the `.opb`/`.pbp` are deleted after verification), so confirming the category as a whole means
+re-running them with the new binary staged.
+
+`gss-nosupp` scoring 0 while `gss-nostaged` scores 1230 is consistent with this — long `w`
+chains over supplemental-derived constraints are the shape that triggers it — but that link
+was never checked directly and is not needed now.
+
+**Do not resurrect the trimmer-side fixes.** `iakeep` and `iaprop` were built and measured on
+`diag/littrim-experiment` before the cause was known; both are gone. Literal trimming can be
+disabled without a flag anyway, by setting the conelits to true.
 
 ## C — both proofs fail · 896 pairs · `C_both-failed.tsv`
 
@@ -141,8 +185,8 @@ elsewhere, at comparable proof size — structure, not volume).
 
 ## Debug priority
 
-1. **B (3815, Glasgow)** — checker disagreement. Now the top item: it is real, current, large,
-   and it bears directly on the end-to-end CakeML claim. Pick one instance, diff the verdicts.
+1. **C + D together (2841 pairs)** — Glasgow emits proofs that do not certify. Ours to fix, and
+   now the biggest defect in the grid by volume. `gss-nosupp` alone accounts for 2678 of them.
 2. **A (LAD)** — re-run the `lad-*` columns post-fix before concluding anything.
-3. **C + D together (2841 pairs)** — Glasgow emits proofs that do not certify. Ours to fix, and
-   the biggest defect in the grid by volume. `gss-nosupp` alone accounts for 2678 of them.
+3. **B (3815)** — cause found and fixed upstream. What remains is bookkeeping: stage the
+   rebuilt `cake_pb` into `dist` and re-run the category to confirm it empties.
