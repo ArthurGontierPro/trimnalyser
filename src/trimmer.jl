@@ -91,37 +91,18 @@
             cj !== nothing && (myconelit = myconelit ∪ cj)  # inherit cone lits from antecedent
         end
         myconelit = myconelit ∪ (poslits ∩ neglits)   # vars with both signs are needed (resolution)
-        # ...and every variable that is in an antecedent but NOT in this step's result. It
-        # left through cancellation (or an explicit `w`), which is what lowered the result's
-        # degree. `poslits ∩ neglits` only sees cancellation between two *direct* antecedents;
-        # this also catches it when one side arrives inside a nested pol's result. Dropping
-        # such a literal removes the cancellation but keeps the degree drop, and the `ia`
-        # downstream then fails its implication check — measured on LVg11g58, where the hint
-        # goes from 81 literals at degree 4 to 118 at degree 148.
-        if _cfg[].iaprop
-            avars = Set{Int}()
-            for j in ante.list
-                ante.flags[j] || continue
-                union!(avars, eqvars(sys, j))
-            end
-            myconelit = myconelit ∪ setdiff(avars, ivars)
-        end
         conelits[i] = myconelit ∩ ivars               # restrict to vars actually in this constraint
         for j in ante.list
             ante.flags[j] || continue
             conelits[j] = myconelit ∩ eqvars(sys, j)  # propagate back to each antecedent
         end end
 
-        # `ia C : H` is the one rule with an explicit implication side condition: the
-        # checker must see that H implies C. H is a pol result, which the checker computes
-        # rather than re-derives, so weakening anything H is built from silently changes it
-        # — and CakeML then rejects the step VeriPB waved through. Mark H, and transitively
-        # everything H is computed from, as untouchable; rup and plain pol steps keep the
-        # literal trimming, since those results are re-checked rather than compared.
-    function keepwhole!(keep::BitVector, sys::PBSystem, conelits, ante::Ante)
+        # Diagnostic escape hatch for the literal trimming: keep every pol/ia antecedent
+        # whole instead of weakening it down to the variables the cone uses. Reached only
+        # under the `polkeep` flag; `nolittrim` turns the feature off outright.
+    function keepwhole!(sys::PBSystem, conelits, ante::Ante)
         for j in ante.list
             ante.flags[j] || continue
-            keep[j] = true
             conelits[j] = eqvars(sys, j)
         end end
 
@@ -330,7 +311,6 @@
         end
 
         ante = Ante(n)
-        keep = falses(n)                               # constraints an `ia` hint is built from
         rs   = RupState(n, length(sys.var_ptr) - 1)   # reusable scratch buffers for rup/conflict analysis
         mode isa Clit && compute_essentials!(rs.essentials, sys)  # forward pass: essential vars per constraint
         frontier = BinaryMaxHeap{Int}()                # max-heap: process highest-indexed eq first (backwards)
@@ -362,7 +342,7 @@
                 if _cfg[].nolittrim
                     # feature off entirely
                 elseif _cfg[].polkeep
-                    keepwhole!(keep, sys, conelits, ante)
+                    keepwhole!(sys, conelits, ante)
                 else
                     fixconelits(sys, conelits, firstcontradiction, ante, lnk)
                     removetrivialantecedents(sys, ante, conelits, lnk, firstcontradiction)
@@ -405,19 +385,7 @@
                             if _cfg[].nolittrim
                                 # feature off entirely
                             elseif _cfg[].polkeep
-                                keepwhole!(keep, sys, conelits, ante)
-                            elseif _cfg[].iakeep && (rule_type == -3 || keep[i])
-                                keepwhole!(keep, sys, conelits, ante)
-                                conelits[i] = eqvars(sys, i)
-                            elseif _cfg[].iaprop && rule_type == -3
-                                # `ia C : H` compares H against C literal by literal, so H
-                                # itself has to stay whole. Everything H is built from is
-                                # handled by fixconelits' cancellation term, not by keep-all.
-                                for j in ante.list
-                                    ante.flags[j] || continue
-                                    conelits[j] = eqvars(sys, j)
-                                end
-                                conelits[i] = eqvars(sys, i)
+                                keepwhole!(sys, conelits, ante)
                             else
                                 fixconelits(sys, conelits, i, ante, lnk)
                                 removetrivialantecedents(sys, ante, conelits, lnk, i)

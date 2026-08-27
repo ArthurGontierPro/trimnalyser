@@ -80,8 +80,6 @@ mutable struct Config
     nonorm         ::Bool
     nolittrim      ::Bool
     polkeep        ::Bool
-    iakeep         ::Bool
-    iaprop         ::Bool
     core           ::Bool
     solve          ::Bool
     resolv         ::Bool
@@ -110,7 +108,7 @@ const _cfg = Ref{Config}()
 
 const argflags = Set(["clit","core","verif","cake","no","rand","sort","clean","atable",
                       "profile","solve","resolv","allgraphs","keepraw","subprocess",
-                      "nolittrim","polkeep","iakeep","iaprop"])
+                      "nolittrim","polkeep"])
 
 function parse_config!(args=ARGS)
     argval(prefix, T, default) = (i = findfirst(x -> startswith(x, prefix), args);
@@ -150,8 +148,6 @@ function parse_config!(args=ARGS)
         "no"               in args,
         "nolittrim"        in args,
         "polkeep"          in args,
-        "iakeep"           in args,
-        "iaprop"           in args,
         "core"             in args,
         "solve"            in args,
         "resolv"           in args,
