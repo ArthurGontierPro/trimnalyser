@@ -35,6 +35,15 @@ export GLASGOW_SUBGRAPH_SOLVER_39ca857
 : "${GLASGOW_SUBGRAPH_SOLVER_1ff87ba:=$SCRATCH/glasgow_subgraph_solver_1ff87ba}"
 export GLASGOW_SUBGRAPH_SOLVER_1ff87ba
 
+# The NDS-fix arm. 84f1d3e = 39ca857 + the two-line NDS proof-witness fix; 861a84f =
+# 2180663 + the same. Pinned alongside the originals, never over them: setup_node.sh
+# checks that no two revisions hash the same, which is the guard that catches an
+# in-place overwrite of a binary the harvested tables were measured against.
+: "${GLASGOW_SUBGRAPH_SOLVER_84f1d3e:=$SCRATCH/glasgow_subgraph_solver_84f1d3e}"
+export GLASGOW_SUBGRAPH_SOLVER_84f1d3e
+: "${GLASGOW_SUBGRAPH_SOLVER_861a84f:=$SCRATCH/glasgow_subgraph_solver_861a84f}"
+export GLASGOW_SUBGRAPH_SOLVER_861a84f
+
 # The un-suffixed fallback. Deliberately the same file as 1ff87ba (= gss-lazy, the default
 # config) so that an unpinned code path degrades to the documented default rather than to
 # whatever was built last.

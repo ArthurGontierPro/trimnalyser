@@ -26,6 +26,19 @@ const SOLVER_CONFIGS = Dict{String,SolverConfig}(
     "gss-nosupp"     => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--no-supplementals"],           true),
     "gss-norestarts" => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--restarts"; "none"],           true),
     "gss-cliques"    => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--cliques"],                    true),
+    # ── NDS-fix arm (2026-08-28). Same flags, same everything, one variable changed: the
+    # revision carries the two-line NDS proof-witness fix and nothing else. `84f1d3e` is
+    # `39ca857` plus that fix; `861a84f` is `2180663` plus that fix. They are ADDITIONAL
+    # keys, never re-pins of the ones above: those are what the harvested tables measured,
+    # and the logs are append-only (readers take the last RUN block), so re-pinning in
+    # place would bury the baseline this arm has to be compared against. Separate keys
+    # also mean separate proof dirs, so no sentinel from the old run can cause a skip.
+    "gss-proof-nds"      => SolverConfig("gss", gssbin("861a84f"), _gss_base,                               true),
+    "gss-lazy-base-nds"  => SolverConfig("gss", gssbin("84f1d3e"), _gss_base,                               true),
+    "gss-nostaged-nds"   => SolverConfig("gss", gssbin("84f1d3e"), ["--no-clique-detection"],               true),
+    "gss-nosupp-nds"     => SolverConfig("gss", gssbin("84f1d3e"), [_gss_base; "--no-supplementals"],       true),
+    "gss-norestarts-nds" => SolverConfig("gss", gssbin("84f1d3e"), [_gss_base; "--restarts"; "none"],       true),
+    "gss-cliques-nds"    => SolverConfig("gss", gssbin("84f1d3e"), [_gss_base; "--cliques"],                true),
     # ── tab:configs-lad (M7.5; bio is hard-excluded for every lad-* key) ──
     "lad"            => SolverConfig("lad", ladsolverpath, ["-f", "2", "-c", "4"],                          false),
     "lad-clique"     => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "2"],                          false),
