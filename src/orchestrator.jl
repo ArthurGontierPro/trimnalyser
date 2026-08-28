@@ -1,6 +1,16 @@
 # ══ Entry point ══════════════════════════════════════════════════════════════════════════
 # ══ Signal Handling ═══════════════════════════════════════════════════════════════════════════
     const _sysimage = joinpath(@__DIR__, "..", "trimnalyser.so")
+    # Grace period between the trim timeout's SIGTERM and an uncatchable SIGKILL, in seconds.
+    # handle_timeout below is NEVER reached: Julia masks SIGTERM in every thread and takes it on
+    # a dedicated sigwait thread, so `signal(SIGTERM, ...)` installs a handler nothing delivers
+    # to (the comment in run_trim_subprocess has said so for a while). Termination therefore
+    # depends on Julia's own orderly shutdown, and that shutdown deadlocks: in the 2026-08-24
+    # grid, gss-proof/LVg57g66 and gss-nostaged/LVg14g48 each burned their full 6000 s of CPU,
+    # took the SIGTERM, and then slept for 43 h and 91 h holding 30 GB and 23 GB while the rest
+    # of the node sat at load 0.00 — one wedged trim per column, each stalling a whole node.
+    # `timeout -k` hands the second kill to the kernel, which cannot be caught or deadlocked.
+    const trim_kill_grace = 60
     # Clean exit on timeout. Uses only async-signal-safe syscalls: write(2) + _exit(2).
     # Julia's exit() and println() acquire locks and are unsafe from a C signal handler.
     function handle_timeout(sig::Cint)
@@ -236,7 +246,7 @@
         julia_flags = use_sysimage ? `--sysimage $_sysimage --project=$_root -t1,1` : `-t1,1`
         sub_env = ["JULIA_NUM_THREADS" => "1", "OPENBLAS_NUM_THREADS" => "1", "MKL_NUM_THREADS" => "1"]
         use_sysimage && push!(sub_env, "TRIMNALYSER_SYSIMAGE" => "1")
-        proc = run(pipeline(addenv(`timeout $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`, sub_env...),
+        proc = run(pipeline(addenv(`timeout -k $trim_kill_grace $(_cfg[].trimtimeout) julia $julia_flags $script $ins $subargs`, sub_env...),
                            stdout=subout, stderr=suberr),
                    wait=false)
         wait(proc)
@@ -267,12 +277,27 @@
             logstage(ins, "trim TIMEOUT", _cfg[].trimtimeout)
             return :timeout
         elseif exitcode == 137
-            msg = "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)"
-            printstyled("  $ins: $msg\n"; color=:red)
-            open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
-            logstage(ins, "trim MEMOUT", _cfg[].maxinstmem_gb)
-            touch(memout_sentinel(ins))
-            return :memout
+            # 137 now has two producers: the OOM monitor's `kill -9`, and `timeout -k` above
+            # escalating because the SIGTERM went unanswered. Only the first is a memout, and it
+            # always appends "OOM at <rss>G" to .err BEFORE it kills (see the monitor loop), so
+            # that line is what separates them. Assuming memout is the expensive direction: it
+            # writes .memoutNNN, which suppresses the instance on every later run that does not
+            # raise maxmem=, so a trim that merely ran long would be silently dropped from the
+            # table thereafter.
+            if first(was_oom_killed(ins))
+                msg = "OOM killed (exceeded $(_cfg[].maxinstmem_gb) GB)"
+                printstyled("  $ins: $msg\n"; color=:red)
+                open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
+                logstage(ins, "trim MEMOUT", _cfg[].maxinstmem_gb)
+                touch(memout_sentinel(ins))
+                return :memout
+            else
+                msg = "Timeout after $(_cfg[].trimtimeout)s (SIGKILL after $(trim_kill_grace)s grace)"
+                printstyled("  $ins: $msg\n"; color=:red)
+                open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
+                logstage(ins, "trim TIMEOUT", _cfg[].trimtimeout)
+                return :timeout
+            end
         else
             exitcode != 0 && (printstyled("  $ins: trim failed (exit $exitcode)\n"; color=:red);
                               logstage(ins, "trim ERR exit", exitcode))
