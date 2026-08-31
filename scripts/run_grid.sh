@@ -8,6 +8,7 @@
 #     bash scripts/run_grid.sh stop             # kill every column
 #
 #     CONFIGS="gss gss-noclique" NODES="fataepyc-01 fataepyc-02" bash scripts/run_grid.sh launch
+#     INSTFILE=/cluster/arthur/instfiles/lad_pl.txt CONFIGS=... bash scripts/run_grid.sh launch
 #
 # `scale` divides every timeout (bench_config.sh). Use 60 for a smoke test that finishes
 # in minutes; omit it for the real run. ALWAYS smoke-test first: a column that is going to
@@ -119,7 +120,11 @@ launch)
         # .done/.sat sentinels behind, and without it the real run skips exactly the
         # instances the smoke test already touched, leaving its short-timeout numbers
         # standing as the last log block.
-        inner="cd $REPO && source scripts/cluster_env.sh && EXTRA=\"${EXTRA:-}\" bash scripts/bench_config.sh $c $SCALE"
+        # INSTFILE travels the same way and for the same reason. It is per-invocation, not
+        # per-column, so a grid whose columns need different instance sets (lad-*: the two
+        # proof-logging columns are capped to the 4,247-pair set, the three no-logging ones
+        # run the whole family) has to be launched as one call per set.
+        inner="cd $REPO && source scripts/cluster_env.sh && EXTRA=\"${EXTRA:-}\" INSTFILE=\"${INSTFILE:-}\" bash scripts/bench_config.sh $c $SCALE"
         ssh "$n" "bash -lc 'mkdir -p $BENCHLOGS; tmux new-session -d -s $s \"$inner 2>&1 | tee $log\"'" \
             && printf '  %-14s %-16s -> tmux:%s\n' "$n" "$c" "$s" \
             || printf '  %-14s %-16s LAUNCH FAILED\n' "$n" "$c" >&2
