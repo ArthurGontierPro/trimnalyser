@@ -826,7 +826,7 @@ Depends on M5-proof; read that section first, and `~/ladveri/PROOF_TODO.md`, bef
 - ~~**LAD writes no OPB.**~~ **Resolved 2026-08-21:** LAD's `-O FILE` emits the model itself, byte-identical to the encoder (ladveri TODO #9, commit `2a9884b`). `runsipsolver`'s `isfile(opb) && isfile(pbp)` test needs no encoder step. See M5-proof-trim above for the trust caveat.
 - **Proofs have no deletions and grow with search length**, so `images` and `meshes` are `‡` in the table — not yet reachable. Do not schedule them; the LV encoder output alone projects to 10.4 TB uncapped, and the paper's `-P` column is restricted to the 4,247 pairs under a 250 MB encoder cap.
 - **Cake's LAD parser is stricter than LAD's own** — no trailing blank line, degree counts matching successor counts, edges in both directions. **Checked 2026-08-24 on LV and it passes:** `LVg14g15` under `lad-fc-pl` resolves to `core1`, LAD re-solves the core LADs `writecoreladfile` wrote, and `cake_pb_iso` VERIFIES the resulting core proof. One family only — the other seven are still unverified against it. In practice `recurse_ok` (`orchestrator.jl`) never lets a `lad-*` run reach it today, because it gates the recursion on the trimmed proof being certified and the trim currently fails — see the update below.
-- **The bare `-P` in the two `lad-*-pl` configs was a bug and is gone** (2026-08-24). `-P` takes a FILE argument, so as an inline flag it swallowed the real path. `runladsolver` supplies `-P <pbp> -O <opb>` itself and `proves` alone selects logging. The same bug is still live in `scripts/lad_bench.sh:37-38` — see W6.
+- **The bare `-P` in the two `lad-*-pl` configs was a bug and is gone** (2026-08-24). `-P` takes a FILE argument, so as an inline flag it swallowed the real path. `runladsolver` supplies `-P <pbp> -O <opb>` itself and `proves` alone selects logging. The same bug in `scripts/lad_bench.sh` was fixed 2026-08-31 (W6).
 - **`-s` is LAD's own real-time limit and defaults to 100 s.** `runladsolver` passes `st=` through to it; without that every LAD solve would silently cap at 100 s whatever `st=` said. LAD exits 0 on its own alarm and prints `Real time exceeded`, so the timeout is read out of stdout, never out of the exit code.
 
 **Update 2026-08-24 — route 2 is built, and it stops one stage short of the cone.**
@@ -973,13 +973,14 @@ rejects outright as `veri smol VERIFIED`.
 - **W5 — pin the timeouts.** Make the specified values the defaults for a grid run rather than
   something every invocation must remember, or hard-error when `config=` is given without them.
 - **W6 — three bugs found in the 2026-08-21 audit**, all cheap:
-  - `scripts/lad_bench.sh:37-38` — the two `+proof` specs pass `-P` in their inline flags *and*
-    `bench.py:271` appends its own `-P <path>`. LAD's getopt consumes the literal string `-P` as
-    the proof filename and the real path falls through as an ignored positional, so
-    `lad-alldiff-pl` and `lad-fc-pl` write **no proof at all**. The adjacent comment ("`-P` pins
-    restarts to infinity") is also wrong: `-P FILE` is the proof output path (`ladveri/main.c:308`).
-    The same stray `-P` sits in `config.jl`'s two `lad-*-pl` entries — inert there only because
-    `check_lad_route` hard-errors first.
+  - ~~`scripts/lad_bench.sh:37-38` — the two `+proof` specs pass `-P` in their inline flags *and*
+    `bench.py:271` appends its own `-P <path>`.~~ **FIXED 2026-08-31.** LAD's getopt consumed the
+    literal string `-P` as the proof filename and the real path fell through as an ignored
+    positional, so `lad-alldiff-pl` and `lad-fc-pl` wrote **no proof at all** while still
+    reporting a clean solve. The adjacent comment ("`-P` pins restarts to infinity") was also
+    wrong: `-P FILE` is the proof output path (`ladveri/main.c:308`); the restart pinning is a
+    side effect of `main.c:461`. Both are corrected, with a standing warning in the file. The
+    same stray `-P` was removed from `config.jl`'s two `lad-*-pl` entries on 2026-08-24.
   - `stnopl=0` disables tier 1, but tier 2 always passes `prove=true` — so a `proves=false`
     configuration would run with `--prove`. Either forbid the combination or make tier 2 honour
     `solverconfig().proves`.

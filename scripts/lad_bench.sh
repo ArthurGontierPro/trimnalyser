@@ -29,13 +29,25 @@ OUT="${1:-lad_results.csv}"
 FAMILIES="${2:-LV,phase,sf,si}"
 
 # The paper's grid, rows 10-14. `-c 0` is forced for the proof-logging pair: clique
-# filtering emits no justification. `-P` pins restarts to infinity.
+# filtering emits no justification.
+#
+# DO NOT put a bare `-P` in these specs. `-P` is not a boolean — it is LAD's proof OUTPUT
+# PATH (`ladveri/main.c:308`), and bench.py appends its own `-P <path>` at bench.py:271.
+# With both present LAD's getopt takes the literal string "-P" as the proof filename and
+# the real path falls through as an ignored positional, so `lad-alldiff-pl` and
+# `lad-fc-pl` wrote NO PROOF AT ALL while still reporting a clean solve. `+proof` alone is
+# bench.py's marker for "log a proof"; it supplies the flag. The same stray `-P` was
+# removed from config.jl's two lad-*-pl entries on 2026-08-24.
+#
+# (The old comment here claimed `-P` "pins restarts to infinity". That is a side effect,
+# not the meaning: main.c:461 sets nbMaxFail = INT_MAX when a proof path is given, because
+# proof logging does not handle restart nogoods yet.)
 CONFIGS=(
   'lad=lad -f 2 -c 4'
   'lad-clique=lad -f 0 -c 2'
   'lad-noclique=lad -f 0 -c 0'
-  'lad-alldiff-pl=lad -f 0 -c 0 -P +proof'
-  'lad-fc-pl=lad -f 1 -c 0 -P +proof'
+  'lad-alldiff-pl=lad -f 0 -c 0 +proof'
+  'lad-fc-pl=lad -f 1 -c 0 +proof'
 )
 
 args=()
