@@ -96,14 +96,23 @@
             end
         end
         # bio is directed. LAD reads directed graphs as undirected without warning (on
-        # bio 001->002 Glasgow says SAT and LAD says UNSAT) and the cake encoder rejects
-        # them outright, so every bio cell of tab:configs-lad is marked †. Excluded
-        # outright for any lad-* configuration, exactly as ladveri's own bench.py does.
+        # bio 001->002 Glasgow says SAT and LAD says UNSAT) and CakePB rejects them
+        # outright, so a lad-* bio row is an answer to a DIFFERENT QUESTION and can never
+        # be verified. Every bio cell of tab:configs-lad is marked †.
+        #
+        # These used to be filtered out entirely, as ladveri's own bench.py does. They now
+        # run, so that "all 25590" means all 25590 and the table shows a measured cell
+        # rather than a gap — but every one of them is announced here and stamped in its
+        # own log by `lad_bio_marker` (see run_instance_*), because the one thing that must
+        # not happen is a bio verdict being averaged into a LAD-vs-Glasgow comparison by
+        # someone who did not read the footnote. Filter on `lad VALIDITY` or on the `bio`
+        # prefix; do not rely on the marker being absent to mean "comparable".
         if solverconfig().kind == "lad"
-            n0 = length(list)
-            filter!(x -> !startswith(x, "bio"), list)
-            n0 == length(list) ||
-                printstyled("%Excluded $(n0 - length(list)) bio instances: directed graphs, invalid for LAD\n"; color=:yellow)
+            nbio = count(x -> startswith(x, "bio"), list)
+            nbio == 0 ||
+                printstyled("%Including $nbio bio instances for a lad-* config: DIRECTED graphs, ",
+                            "read as undirected, unverifiable — marked † and stamped ",
+                            "`lad VALIDITY DIRECTED_UNSOUND` per instance\n"; color=:yellow)
         end
 
         _cfg[].rand && _shuffle!(list)
@@ -223,14 +232,23 @@
         end
 
         # bio is directed. LAD reads directed graphs as undirected without warning (on
-        # bio 001->002 Glasgow says SAT and LAD says UNSAT) and the cake encoder rejects
-        # them outright, so every bio cell of tab:configs-lad is marked †. Excluded
-        # outright for any lad-* configuration, exactly as ladveri's own bench.py does.
+        # bio 001->002 Glasgow says SAT and LAD says UNSAT) and CakePB rejects them
+        # outright, so a lad-* bio row is an answer to a DIFFERENT QUESTION and can never
+        # be verified. Every bio cell of tab:configs-lad is marked †.
+        #
+        # These used to be filtered out entirely, as ladveri's own bench.py does. They now
+        # run, so that "all 25590" means all 25590 and the table shows a measured cell
+        # rather than a gap — but every one of them is announced here and stamped in its
+        # own log by `lad_bio_marker` (see run_instance_*), because the one thing that must
+        # not happen is a bio verdict being averaged into a LAD-vs-Glasgow comparison by
+        # someone who did not read the footnote. Filter on `lad VALIDITY` or on the `bio`
+        # prefix; do not rely on the marker being absent to mean "comparable".
         if solverconfig().kind == "lad"
-            n0 = length(list)
-            filter!(x -> !startswith(x, "bio"), list)
-            n0 == length(list) ||
-                printstyled("%Excluded $(n0 - length(list)) bio instances: directed graphs, invalid for LAD\n"; color=:yellow)
+            nbio = count(x -> startswith(x, "bio"), list)
+            nbio == 0 ||
+                printstyled("%Including $nbio bio instances for a lad-* config: DIRECTED graphs, ",
+                            "read as undirected, unverifiable — marked † and stamped ",
+                            "`lad VALIDITY DIRECTED_UNSOUND` per instance\n"; color=:yellow)
         end
 
         _cfg[].rand && _shuffle!(list)

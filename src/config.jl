@@ -71,6 +71,14 @@ function runheader(ins)
     logopen(ins) do f
         println(f, "=== RUN ", Base.Libc.strftime("%Y-%m-%dT%H:%M:%S", time()),
                    " ", gethostname(), " ", _cfg[].config, " ===")
+        # bio graphs are DIRECTED. LAD reads them as undirected without warning, so its
+        # verdict answers a different question than Glasgow's (on bio 001->002 Glasgow
+        # says SAT and LAD says UNSAT), and CakePB rejects the encoding outright so the
+        # row can never be verified either. Stamped inside the run block, not inferred
+        # from the instance name, so a reader who has only the log still cannot average
+        # these into a solver comparison by accident. † in tab:configs-lad.
+        solverconfig().kind == "lad" && startswith(ins, "bio") &&
+            println(f, "lad VALIDITY DIRECTED_UNSOUND")
     end
 end
 
