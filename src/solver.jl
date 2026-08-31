@@ -181,6 +181,7 @@
         local exitcode = 0
         tryrm(solveroutpath(out_prefix))   # truncate: the verdict grep must not see a previous run's
         wait_for_memory("solve", out_prefix)
+        wait_for_disk("solve", out_prefix)
         open(solveroutpath(out_prefix), "a") do fout
             open(errfile, "a") do ferr
                 proveargs = prove ? ["--prove", _cfg[].proofs*out_prefix] : String[]
@@ -234,6 +235,7 @@
             tryrm(_cfg[].proofs*out_prefix*pbp); tryrm(_cfg[].proofs*out_prefix*opb)
         end
         wait_for_memory("solve", out_prefix)
+        wait_for_disk("solve", out_prefix)
         open(solveroutpath(out_prefix), "a") do fout
             open(errfile, "a") do ferr
                 proveargs = prove ? ["-P", _cfg[].proofs*out_prefix*pbp,

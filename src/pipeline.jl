@@ -83,6 +83,14 @@
                     (isfile(_cfg[].proofs*ins*pbp) ? filesize(_cfg[].proofs*ins*pbp) : 0)
             if sz > 50 * 1024^3
                 printstyled("  $ins too large ($(round(sz/1024^3; digits=1)) GB) — skipping\n"; color=:yellow)
+                # Delete it. This branch used to return with the proof still on disk,
+                # which is the one skip path that LEAKS: every instance too big to trim
+                # left its tens of GB behind for the rest of the run. Invisible on the
+                # Glasgow grid, where the branch essentially never fires; fatal for LAD,
+                # whose proofs have no deletions and grow with search length, so the
+                # instances that trip 50 GB are common rather than exceptional.
+                tryrm(_cfg[].proofs * ins * pbp)
+                tryrm(_cfg[].proofs * ins * opb)
                 return
             end
         end

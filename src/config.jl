@@ -110,6 +110,7 @@ mutable struct Config
     veriftimeout   ::Int
     caketimeout    ::Int
     minfreemem     ::Int
+    mindiskfree    ::Int
     maxinstmem_gb  ::Float64
     proofs         ::String
     config         ::String
@@ -177,6 +178,12 @@ function parse_config!(args=ARGS)
         argval("vt=",       Int,     tt),
         argval("ct=",       Int,     argval("vt=", Int, tt)),
         argval("minmem=",   Int,     _cluster ? 100 : 4) * 1024^3,
+        # Disk admission gate. Sibling of minmem=, and for the same reason: nothing else
+        # protects the node's DISK. LAD proofs carry no deletions and grow with search
+        # length, so a full-benchmark LAD run writes proofs that are orders of magnitude
+        # larger than Glasgow's, and ninety threads each holding one can fill /scratch
+        # between two polls of anything coarser. 0 disables.
+        argval("mindisk=",  Int,     _cluster ? 300 : 0) * 1024^3,
         argval("maxmem=",   Float64, _cluster ? 50.0 : 8.0),
         proofs_dir,
         config_val,

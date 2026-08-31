@@ -39,6 +39,47 @@ function wait_for_memory(stage::AbstractString="", ins::AbstractString="")
                 round(Int, time() - t0), "s\n"; color=:yellow)
     return end
 
+    # ── Disk, and the admission gate that goes with it ────────────────────────────────
+    # Free bytes on the filesystem holding the proofs directory. Uses `df -P` rather than
+    # statvfs because Julia exposes no portable statvfs; -P forces the one-line POSIX
+    # format so a long device name cannot wrap and shift the columns.
+function available_disk(path::AbstractString = _cfg[].proofs)
+    try
+        out = read(`df -Pk $path`, String)
+        lines = split(chomp(out), '\n')
+        length(lines) >= 2 || return typemax(Int)
+        return parse(Int, split(lines[2])[4]) * 1024
+    catch
+        return typemax(Int)   # never block on an unreadable df
+    end end
+
+    # Block until the node has `mindisk=` free before launching a proof-producing child.
+    #
+    # Exactly the wait_for_memory argument, one resource over: the OOM monitor is
+    # per-process and there is no equivalent for disk at all. A single Glasgow proof is
+    # normally megabytes, so this never fires on the Glasgow grid; LAD proofs carry no
+    # deletions and grow with search length, and ninety threads each writing one can take
+    # /scratch from comfortable to full inside a single instance's solve.
+    #
+    # Waiting is right for the same reason it is right for memory: the alternative is
+    # ENOSPC mid-write, which yields a truncated proof indistinguishable from a solver
+    # memout and silently corrupts the run's accounting. Unbounded, because the other
+    # threads are draining proofs as they certify them, so the wait does end.
+function wait_for_disk(stage::AbstractString="", ins::AbstractString="")
+    _cfg[].mindiskfree <= 0 && return
+    available_disk() >= _cfg[].mindiskfree && return
+    t0 = time()
+    printstyled("  ", isempty(ins) ? "" : "$ins ", "waiting for disk",
+                isempty(stage) ? "" : " ($stage)",
+                ": ", round(available_disk() / 1024^3; digits=1), " GB free < ",
+                _cfg[].mindiskfree ÷ 1024^3, " GB\n"; color=:yellow)
+    while available_disk() < _cfg[].mindiskfree
+        sleep(5)
+    end
+    printstyled("  ", isempty(ins) ? "" : "$ins ", "resumed after ",
+                round(Int, time() - t0), "s (disk)\n"; color=:yellow)
+    return end
+
     # Read the resident set size of a subprocess from /proc/PID/status (Linux only).
     # Returns GB; 0.0 if the process already exited or on non-Linux.
 function process_rss_gb(pid::Int)

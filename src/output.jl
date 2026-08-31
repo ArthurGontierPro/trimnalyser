@@ -568,6 +568,7 @@
     function runcapture(cmd, tl, stem; stage::AbstractString="", ins::AbstractString="",
                         env = nothing)
         wait_for_memory(stage, ins)
+        wait_for_disk(stage, ins)
         to = stem*".tmpout"; te = stem*".tmperr"
         p = nothing
         launcherr = ""
