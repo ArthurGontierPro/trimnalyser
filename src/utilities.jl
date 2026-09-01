@@ -53,32 +53,55 @@ function available_disk(path::AbstractString = _cfg[].proofs)
         return typemax(Int)   # never block on an unreadable df
     end end
 
-    # Block until the node has `mindisk=` free before launching a proof-producing child.
+    # Wait for `mindisk=` free space before a child that is about to WRITE a proof.
     #
-    # Exactly the wait_for_memory argument, one resource over: the OOM monitor is
-    # per-process and there is no equivalent for disk at all. A single Glasgow proof is
-    # normally megabytes, so this never fires on the Glasgow grid; LAD proofs carry no
-    # deletions and grow with search length, and ninety threads each writing one can take
-    # /scratch from comfortable to full inside a single instance's solve.
+    # ── This gate may only be called by a thread that is holding nothing. ──
     #
-    # Waiting is right for the same reason it is right for memory: the alternative is
-    # ENOSPC mid-write, which yields a truncated proof indistinguishable from a solver
-    # memout and silently corrupts the run's accounting. Unbounded, because the other
-    # threads are draining proofs as they certify them, so the wait does end.
-function wait_for_disk(stage::AbstractString="", ins::AbstractString="")
-    _cfg[].mindiskfree <= 0 && return
-    available_disk() >= _cfg[].mindiskfree && return
+    # That is the whole correctness condition, and the first version of this function got
+    # it wrong. It was also called before the trim and before verify/cake, both of which
+    # run with the thread's own raw proof already on disk. When free space fell below the
+    # threshold, every one of the 92 threads was sitting in one of those two places, each
+    # holding tens of GB, and each waiting for somebody else to release space. Nobody
+    # could: the release happens *after* the trim, on the far side of the gate. The node
+    # went to load 0.00 with a full disk and stayed there (fataepyc-03, 2026-09-01).
+    #
+    # The comment that shipped with it — "the other threads are draining proofs as they
+    # certify them, so the wait does end" — was the bug, stated as a justification. It is
+    # true only of threads that hold nothing.
+    #
+    # So: solve only. A thread at the solve gate has no proof of its own yet, so blocking
+    # it cannot hold space hostage, and the threads ahead of it are all downstream of the
+    # gate and still draining. Deletion is what makes the wait terminate, and deletion is
+    # only reachable by threads this gate does not stop.
+    #
+    # Bounded anyway, because a correctness argument is not a guarantee. On timeout the
+    # caller is told to SKIP the instance rather than proceed: proceeding would write a
+    # proof into a disk we already know is nearly full, and an ENOSPC mid-write is a
+    # truncated proof, which is indistinguishable from a solver memout and silently
+    # corrupts the run's accounting.
+    #
+    # Returns true if there is room, false if the caller should skip.
+function wait_for_disk(stage::AbstractString="", ins::AbstractString="";
+                       timeout::Real = 1800)
+    _cfg[].mindiskfree <= 0 && return true
+    available_disk() >= _cfg[].mindiskfree && return true
     t0 = time()
     printstyled("  ", isempty(ins) ? "" : "$ins ", "waiting for disk",
                 isempty(stage) ? "" : " ($stage)",
                 ": ", round(available_disk() / 1024^3; digits=1), " GB free < ",
                 _cfg[].mindiskfree ÷ 1024^3, " GB\n"; color=:yellow)
     while available_disk() < _cfg[].mindiskfree
+        if time() - t0 > timeout
+            printstyled("  ", isempty(ins) ? "" : "$ins ", "still short of disk after ",
+                        round(Int, timeout), "s (", round(available_disk()/1024^3; digits=1),
+                        " GB free) — skipping\n"; color=:red)
+            return false
+        end
         sleep(5)
     end
     printstyled("  ", isempty(ins) ? "" : "$ins ", "resumed after ",
                 round(Int, time() - t0), "s (disk)\n"; color=:yellow)
-    return end
+    return true end
 
     # Read the resident set size of a subprocess from /proc/PID/status (Linux only).
     # Returns GB; 0.0 if the process already exited or on non-Linux.

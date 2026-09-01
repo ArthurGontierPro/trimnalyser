@@ -567,8 +567,9 @@
         # is where they meet the admission gate — see wait_for_memory in utilities.jl.
     function runcapture(cmd, tl, stem; stage::AbstractString="", ins::AbstractString="",
                         env = nothing)
+        # No wait_for_disk here on purpose — same reason as the trim site: verify and
+        # cake both run with the raw proof already on disk. See wait_for_disk.
         wait_for_memory(stage, ins)
-        wait_for_disk(stage, ins)
         to = stem*".tmpout"; te = stem*".tmperr"
         p = nothing
         launcherr = ""

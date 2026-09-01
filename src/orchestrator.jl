@@ -256,8 +256,10 @@
         return list end
 
     function run_trim_subprocess(ins, subargs, script)
+        # No wait_for_disk here on purpose: this thread is holding its own raw proof
+        # already, so blocking it holds that space hostage and the release it is waiting
+        # for is on the far side of this call. See wait_for_disk in utilities.jl.
         wait_for_memory("trim", ins)
-        wait_for_disk("trim", ins)
         subout = _cfg[].proofs * ins * ".subout"
         suberr = _cfg[].proofs * ins * ".suberr"
         use_sysimage = isfile(_sysimage)
