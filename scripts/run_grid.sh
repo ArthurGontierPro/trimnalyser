@@ -134,8 +134,8 @@ launch)
 #!/bin/bash
 cd $REPO || exit 1
 source scripts/cluster_env.sh
-export EXTRA=${EXTRA:-}
-export INSTFILE=${INSTFILE:-}
+export EXTRA="${EXTRA:-}"
+export INSTFILE="${INSTFILE:-}"
 exec bash scripts/bench_config.sh $c $SCALE
 LAUNCH
         if ssh "$n" "bash -lc 'mkdir -p $BENCHLOGS; tmux new-session -d -s $s \"bash $launcher 2>&1 | tee $log\"'"; then
