@@ -124,10 +124,30 @@ launch)
         # per-column, so a grid whose columns need different instance sets (lad-*: the two
         # proof-logging columns are capped to the 4,247-pair set, the three no-logging ones
         # run the whole family) has to be launched as one call per set.
-        inner="cd $REPO && source scripts/cluster_env.sh && EXTRA=\"${EXTRA:-}\" INSTFILE=\"${INSTFILE:-}\" bash scripts/bench_config.sh $c $SCALE"
-        ssh "$n" "bash -lc 'mkdir -p $BENCHLOGS; tmux new-session -d -s $s \"$inner 2>&1 | tee $log\"'" \
-            && printf '  %-14s %-16s -> tmux:%s\n' "$n" "$c" "$s" \
-            || printf '  %-14s %-16s LAUNCH FAILED\n' "$n" "$c" >&2
+        # The command is staged as a script on the node instead of being embedded in the
+        # ssh -> bash -lc -> tmux quoting. Three levels of nesting cannot survive a value
+        # containing a space: EXTRA="overwrite mindisk=3000" produced a tmux session that
+        # died on creation, and run_grid.sh still printed "-> tmux:<name>" because the ssh
+        # itself had succeeded. A whole launch looked fine and had not started.
+        launcher="$BENCHLOGS/.launch-$c.sh"
+        ssh "$n" "cat > $launcher" <<LAUNCH
+#!/bin/bash
+cd $REPO || exit 1
+source scripts/cluster_env.sh
+export EXTRA=${EXTRA:-}
+export INSTFILE=${INSTFILE:-}
+exec bash scripts/bench_config.sh $c $SCALE
+LAUNCH
+        if ssh "$n" "bash -lc 'mkdir -p $BENCHLOGS; tmux new-session -d -s $s \"bash $launcher 2>&1 | tee $log\"'"; then
+            sleep 2
+            if ssh "$n" "bash -lc 'tmux has-session -t $s 2>/dev/null'"; then
+                printf '  %-14s %-16s -> tmux:%s\n' "$n" "$c" "$s"
+            else
+                printf '  %-14s %-16s LAUNCH DIED IMMEDIATELY (see $log)\n' "$n" "$c" >&2
+            fi
+        else
+            printf '  %-14s %-16s LAUNCH FAILED\n' "$n" "$c" >&2
+        fi
     done
     echo
     echo "watch:  bash scripts/run_grid.sh status"
