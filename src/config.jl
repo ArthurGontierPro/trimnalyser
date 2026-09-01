@@ -14,25 +14,55 @@ gssbin(rev) = get(ENV, "GLASGOW_SUBGRAPH_SOLVER_" * rev, sipsolverpath)
 
 const _gss_base = ["--staged", "--no-clique-detection"]
 
+# ══════════════════════════════════════════════════════════════════════════════════════
+# WHICH REVISION IS WHICH — read this before adding, re-pinning or quoting a column.
+#
+# Exactly two Glasgow builds may appear as a proof-logging column of the paper. Both
+# carry the NDS proof-witness fix; anything that does not carry it must never reach a
+# table, because without it Glasgow emits its neighbourhood-degree-sequence elimination
+# lemmas as bare `rup` steps that no checker can replay.
+#
+#   PAPER COLUMN       REV       BRANCH HEAD                  IS
+#   default logging    861a84f   labels-for-analysis          2180663 + NDS fix
+#   lazy logging       1ff87ba   lazy-adjacency-relabelled    39ca857 + 4 commits + NDS fix
+#                                                             (68b1c9b memory, f75a30e
+#                                                              level-collapse, a1c412b,
+#                                                              dffc858, then the NDS fix)
+#
+# The ablation grid varies one switch against `gss-lazy` (1ff87ba), so the ablation
+# table's baseline column and tab:configs-gss's lazy column are the SAME measurement.
+#
+# HISTORICAL — pre-NDS-fix, kept only so old logs stay attributable. Never a paper
+# column, never a comparison baseline: 2180663, 39ca857.
+# SCAFFOLD — 84f1d3e is 39ca857 + the NDS fix alone. It exists to isolate that fix in an
+# A/B and is not a paper column either; the fix's effect is recorded, the arm is done.
+#
+# Still unfixed anywhere: the @binback witness (Proof::backtrack_from_binary_variables),
+# reachable only with clique detection on, so it bites `gss-lazy-cliques` and nothing
+# else. Its column reports a real solver limitation, not a broken run.
+# ══════════════════════════════════════════════════════════════════════════════════════
 const SOLVER_CONFIGS = Dict{String,SolverConfig}(
-    # ── tab:configs-gss ──
+    # ── tab:configs-gss. The two no-logging columns emit no proof, so the NDS fix cannot
+    #    reach them and they stay on 2180663.
     "gss"            => SolverConfig("gss", gssbin("2180663"), String[],                                    false),
     "gss-noclique"   => SolverConfig("gss", gssbin("2180663"), ["--no-clique-detection"],                   false),
-    "gss-proof"      => SolverConfig("gss", gssbin("2180663"), _gss_base,                                   true),
+    "gss-default"    => SolverConfig("gss", gssbin("861a84f"), _gss_base,                                   true),
     "gss-lazy"       => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
-    # ── tab:configs-gss-ablations (all against 39ca857, deliberately pre-OOM-fix) ──
+    # ── tab:configs-gss-ablations. One switch each against `gss-lazy`, same binary, so the
+    #    baseline column IS gss-lazy and the two tables share it.
+    "gss-lazy-nostaged"   => SolverConfig("gss", gssbin("1ff87ba"), ["--no-clique-detection"],              true),
+    "gss-lazy-nosupp"     => SolverConfig("gss", gssbin("1ff87ba"), [_gss_base; "--no-supplementals"],      true),
+    "gss-lazy-norestarts" => SolverConfig("gss", gssbin("1ff87ba"), [_gss_base; "--restarts"; "none"],      true),
+    "gss-lazy-cliques"    => SolverConfig("gss", gssbin("1ff87ba"), [_gss_base; "--cliques"],               true),
+    # ── HISTORICAL. Pre-NDS-fix builds and the A/B arm that isolated the fix. Kept so the
+    #    logs already on disk stay attributable to a named configuration; a run of one is
+    #    a deliberate act, never a paper column. See the header above.
+    "gss-proof"      => SolverConfig("gss", gssbin("2180663"), _gss_base,                                   true),
     "gss-lazy-base"  => SolverConfig("gss", gssbin("39ca857"), _gss_base,                                   true),
     "gss-nostaged"   => SolverConfig("gss", gssbin("39ca857"), ["--no-clique-detection"],                   true),
     "gss-nosupp"     => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--no-supplementals"],           true),
     "gss-norestarts" => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--restarts"; "none"],           true),
     "gss-cliques"    => SolverConfig("gss", gssbin("39ca857"), [_gss_base; "--cliques"],                    true),
-    # ── NDS-fix arm (2026-08-28). Same flags, same everything, one variable changed: the
-    # revision carries the two-line NDS proof-witness fix and nothing else. `84f1d3e` is
-    # `39ca857` plus that fix; `861a84f` is `2180663` plus that fix. They are ADDITIONAL
-    # keys, never re-pins of the ones above: those are what the harvested tables measured,
-    # and the logs are append-only (readers take the last RUN block), so re-pinning in
-    # place would bury the baseline this arm has to be compared against. Separate keys
-    # also mean separate proof dirs, so no sentinel from the old run can cause a skip.
     "gss-proof-nds"      => SolverConfig("gss", gssbin("861a84f"), _gss_base,                               true),
     "gss-lazy-base-nds"  => SolverConfig("gss", gssbin("84f1d3e"), _gss_base,                               true),
     "gss-nostaged-nds"   => SolverConfig("gss", gssbin("84f1d3e"), ["--no-clique-detection"],               true),
