@@ -255,6 +255,46 @@
         println("%Generated ", length(list), " instances from benchmark graphs (minnodes=", _cfg[].minnodes, " maxnodes=", _cfg[].maxnodes, ")")
         return list end
 
+        # ── Releasing an instance's artefacts ──────────────────────────────────────────
+        # The raw proof pair is the largest thing on disk and is dead the moment its
+        # instance stops making progress, however it stopped. Every caller below is
+        # wrapped so that `release_raw` runs on EVERY exit — the early returns, and the
+        # exceptions the @threads loop swallows.
+        #
+        # This is a net under the eager `tryrm`s, not a replacement for them. Those sit
+        # where they do for a reason: deleting the raw pair BEFORE `certify(ins,"smol")`
+        # frees tens of gigabytes ahead of a check that may run for `vt=` seconds. Relying
+        # on the net alone would hold every raw proof across that window and make peak
+        # disk far worse than it is now.
+        #
+        # What used to leak, all of it observed on the 2026-09-01 grid: a trim returning
+        # `:failed` (which is BOTH a non-zero exit and a trimmer that exited 0 without a
+        # complete `.smol.*`), a resolv iteration stopping on a truncated or timed-out
+        # re-solve, and any throw at all.
+    release_raw(ins) = _cfg[].keepraw || (tryrm(_cfg[].proofs * ins * pbp);
+                                          tryrm(_cfg[].proofs * ins * opb))
+
+        # The trimmed pair is different: when it FAILS to certify it is the only evidence
+        # of the failure, and small failing pairs are what every `docs/failing-pairs/`
+        # investigation has run on. So a failed trimmed proof is kept — but capped, or a
+        # run accumulates terabytes of them. Above the cap the pair is deleted and the
+        # size recorded, so the log still says an artefact existed and how big it was.
+    const smol_keep_max = 100 * 1024^2
+
+    function release_smol(ins, verified::Bool)
+        _cfg[].keepraw && return
+        p = _cfg[].proofs * ins * smol_pbp
+        o = _cfg[].proofs * ins * smol_opb
+        if verified
+            tryrm(p); tryrm(o); return
+        end
+        sz = (isfile(o) ? filesize(o) : 0) + (isfile(p) ? filesize(p) : 0)
+        if sz > smol_keep_max
+            logstage(ins, "smol DISCARDED", sz)
+            tryrm(p); tryrm(o)
+        end
+        return end
+
     function run_trim_subprocess(ins, subargs, script)
         # No wait_for_disk here on purpose: this thread is holding its own raw proof
         # already, so blocking it holds that space hostage and the release it is waiting
@@ -310,7 +350,7 @@
                 printstyled("  $ins: $msg\n"; color=:red)
                 open(_cfg[].proofs*ins*".err", "a") do f; println(f, msg) end
                 logstage(ins, "trim MEMOUT", _cfg[].maxinstmem_gb)
-                touch(memout_sentinel(ins))
+                mark_memout!(ins)
                 return :memout
             else
                 msg = "Timeout after $(_cfg[].trimtimeout)s (SIGKILL after $(trim_kill_grace)s grace)"
@@ -338,6 +378,7 @@
             iter += 1
             if !isfile(cur_pat) || !isfile(cur_tar)
                 open(outfile, "a") do f; println(f, "resolv STOP missing_lads") end
+                tryrm(cur_pat); tryrm(cur_tar)   # one of the pair may exist; its sibling does not
                 printstyled("  resolv: core LADs missing at iter $iter\n"; color=:red); return
             end
             np = parse(Int, readline(cur_pat))
@@ -351,59 +392,53 @@
             open(outfile, "a") do f; println(f, "resolv ITER $iter PAT $np TAR $nt") end
             core_ins = ins * ".core$iter"
             tryrm(_cfg[].proofs*core_ins*".err")
-            t = @elapsed (ok, timed_out) = runsolver(core_ins, cur_pat, cur_tar)
-            if !ok
-                stop = timed_out ? "solver_timeout" : "solver_failed"
-                open(outfile, "a") do f; println(f, "resolv STOP $stop") end
-                tryrm(cur_pat); tryrm(cur_tar)
-                printstyled("  resolv: solver failed/timeout at iter $iter ($(round(t;digits=1))s)\n"; color=:red); return
-            end
-            if isempty(pbpconclusion(core_ins))
-                open(outfile, "a") do f; println(f, "resolv STOP truncated") end
-                tryrm(cur_pat); tryrm(cur_tar)
-                printstyled("  $ins resolv iter $iter: truncated proof — aborting\n"; color=:red)
-                open(_cfg[].proofs*core_ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
-                return
-            end
-            printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
-            # Each iteration repeats the whole certification chain of the top-level
-            # instance: certify the reduced proof, trim it, certify the trimmed proof.
-            _cfg[].verif && certify(core_ins, "full")
-            if use_subprocess
-                trim_status = run_trim_subprocess(core_ins, subargs, script)
-                if trim_status !== :ok
-                    stop = trim_status === :timeout ? "trim_timeout" :
-                           trim_status === :memout  ? "trim_memout"  : "trim_failed"
+            # Every exit below — and there are six — leaves this iteration's raw proof
+            # behind without the net. The loop, not the caller, owns `core_ins`.
+            try
+                t = @elapsed (ok, timed_out) = runsolver(core_ins, cur_pat, cur_tar)
+                if !ok
+                    stop = timed_out ? "solver_timeout" : "solver_failed"
                     open(outfile, "a") do f; println(f, "resolv STOP $stop") end
-                    if trim_status === :timeout || trim_status === :memout
-                        if !_cfg[].keepraw
-                            tryrm(_cfg[].proofs * core_ins * pbp)
-                            tryrm(_cfg[].proofs * core_ins * opb)
-                        end
-                    end
+                    tryrm(cur_pat); tryrm(cur_tar)
+                    printstyled("  resolv: solver failed/timeout at iter $iter ($(round(t;digits=1))s)\n"; color=:red); return
+                end
+                if isempty(pbpconclusion(core_ins))
+                    open(outfile, "a") do f; println(f, "resolv STOP truncated") end
+                    tryrm(cur_pat); tryrm(cur_tar)
+                    printstyled("  $ins resolv iter $iter: truncated proof — aborting\n"; color=:red)
+                    open(_cfg[].proofs*core_ins*".err", "a") do f; println(f, "proof truncated: no conclusion") end
                     return
                 end
-            else
-                printabline(core_ins)
-                parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
-                printabline2(core_ins, parse_time, trim_time, write_time, cone_stats)
-                !isempty(coremsg) && println(coremsg)
+                printstyled("  $ins resolv iter $iter: $np pat / $nt tar → solved $(round(t;digits=1))s\n"; color=:cyan)
+                # Each iteration repeats the whole certification chain of the top-level
+                # instance: certify the reduced proof, trim it, certify the trimmed proof.
+                _cfg[].verif && certify(core_ins, "full")
+                if use_subprocess
+                    trim_status = run_trim_subprocess(core_ins, subargs, script)
+                    if trim_status !== :ok
+                        stop = trim_status === :timeout ? "trim_timeout" :
+                               trim_status === :memout  ? "trim_memout"  : "trim_failed"
+                        open(outfile, "a") do f; println(f, "resolv STOP $stop") end
+                        return
+                    end
+                else
+                    printabline(core_ins)
+                    parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(core_ins; mode=Grim())
+                    printabline2(core_ins, parse_time, trim_time, write_time, cone_stats)
+                    !isempty(coremsg) && println(coremsg)
+                end
+                release_raw(core_ins)
+                smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(core_ins, "smol") :
+                                                                 (-1,:missing,-1,:missing)
+                release_smol(core_ins, smol_vs === :verified)
+                # recurse_ok logs its own "resolv STOP <reason>" line.
+                recurse_ok(core_ins, smol_vs, smol_cs) ||
+                    (tryrm(cur_pat); tryrm(cur_tar); return)
+                cur_pat = _cfg[].proofs * "vis/" * core_ins * ".core.pat.lad"
+                cur_tar = _cfg[].proofs * "vis/" * core_ins * ".core.tar.lad"
+            finally
+                release_raw(core_ins)
             end
-            if !_cfg[].keepraw
-                tryrm(_cfg[].proofs * core_ins * pbp)
-                tryrm(_cfg[].proofs * core_ins * opb)
-            end
-            smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(core_ins, "smol") :
-                                                             (-1,:missing,-1,:missing)
-            if !_cfg[].keepraw && smol_vs === :verified
-                tryrm(_cfg[].proofs * core_ins * smol_pbp)
-                tryrm(_cfg[].proofs * core_ins * smol_opb)
-            end
-            # recurse_ok logs its own "resolv STOP <reason>" line.
-            recurse_ok(core_ins, smol_vs, smol_cs) ||
-                (tryrm(cur_pat); tryrm(cur_tar); return)
-            cur_pat = _cfg[].proofs * "vis/" * core_ins * ".core.pat.lad"
-            cur_tar = _cfg[].proofs * "vis/" * core_ins * ".core.tar.lad"
         end end
 
         # Shared prologue for both instance drivers: OOM sentinel, log reset, solve,
@@ -448,7 +483,7 @@
                         printstyled("  $ins SAT (no-logging solve) — skipping\n"; color=:yellow)
                         return :skip
                     elseif v0 === :unknown
-                        touch(_cfg[].proofs * ins * ".timeout$(_cfg[].nopltimeout)")
+                        mark_timeout!(ins, _cfg[].nopltimeout)
                         printstyled("  $ins did not conclude in $(_cfg[].nopltimeout)s without logging — skipping\n"; color=:red)
                         return :skip
                     end
@@ -469,7 +504,7 @@
                         printstyled("  $ins SAT — skipping\n"; color=:yellow)
                         logstage(ins, "solve VERDICT", "SAT"); logstage(ins, "solve TIME", round(t; digits=2))
                     elseif timed_out
-                        touch(_cfg[].proofs * ins * ".timeout$(_cfg[].solvertimeout)")
+                        mark_timeout!(ins, _cfg[].solvertimeout)
                         tryrm(_cfg[].proofs * ins * pbp)
                         tryrm(_cfg[].proofs * ins * opb)
                         printstyled("  $ins solver timed out ($(round(t;digits=1))s)\n"; color=:red)
@@ -504,7 +539,7 @@
                 # maxmem= does not re-solve it from scratch. Only when a partial .pbp is
                 # actually on disk — pbpconclusion() also returns "" for a MISSING file,
                 # and sentinelling that would permanently skip an instance never solved.
-                partial && touch(memout_sentinel(ins))
+                partial && mark_memout!(ins)
                 logstage(ins, "solve ERR", "truncated_proof"); return :skip
             end
         end
@@ -548,32 +583,22 @@
         # "the untrimmed proof could not be certified, the trimmed one could" as a fact
         # about one and the same solve, and it keeps the elaborated full proof — the
         # largest file the pipeline ever writes — off disk while the trimmer works.
-        _cfg[].verif && certify(ins, "full")
-        # The trim is a SIBLING of that certification, not its child: it runs whatever
-        # VeriPB said. An instance the full checker times out on is exactly the case the
-        # rescue result is about, so it must not be skipped here.
-        trim_status = run_trim_subprocess(ins, subargs, script)
-        if trim_status !== :ok
-            if trim_status === :timeout || trim_status === :memout
-                if !_cfg[].keepraw
-                    tryrm(_cfg[].proofs * ins * pbp)
-                    tryrm(_cfg[].proofs * ins * opb)
-                end
-            end
-            return
-        end
-        if !_cfg[].keepraw
-            tryrm(_cfg[].proofs * ins * pbp)
-            tryrm(_cfg[].proofs * ins * opb)
-        end
-        smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(ins, "smol") :
-                                                         (-1,:missing,-1,:missing)
-        if !_cfg[].keepraw && smol_vs === :verified
-            tryrm(_cfg[].proofs * ins * smol_pbp)
-            tryrm(_cfg[].proofs * ins * smol_opb)
-            touch(_cfg[].proofs * ins * ".done")
-        end
-        recurse_ok(ins, smol_vs, smol_cs) && run_resolv_loop(ins, true, subargs, script) end
+        try
+            _cfg[].verif && certify(ins, "full")
+            # The trim is a SIBLING of that certification, not its child: it runs whatever
+            # VeriPB said. An instance the full checker times out on is exactly the case the
+            # rescue result is about, so it must not be skipped here.
+            trim_status = run_trim_subprocess(ins, subargs, script)
+            trim_status === :ok || return
+            release_raw(ins)
+            smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(ins, "smol") :
+                                                             (-1,:missing,-1,:missing)
+            release_smol(ins, smol_vs === :verified)
+            smol_vs === :verified && touch(_cfg[].proofs * ins * ".done")
+            recurse_ok(ins, smol_vs, smol_cs) && run_resolv_loop(ins, true, subargs, script)
+        finally
+            release_raw(ins)
+        end end
 
     function run_instance_full(ins)
         if !_cfg[].overwrite && smol_complete(ins)
@@ -594,34 +619,31 @@
         end
         prepare_instance(ins) === :ok || return
         grim_verif_ok = false
-        if !_cfg[].nonorm
-            _cfg[].verif && certify(ins, "full")
-            printabline(ins)
-            parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
-            printabline2(ins,parse_time,trim_time,write_time,cone_stats)
-            !isempty(coremsg) && println(coremsg)
-            # After printabline2, which reads the raw proof's sizes for the table row.
-            if !_cfg[].keepraw && !_cfg[].clit
-                tryrm(_cfg[].proofs * ins * pbp)
-                tryrm(_cfg[].proofs * ins * opb)
+        try
+            if !_cfg[].nonorm
+                _cfg[].verif && certify(ins, "full")
+                printabline(ins)
+                parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
+                printabline2(ins,parse_time,trim_time,write_time,cone_stats)
+                !isempty(coremsg) && println(coremsg)
+                # After printabline2, which reads the raw proof's sizes for the table row,
+                # and not under clit, whose second trim reads the same raw pair.
+                _cfg[].clit || release_raw(ins)
+                smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(ins, "smol") :
+                                                                 (-1,:missing,-1,:missing)
+                grim_verif_ok = smol_vs === :verified
+                recurse_ok(ins, smol_vs, smol_cs) && run_resolv_loop(ins, false)
             end
-            smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(ins, "smol") :
-                                                             (-1,:missing,-1,:missing)
-            grim_verif_ok = smol_vs === :verified
-            recurse_ok(ins, smol_vs, smol_cs) && run_resolv_loop(ins, false)
-        end
-        if _cfg[].clit
-            printabline(ins)
-            parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
-            printabline2(ins,parse_time,trim_time,write_time,cone_stats)
-            _cfg[].verif && certify(ins, "smol")
-        end
-        if !_cfg[].keepraw && grim_verif_ok
-            tryrm(_cfg[].proofs * ins * pbp)
-            tryrm(_cfg[].proofs * ins * opb)
-            tryrm(_cfg[].proofs * ins * smol_pbp)
-            tryrm(_cfg[].proofs * ins * smol_opb)
-            touch(_cfg[].proofs * ins * ".done")
+            if _cfg[].clit
+                printabline(ins)
+                parse_time,trim_time,write_time,cone_stats,_ = trimnalyse(ins; mode=Clit())
+                printabline2(ins,parse_time,trim_time,write_time,cone_stats)
+                _cfg[].verif && certify(ins, "smol")
+            end
+            release_smol(ins, grim_verif_ok)
+            grim_verif_ok && touch(_cfg[].proofs * ins * ".done")
+        finally
+            release_raw(ins)
         end end
 
         # Route 2 is implemented: runladsolver feeds LAD proofs into the same
@@ -762,7 +784,7 @@
                                     open(_cfg[].proofs*inst_name*".err", "a") do f
                                         println(f, "OOM at $(round(rss; digits=1))G (limit $(_cfg[].maxinstmem_gb)G, stage $stage)")
                                     end
-                                    inst_name == "?" || touch(memout_sentinel(inst_name))
+                                    inst_name == "?" || mark_memout!(inst_name)
                                 catch
                                     # Ignore errors writing .err file (may not have permissions)
                                 end
@@ -794,26 +816,13 @@
         # "no conclusion (truncated proof)" for every UNSAT instance of the run.
         push!(subargs, _cfg[].proofs)
         script = "bin/trimnalyser.jl"
-        # Pre-scan for .timeoutNNN sentinels so we can skip without spawning subprocesses
-        timeout_cache = Dict{String,Int}()
-        memout_cache  = Dict{String,Int}()
-        if isdir(_cfg[].proofs)
-            for fname in readdir(_cfg[].proofs)
-                m = match(r"^(.+)\.timeout(\d+)$", fname)
-                if m !== nothing
-                    inst = String(m.captures[1])
-                    t    = parse(Int, m.captures[2])
-                    timeout_cache[inst] = max(get(timeout_cache, inst, 0), t)
-                end
-                m = match(r"^(.+)\.memout(\d+)$", fname)
-                if m !== nothing
-                    inst = String(m.captures[1])
-                    g    = parse(Int, m.captures[2])
-                    memout_cache[inst] = max(get(memout_cache, inst, 0), g)
-                end
-            end
-            isempty(timeout_cache) || println("%Skipping $(length(timeout_cache)) previously timed-out instance(s)")
-            isempty(memout_cache)  || println("%Skipping $(length(memout_cache)) previously OOM-killed instance(s)")
+        # One `readdir` of the proofs directory for the whole run. It serves the cheap
+        # pre-check below AND every later `timed_out_at_current_st` /
+        # `memout_at_current_maxmem` call, which used to rescan the directory per
+        # instance per thread (see the sentinel index in pipeline.jl).
+        let (nt, nm) = index_sentinels!()
+            nt == 0 || println("%Skipping $nt previously timed-out instance(s)")
+            nm == 0 || println("%Skipping $nm previously OOM-killed instance(s)")
         end
         wall = @elapsed Threads.@threads :greedy for ins in list
             try
@@ -821,8 +830,8 @@
                 spawn = _cfg[].overwrite ||
                     (!isfile(_cfg[].proofs * ins * ".done") &&
                      !isfile(_cfg[].proofs * ins * ".sat")  &&
-                     get(timeout_cache, ins, 0) < _cfg[].solvertimeout &&
-                     get(memout_cache, ins, 0)  < _cfg[].maxinstmem_gb)
+                     !timed_out_at_current_st(ins) &&
+                     !first(memout_at_current_maxmem(ins)))
                 if spawn
                     run_instance_batch(ins, subargs, script)
                 end # if spawn

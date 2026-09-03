@@ -13,7 +13,56 @@
     smol_complete(ins) = isfile(_cfg[].proofs*ins*".done") ||
                          (isfile(_cfg[].proofs*ins*smol_opb) && !isempty(pbpconclusion(ins, smol_pbp)))
 
+        # ── Sentinel index ────────────────────────────────────────────────────────────
+        # `.timeoutNNN` and `.memoutNNN` used to be located by a full `readdir` of the
+        # proofs directory — once per instance, per call, from every thread. A finished
+        # column's directory holds a quarter of a million files, so that scan grew into
+        # the dominant cost of a run rather than a lookup.
+        #
+        # The index is built once by `index_sentinels!` and kept current by
+        # `mark_timeout!`/`mark_memout!`, the only two places a sentinel is created. It
+        # is monotone: entries only ever rise, exactly as the filesystem's do.
+        #
+        # `_sentinels_ready[]` false means "not indexed", and both lookups fall back to
+        # the old scan. Single-instance mode leaves it false on purpose: one cheap call
+        # beats a startup pass. Never flip it true over a partial index — a false
+        # POSITIVE here silently drops an instance from a table cell, which is the same
+        # trap the `.memoutNNN` note below warns about. A false negative only costs a
+        # re-attempt, so a sentinel written by a trim subprocess (which has its own
+        # index, unused) being missed by the parent is the safe direction.
+    const _timeout_idx     = Dict{String,Int}()
+    const _memout_idx      = Dict{String,Int}()
+    const _sentinel_lk     = ReentrantLock()
+    const _sentinels_ready = Ref(false)
+
+    function index_sentinels!()
+        lock(_sentinel_lk) do
+            empty!(_timeout_idx); empty!(_memout_idx)
+            if isdir(_cfg[].proofs)
+                for f in readdir(_cfg[].proofs)
+                    m = match(r"^(.+)\.timeout(\d+)$", f)
+                    if m !== nothing
+                        k = String(m.captures[1]); v = parse(Int, m.captures[2])
+                        _timeout_idx[k] = max(get(_timeout_idx, k, 0), v)
+                        continue
+                    end
+                    m = match(r"^(.+)\.memout(\d+)$", f)
+                    if m !== nothing
+                        k = String(m.captures[1]); v = parse(Int, m.captures[2])
+                        _memout_idx[k] = max(get(_memout_idx, k, 0), v)
+                    end
+                end
+            end
+            _sentinels_ready[] = true
+        end
+        return (length(_timeout_idx), length(_memout_idx)) end
+
     function timed_out_at_current_st(ins)
+        if _sentinels_ready[]
+            return lock(_sentinel_lk) do
+                get(_timeout_idx, ins, 0) >= _cfg[].solvertimeout
+            end
+        end
         pref = ins * ".timeout"
         for f in readdir(_cfg[].proofs)
             startswith(f, pref) || continue
@@ -26,6 +75,12 @@
         # maxmem= limit (GB) in force when the instance was OOM killed or produced a
         # truncated proof. Re-running is pointless unless the new limit is larger.
     function memout_at_current_maxmem(ins)
+        if _sentinels_ready[]
+            return lock(_sentinel_lk) do
+                g = get(_memout_idx, ins, 0)
+                g >= _cfg[].maxinstmem_gb ? (true, g) : (false, 0)
+            end
+        end
         pref = ins * ".memout"
         for f in readdir(_cfg[].proofs)
             startswith(f, pref) || continue
@@ -34,7 +89,21 @@
         end
         (false, 0) end
 
-    memout_sentinel(ins) = _cfg[].proofs * ins * ".memout" * string(round(Int, _cfg[].maxinstmem_gb))
+    memout_sentinel(ins)      = _cfg[].proofs * ins * ".memout" * string(round(Int, _cfg[].maxinstmem_gb))
+    timeout_sentinel(ins, t)  = _cfg[].proofs * ins * ".timeout" * string(t)
+
+        # The only two places a sentinel is created. Route every `touch` through them so
+        # the index cannot drift from the directory.
+    function mark_timeout!(ins, t)
+        touch(timeout_sentinel(ins, t))
+        lock(_sentinel_lk) do; _timeout_idx[ins] = max(get(_timeout_idx, ins, 0), t) end
+        return end
+
+    function mark_memout!(ins)
+        touch(memout_sentinel(ins))
+        g = round(Int, _cfg[].maxinstmem_gb)
+        lock(_sentinel_lk) do; _memout_idx[ins] = max(get(_memout_idx, ins, 0), g) end
+        return end
 
         # Check if instance was previously OOM killed, return (was_killed, memory_info)
     function was_oom_killed(ins)
@@ -75,7 +144,7 @@
                 # maxmem= does not re-solve it from scratch. Only when a partial .pbp is
                 # actually on disk — pbpconclusion() also returns "" for a MISSING file,
                 # and sentinelling that would permanently skip an instance never solved.
-                partial && touch(memout_sentinel(ins))
+                partial && mark_memout!(ins)
                 return
             end
         end
