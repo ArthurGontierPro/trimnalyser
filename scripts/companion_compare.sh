@@ -222,7 +222,10 @@ runone() {
         # itself accepts — the reason, so the failures can be classified and sent
         # upstream instead of showing up as a bare count.
         steps=$(tail -n +"$n1" "$log" | sed -n 's/^Number of trimmed steps: *\([0-9]*\).*/\1/p' | head -1)
-        note=$(tail -n +"$n1" "$log" | grep -m1 -E '^(Error|Caused by|    [A-Z])' | tr ',;' '..' | cut -c1-160)
+        # Prefer the detail under `Caused by:` — the top-level line is always the same
+        # generic "Syntax error while parsing proof file!", which classifies nothing.
+        note=$(tail -n +"$n1" "$log" | sed -n '/^Caused by:/{n;s/^ *//;p;q}' | tr ',;' '..' | cut -c1-200)
+        [[ -z "$note" ]] && note=$(tail -n +"$n1" "$log" | grep -m1 -E '^(Error|error)' | tr ',;' '..' | cut -c1-200)
         [[ $RC -eq 0 ]] && note=""
         ck=; cs=
         if [[ "$st" == "ok" ]]; then
