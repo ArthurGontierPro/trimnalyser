@@ -252,8 +252,16 @@ end
 # ── head-to-head, paired ─────────────────────────────────────────────────────────────
 # X = how many times smaller OUR certificate is than theirs, on instances both handled.
 # Y = how many times longer we take to produce it.  Both sgm, both paired.
+# The trim-time ratio needs a floor. Our reused `ta_s` is `grim_total_time`, measured
+# INSIDE the process; `ft_s`/`tb_s` are wall clocks that include the binary's own startup
+# (~0.1 s for veripb). On a family where trimming takes milliseconds — bio's median is
+# 0.03 s — that startup IS the measurement, and the ratio says more about process launch
+# than about trimming. So the ratio is reported twice: over everything, and over the rows
+# where both tools spent at least TIME_FLOOR seconds, where startup cannot dominate.
+const TIME_FLOOR = 1.0
+
 function headtohead(sel, other)
-    sz = Float64[]; pz = Float64[]; ti = Float64[]
+    sz = Float64[]; pz = Float64[]; ti = Float64[]; ti_hi = Float64[]
     for r in sel
         a = certsize(r, "ta"); b = certsize(r, other)
         (a === nothing || b === nothing) && continue
@@ -263,8 +271,9 @@ function headtohead(sel, other)
         ta = trimtime(r, "ta"); tb = trimtime(r, other)
         (ta === nothing || tb === nothing || tb <= 0) && continue
         push!(ti, ta / tb)
+        (ta >= TIME_FLOOR && tb >= TIME_FLOOR) && push!(ti_hi, ta / tb)
     end
-    return sz, pz, ti
+    return sz, pz, ti, ti_hi
 end
 println()
 for other in filter(!=("ta"), present)
@@ -275,26 +284,29 @@ for other in filter(!=("ta"), present)
                   filter(r -> r["instance"] in
                          ["LVg19g36","LVg2g3","LVg34g51","LVg5g24","LVg7g25"], rows) :
                   filter(r -> famof(r) == fam, rows)
-        sz, pz, ti = headtohead(sel, other)
+        sz, pz, ti, ti_hi = headtohead(sel, other)
         isempty(sz) && continue
         println(rpad(fam, 13), "n=", rpad(length(sz), 6),
                 "  cert smaller by sgm ", round(sgm(sz); digits = 2),
                 "  proof smaller by sgm ", round(sgm(pz); digits = 2),
                 "  slower by sgm ", round(sgm(ti); digits = 2),
-                " (median ", round(med(ti); digits = 2), ")")
+                " (>", TIME_FLOOR, "s only: ", round(sgm(ti_hi); digits = 2),
+                ", n=", length(ti_hi), ")")
     end
     # The four \ph macros, spelled out so they can be pasted without re-deriving them.
-    szA, pzA, tiA = headtohead(rows, other)
-    szL, pzL, tiL = headtohead(filter(r -> r["instance"] in
+    szA, pzA, tiA, tiAh = headtohead(rows, other)
+    szL, pzL, tiL, tiLh = headtohead(filter(r -> r["instance"] in
                      ["LVg19g36","LVg2g3","LVg34g51","LVg5g24","LVg7g25"], rows), other)
     println()
     println("  sec:compress placeholders (vs $other):")
     println("    \\ph{X}   = ", round(sgm(szA); digits = 2), "   certificate, n=", length(szA),
             "   [proof only: ", round(sgm(pzA); digits = 2), "]")
-    println("    \\ph{Y}   = ", round(sgm(tiA); digits = 2), "   n=", length(tiA))
+    println("    \\ph{Y}   = ", round(sgm(tiA); digits = 2), "   n=", length(tiA),
+            "   [both >", TIME_FLOOR, "s: ", round(sgm(tiAh); digits = 2), ", n=", length(tiAh), "]")
     println("    \\ph{XLV} = ", round(sgm(szL); digits = 2), "   certificate, n=", length(szL),
             "   [proof only: ", round(sgm(pzL); digits = 2), "]")
-    println("    \\ph{YLV} = ", round(sgm(tiL); digits = 2), "   n=", length(tiL))
+    println("    \\ph{YLV} = ", round(sgm(tiL); digits = 2), "   n=", length(tiL),
+            "   [both >", TIME_FLOOR, "s: ", round(sgm(tiLh); digits = 2), ", n=", length(tiLh), "]")
     println()
     # Why a trimmer refused a proof VeriPB itself accepted. These go upstream, so they are
     # printed in full rather than counted.
