@@ -125,6 +125,55 @@ points at label lifetime across a level change. This is the first candidate to s
 upstream. The harness records the reason per instance (`ft_note`) so the refusals can be
 classified rather than counted.
 
+## The full-suite run (weekend, 2026-09-04 onward)
+
+The 171-instance run above is the stratified table. The weekend run is the same comparison
+over the whole suite — all **25,590** instances, enumerated by
+`scripts/dump_instances.jl`, which calls `allgraphinstances()` rather than re-deriving the
+per-family pairing rules (they differ between all eight families and are exactly what a
+reimplementation gets subtly wrong).
+
+Two design points, both forced by things that have already gone wrong here:
+
+* **Chunked, not two-phase.** Producing every stock proof first needs them all on disk at
+  once — the ~13 TB that exhausted `/scratch` before. `companion_run_all.sh` walks the
+  shard in chunks of 96, into a per-chunk proof directory, and deletes that directory the
+  moment the chunk's rows are in the CSV. Peak disk is one chunk. Resumable at chunk
+  granularity via `.done` markers.
+* **Random order, fixed seed.** The list is shuffled with `SEED=20260904` and dealt
+  round-robin to the shards, so shards are disjoint and reproducible from the seed alone,
+  and each walks the suite in random order. This run *will* be stopped before it finishes —
+  25,590 instances through four arms is days of work — so what matters is that stopping it
+  early leaves an **unbiased sample**, not everything whose name sorts first.
+
+| shard | node | | 
+|---|---|---|
+| 1/3 | fataepyc-02 | |
+| 2/3 | fataepyc-06 | also hosts the trimmer bug-fix work |
+| 3/3 | fataepyc-01 | starts when the 171-instance run there finishes |
+
+Settings: `CHUNK=96 JOBS=24 THREADS=92,1 ST=600 STNOPL=60 TT=1800 VT=1800 MAXMEM=32`.
+Note `TT`/`VT` are **1800** here against **3600** for the 171-instance run — the two are
+comparable arm-against-arm within each run, but pool their rows only under the lower cap.
+
+**A checkout per node** (`~/trimnalyser-companion-<host>`), not one shared. `$HOME` is a
+single NFS mount across all nine nodes, and two nodes building `trimnalyser.so` in one tree
+is the shared-sysimage race that killed `lad-fc-pl` with a Bus error on 2026-09-01. The
+launcher also builds each node's sysimage up front, so no two chunks can race on it, and
+refuses to start if `src/` and `bin/` differ from the grid's `f70d02c`.
+
+## Disk reclaimed
+
+The three finished NDS-rerun proof trees were deleted, ~10 TB in total, after checking that
+each configuration's logs are in `/cluster/arthur/logs` — which is the entire reason logs
+were moved out of the proof tree.
+
+| node | tree | freed |
+|---|---|---|
+| fataepyc-01 | `gss/gss-nosupp-nds` | 825 GB |
+| fataepyc-02 | `gss/gss-proof-nds` | 7.6 TB |
+| fataepyc-06 | `gss/gss-cliques-nds` | 1.6 TB |
+
 ## Reproducing
 
 ```bash
