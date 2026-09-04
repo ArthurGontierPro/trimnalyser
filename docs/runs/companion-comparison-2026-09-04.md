@@ -63,17 +63,38 @@ the trimmer the paper's runs use.
 
 ## Binaries
 
-| | built from | version string |
-|---|---|---|
-| `veripb` | `main` @ `78db9573` | `3.0.2` |
-| `veripb_ft` | `origin/feature_trimmer` @ `958f1d20` (2026-05-02) | `CP2026-enumeration-448-g958f1d20` |
-| `veripb_tb` | `origin/feature/trimmer-base` | **not built** |
+| | built from | tip | note |
+|---|---|---|---|
+| `veripb` | `main` | `78db9573` | the shared checker, v3.0.2 — every arm is re-checked with this one |
+| `veripb_ft` | `origin/feature_trimmer` | `e98c4a31` (2026-08-11) | the public official trimmer |
+| `veripb_tb` | `origin/feature/trimmer-base` | `af219d36` (2026-09-03) | the unreleased rewrite |
 
-`feature/trimmer-base` **has never been fetched into either checkout**, and neither the
-laptop nor the cluster can currently reach `gitlab.com/MIAOresearch/software/veripb-dev`:
-the laptop's two SSH keys are both rejected, and the cluster's remote is `https` with no
-stored credential. Arm `tb` is fully wired — `companion_build.sh tb` and `ARMS="… tb"` —
-and will produce its columns the moment the branch is reachable. Everything else runs now.
+**Getting them.** Both branches live on `gitlab.com/MIAOresearch/software/veripb-dev`,
+which neither machine could reach at first. The key that works is
+`~/.ssh/fatamiao` **on the cluster** (comment `arthur@fataepyc-10`); the laptop's own two
+keys are both rejected. Fetch on the **head node** — the compute nodes have no route to
+gitlab.com, and an unreachable remote there hangs rather than fails:
+
+```bash
+ssh fataepyc-head
+cd ~/veripb-dev
+git remote set-url origin git@gitlab.com:MIAOresearch/software/veripb-dev.git
+GIT_SSH_COMMAND="ssh -i ~/.ssh/fatamiao -o IdentitiesOnly=yes" git fetch --all --prune
+```
+
+`$HOME` is shared NFS, so one fetch on the head serves every node.
+
+Two things that fetch changed:
+
+* `feature_trimmer` had moved **958f1d20 → e98c4a31**, so the first smoke ran against a
+  three-month-old tip. Everything reported below is the current one.
+* `feature/trimmer-base` is **not a descendant of `feature_trimmer`** — it branches off
+  `main` and re-implements the trimmer in its own `veripb-trimmer` crate. Two practical
+  consequences, both now handled by the scripts rather than by hand:
+  it declares `rust-version = 1.92.0` where the cluster default is `1.86.0`
+  (`rustup toolchain install 1.92.0` on the head; `~/.rustup` is shared too), and its
+  `trim` subcommand has **no output-formula positional** — that moved to `check` — so the
+  argv that suits `feature_trimmer` would leave a stray path there.
 
 ## Findings so far
 
@@ -83,7 +104,9 @@ accepted and then never written on these proofs, so its certificate keeps the or
 reports two compression columns — certificate (model + elaborated proof) and proof only —
 because quoting either one alone misrepresents somebody.
 
-**2. It refuses proofs VeriPB 3.0.2 verifies.** On `LVg10g22`, at `.pbp:5195`:
+**2. It refuses proofs VeriPB 3.0.2 verifies.** Seen on `LVg10g22` at `.pbp:5195`, against
+`feature_trimmer` @ `958f1d20`; to be re-confirmed against `e98c4a31`, which carries
+several hint- and id-handling fixes:
 
 ```
 setlvl 0;
@@ -126,6 +149,5 @@ Two traps, both hit once already:
 
 ## Open
 
-- [ ] arm `tb` — needs GitLab access to `feature/trimmer-base`
 - [ ] fill `tab:configs-companion` and the four `\ph` of `sections/5-compression.tex`
 - [ ] send the `wiplvl` label bug upstream, with the minimised repro
