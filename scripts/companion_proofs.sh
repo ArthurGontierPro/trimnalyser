@@ -1,41 +1,7 @@
-#!/bin/bash
-# ══════════════════════════════════════════════════════════════════════════════════════
-# Phase 1 of the companion comparison: produce the STOCK PROOFS all three trimmers read.
-#
-# Solve with `keepraw` into a dedicated proof directory, so the raw <ins>.opb/<ins>.pbp
-# survive the run instead of being released (orchestrator.jl `release_raw`).  No verif,
-# no cake, no resolv: none of them is measured here, and the full-proof elaboration is
-# the single largest file the pipeline ever writes.
-#
-# Isolation, deliberately, on three axes:
-#
-#   * its own PROOF DIR   ($SCRATCH/companion/proofs/) — never the grid's namespaced tree
-#   * its own CHECKOUT    (~/trimnalyser-companion)    — $HOME is ONE shared NFS mount
-#     across all nine nodes, and rebuilding trimnalyser.so under a live orchestrator
-#     kills it with `signal 7 (2): Bus error`.  That is not hypothetical: it killed
-#     lad-fc-pl on fataepyc-08 on 2026-09-01.  Six grid columns are running right now,
-#     so this script must not touch ~/trimnalyser/trimnalyser.so at all.
-#   * its own LOG DIR     ($SCRATCH/companion/logs/)   — the grid's /cluster/arthur/logs
-#     is append-only and read by the aggregator; a comparison run has no business in it.
-#
-# Usage:  bash scripts/companion_proofs.sh <instfile> [config]
-#
-# Environment: THREADS (92,1)  ST (600)  STNOPL (60)  TT (6000)  MAXMEM (32)
-#              COMPANION_ROOT ($SCRATCH/companion)  EXTRA (extra ./trimnalyser args)
-# ══════════════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
-INSTFILE="${1:?usage: companion_proofs.sh <instfile> [config]}"
-CONFIG="${2:-gss-lazy}"
-
-case "$(hostname)" in
-    fataepyc*|*dcs.gla.ac.uk*) ;;
-    *) echo "refusing to run off a compute node (hostname=$(hostname))" >&2; exit 1 ;;
-esac
-[[ -f "$INSTFILE" ]] || { echo "missing instance list: $INSTFILE" >&2; exit 1; }
-grep -qve '^\s*#' -e '^\s*$' "$INSTFILE" || { echo "instance list is empty" >&2; exit 1; }
-grep -ve '^\s*#' -e '^\s*$' "$INSTFILE" | grep -q '/' && {
-    echo "instance list holds paths, not names — run scripts/companion_sample.sh first" >&2; exit 1; }
+MODE=run
+[[ "${1:-}" == "--sync" || "${COMPANION_SYNC:-0}" == "1" ]] && MODE=sync
 
 SCRATCH="${SCRATCH:-/scratch/arthur}"
 ROOT="${COMPANION_ROOT:-$SCRATCH/companion}"
@@ -46,28 +12,48 @@ UPSTREAM="${TRIMNALYSER_UPSTREAM:-$HOME/trimnalyser}"
 THREADS="${THREADS:-92,1}" ST="${ST:-600}" STNOPL="${STNOPL:-60}"
 TT="${TT:-6000}" MAXMEM="${MAXMEM:-32}"
 
-mkdir -p "$PROOFS" "$ROOT/logs"
-
 # ── a checkout of our own ────────────────────────────────────────────────────────────
-# `git clone --shared` would put the objects in $UPSTREAM/.git and make the two
-# checkouts share a fate; a plain clone is 1 MB since the 2026-08-21 history purge.
-if [[ ! -d "$SRC/.git" ]]; then
-    echo "== cloning $UPSTREAM -> $SRC =="
-    git clone --quiet "$UPSTREAM" "$SRC"
+# This script does NOT move $SRC. It used to, and that was a footgun of exactly the kind
+# the rest of this file exists to avoid: a second job (the cargo build, running out of the
+# same tree) had its scripts swapped mid-flight, and the sysimage build died with them.
+# One tree, one owner. Run `companion_proofs.sh --sync` when nothing else is using it.
+if [[ "$MODE" == "sync" ]]; then
+    if [[ ! -d "$SRC/.git" ]]; then
+        echo "== cloning $UPSTREAM -> $SRC =="
+        git clone --quiet "$UPSTREAM" "$SRC"
+    fi
+    # Point at the REAL origin, not at $UPSTREAM. Cloning from a local path makes that
+    # path the new origin, and a fetch from it transfers refs/heads only — so a commit
+    # that exists in $UPSTREAM merely as a remote-tracking ref would never arrive. That
+    # is the normal state here: while the grid is running, $UPSTREAM's worktree is
+    # deliberately pinned to the commit the live columns were launched at, and everything
+    # newer is only in refs/remotes.
+    ORIGIN_URL="$(git -C "$UPSTREAM" remote get-url origin 2>/dev/null || true)"
+    [[ -n "$ORIGIN_URL" ]] && git -C "$SRC" remote set-url origin "$ORIGIN_URL"
+    # Bounded: compute nodes reach the outside world only through the head, and an
+    # unreachable remote hangs on connect rather than failing.
+    timeout 120 git -C "$SRC" fetch --quiet --all --prune || echo "   fetch failed or timed out"
+    WANT="${COMPANION_REF:-origin/$(git -C "$UPSTREAM" rev-parse --abbrev-ref HEAD)}"
+    git -C "$SRC" checkout --quiet --force --detach "$WANT" 2>/dev/null || {
+        echo "cannot check out $WANT in $SRC — is it pushed?" >&2; exit 1; }
+    echo "== synced $SRC to $(git -C "$SRC" log --oneline -1) =="
+    exit 0
 fi
-# Point at the REAL origin, not at $UPSTREAM. Cloning from a local path makes that path
-# the new origin, and a fetch from it transfers refs/heads only — so a commit that exists
-# in $UPSTREAM merely as a remote-tracking ref would never arrive. That is the normal
-# state here: while the grid is running, $UPSTREAM's worktree is deliberately pinned to
-# the commit the live columns were launched at, and everything newer is only in
-# refs/remotes.  Hence also the default below: the upstream's UPSTREAM, not its HEAD.
-ORIGIN_URL="$(git -C "$UPSTREAM" remote get-url origin 2>/dev/null || true)"
-[[ -n "$ORIGIN_URL" ]] && git -C "$SRC" remote set-url origin "$ORIGIN_URL"
-timeout 120 git -C "$SRC" fetch --quiet --all --prune || echo "   fetch failed or timed out — using what is already here"
-WANT="${COMPANION_REF:-$(git -C "$UPSTREAM" rev-parse '@{u}' 2>/dev/null || git -C "$UPSTREAM" rev-parse HEAD)}"
-git -C "$SRC" checkout --quiet --force --detach "$WANT" 2>/dev/null || {
-    echo "cannot check out $WANT in $SRC — is it pushed?" >&2; exit 1; }
-echo "== companion checkout at $(git -C "$SRC" rev-parse --short HEAD) =="
+
+INSTFILE="${1:?usage: companion_proofs.sh <instfile> [config]   |   companion_proofs.sh --sync}"
+CONFIG="${2:-gss-lazy}"
+
+case "$(hostname)" in
+    fataepyc*|*dcs.gla.ac.uk*) ;;
+    *) echo "refusing to run off a compute node (hostname=$(hostname))" >&2; exit 1 ;;
+esac
+[[ -f "$INSTFILE" ]] || { echo "missing instance list: $INSTFILE" >&2; exit 1; }
+grep -qve '^\s*#' -e '^\s*$' "$INSTFILE" || { echo "instance list is empty" >&2; exit 1; }
+grep -ve '^\s*#' -e '^\s*$' "$INSTFILE" | grep -q '/' && {
+    echo "instance list holds paths, not names — run scripts/companion_sample.sh first" >&2; exit 1; }
+[[ -d "$SRC/.git" ]] || { echo "no checkout at $SRC — run: bash $0 --sync" >&2; exit 1; }
+mkdir -p "$PROOFS" "$ROOT/logs"
+echo "== companion checkout at $(git -C "$SRC" log --oneline -1) =="
 
 # Pin the binaries BEFORE julia starts: SOLVER_CONFIGS is a const dict built at module
 # load, so gssbin() reads $GLASGOW_SUBGRAPH_SOLVER_<rev> exactly once.
