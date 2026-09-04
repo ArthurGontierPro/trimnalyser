@@ -57,7 +57,10 @@ GRACE=30                       # `timeout` alone does not escalate; trims have w
 VERIPB="${VERIPB:-/scratch/arthur/veripb}"
 VERIPB_FT="${VERIPB_FT:-/scratch/arthur/veripb_ft}"
 VERIPB_TB="${VERIPB_TB:-/scratch/arthur/veripb_tb}"
-REPO="${TRIMNALYSER_REPO:-$HOME/trimnalyser}"
+# The COMPANION checkout, not ~/trimnalyser. While the grid runs, ~/trimnalyser is
+# pinned to the commit its live columns were launched at, so defaulting there would
+# quietly measure a different revision of the trimmer than the one under test.
+REPO="${TRIMNALYSER_REPO:-$HOME/trimnalyser-companion}"
 SO="${TRIMNALYSER_SO:-$REPO/trimnalyser.so}"
 
 WORK="$(dirname "$OUTCSV")/$(basename "$OUTCSV" .csv).parts"
@@ -126,12 +129,11 @@ runone() {
         t1=${EPOCHREALTIME/,/.}
         EL=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.3f", b-a}')
     }
-    # VeriPB's verdict comes from VERIFIED on stdout and NEVER from a file existing:
-    # `veripb -e` writes the elaboration header before it checks anything, so a rejected
-    # proof still leaves a ~40-byte file (see certify(), src/output.jl).
-    verdict() {  # $1 = marker line in the log since $2 offset
-        if grep -q '^ *VERIFIED' "$log" || grep -qi 'succe' "$log"; then echo ok; else echo fail; fi
-    }
+    # NOTE on every `grep -q VERIFIED` below: VeriPB's verdict comes from that word on
+    # stdout and NEVER from a file existing. `veripb -e` writes the elaboration's header
+    # before it checks anything, so a rejected proof still leaves a ~40-byte file
+    # (see certify(), src/output.jl). Each check greps only the lines its own stage
+    # appended, hence the `tail -n +$n0`.
     lines() { [[ -s "$1" ]] && wc -l < "$1" | tr -d ' ' || echo 0; }
     bytes() { [[ -e "$1" ]] && stat -c %s "$1" || echo 0; }
     # A timeout kill shows as 124 (or 137 after the -k escalation).
