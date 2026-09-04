@@ -55,9 +55,21 @@ build_one() {                       # $1 = branch  $2 = output binary name
         git -C "$REPO" worktree add --quiet --detach "$wt" "origin/$branch"
     fi
 
+    # Honour the branch's own `rust-version`. feature/trimmer-base needs 1.92 and the
+    # cluster's default is 1.86, so building it with the default toolchain fails on a
+    # message about edition/features that says nothing about the real cause. Install the
+    # toolchain on the HEAD node (`rustup toolchain install <v>`) — the compute nodes have
+    # no route to the outside world, but ~/.rustup is shared NFS, so they see it.
+    local want tc=""
+    want=$(sed -n 's/^rust-version *= *"\([0-9.]*\)".*/\1/p' "$wt/Cargo.toml" | head -1)
+    if [[ -n "$want" ]] && rustup toolchain list 2>/dev/null | grep -q "^$want-"; then
+        tc="+$want"; echo "   toolchain: $want (branch rust-version)"
+    elif [[ -n "$want" ]]; then
+        echo "   note: branch asks for rust $want; building with $(rustc --version | awk '{print $2}')"
+    fi
     # --locked would fail on a branch whose Cargo.lock predates the toolchain; we want
     # the branch's own dependency resolution, not ours, so plain build it is.
-    ( cd "$wt" && CARGO_TARGET_DIR="$target" cargo build --release 2>&1 | tail -20 )
+    ( cd "$wt" && CARGO_TARGET_DIR="$target" cargo $tc build --release 2>&1 | tail -20 )
 
     local built="$target/release/veripb"
     [[ -x "$built" ]] || { echo "!! $name: no binary at $built" >&2; return 1; }

@@ -194,15 +194,26 @@ runone() {
     fi
 
     # ── arms ft / tb: the VeriPB trimmers ────────────────────────────────────────────
-    run_vp_arm() {   # $1 = tag  $2 = binary
-        local tag="$1" bin="$2"
+    # $3 = "model" when the binary's `trim` takes an output-formula positional.
+    # feature_trimmer does; feature/trimmer-base moved that positional to `check` only,
+    # so passing it there makes clap read the path as a stray argument. Neither of them
+    # actually writes a reformulated model on these proofs — see the note in
+    # companion_table.jl — but the argv still has to be right per branch.
+    run_vp_arm() {   # $1 = tag  $2 = binary  $3 = model-positional support
+        local tag="$1" bin="$2" wantsmodel="${3:-}"
         local oopb="$PROOFS$ins.$tag.opb" opbp="$PROOFS$ins.$tag.pbp"
         rm -f "$oopb" "$opbp"
-        echo "### $tag: $bin trim $opb $pbp $oopb -e $opbp" >> "$log"
+        local -a trimcmd
+        if [[ "$wantsmodel" == "model" ]]; then
+            trimcmd=("$bin" trim "$opb" "$pbp" "$oopb" -e "$opbp")
+        else
+            trimcmd=("$bin" trim "$opb" "$pbp" -e "$opbp")
+        fi
+        echo "### $tag: ${trimcmd[*]}" >> "$log"
         local n1; n1=$(wc -l < "$log")
         # No --solution-state: these are UNSAT proofs and log no solutions (`grep -c '^sol'`
         # is 0), so the default `none` is the accurate promise. The binary warns anyway.
-        timed timeout -k "$GRACE" "$TT" "$bin" trim "$opb" "$pbp" "$oopb" -e "$opbp"
+        timed timeout -k "$GRACE" "$TT" "${trimcmd[@]}"
         local s=$EL st; st=$(stat_of $RC)
         local ob pb pl ck cs steps note
         ob=$(bytes "$oopb"); pb=$(bytes "$opbp"); pl=$(lines "$opbp")
@@ -228,10 +239,10 @@ runone() {
         ARM_OUT="$st,$s,$ob,$pb,$pl,$ck,$cs,$steps,$note"
     }
     if [[ " $RUN_ARMS " == *" ft "* ]]; then
-        run_vp_arm ft "$VERIPB_FT"; IFS=, read -r ft_status ft_s ft_opb_b ft_pbp_b ft_pbp_l ft_ck_status ft_ck_s ft_steps ft_note <<<"$ARM_OUT"
+        run_vp_arm ft "$VERIPB_FT" model; IFS=, read -r ft_status ft_s ft_opb_b ft_pbp_b ft_pbp_l ft_ck_status ft_ck_s ft_steps ft_note <<<"$ARM_OUT"
     fi
     if [[ " $RUN_ARMS " == *" tb "* ]]; then
-        run_vp_arm tb "$VERIPB_TB"; IFS=, read -r tb_status tb_s tb_opb_b tb_pbp_b tb_pbp_l tb_ck_status tb_ck_s tb_steps tb_note <<<"$ARM_OUT"
+        run_vp_arm tb "$VERIPB_TB" ""; IFS=, read -r tb_status tb_s tb_opb_b tb_pbp_b tb_pbp_l tb_ck_status tb_ck_s tb_steps tb_note <<<"$ARM_OUT"
     fi
 
     printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
