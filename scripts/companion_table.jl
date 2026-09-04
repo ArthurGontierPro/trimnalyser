@@ -35,6 +35,39 @@ med(v) = isempty(v) ? NaN : (s = sort(v); n = length(s);
 num(s) = (s === nothing || isempty(s)) ? nothing : tryparse(Float64, s)
 posnum(s) = (x = num(s); (x === nothing || x <= 0) ? nothing : x)
 
+# ── reuse ────────────────────────────────────────────────────────────────────────────
+# The baseline and the TrimAnalyser arm do not have to be recomputed: the grid pipeline
+# already logs every quantity they produce, per instance, for the whole suite —
+# `cake full ELAB SIZE` is the baseline certificate, `grim OPB/PBP SIZE` and
+# `cake smol ELAB SIZE` are ours, and `grim TIME` is the trim time. Glasgow is
+# deterministic for a fixed binary and flags, so the stock proof reproduces exactly and
+# those numbers describe the same proof the VeriPB trimmers are reading now.
+#
+# "Deterministic" is an assumption, though, and assumptions of that shape have been wrong
+# here before. So it is CHECKED PER ROW rather than taken globally: the comparison CSV
+# records the .opb and .pbp byte sizes it actually saw, and a row whose sizes disagree with
+# the grid's `inp_opb_size`/`inp_pbp_size` did not read the same proof — its reused columns
+# are dropped and it is counted as a mismatch. A nonzero mismatch count is the signal that
+# this whole shortcut is unsound; it is printed, never buried.
+const REUSE_MAP = Dict(
+    "base_status"      => ("veri_full_status",    s -> uppercase(s) == "VERIFIED" ? "ok" : "fail"),
+    "base_bytes"       => ("cake_elab_size",      identity),
+    # No base_s: the grid logs the full proof's verify time under a key the aggregator
+    # does not surface as a column. Nothing computes with it — only base_status and
+    # base_bytes are used — so it is left empty rather than guessed at.
+    "ta_opb_bytes"     => ("grim_opb_size",       identity),
+    "ta_pbp_bytes"     => ("grim_pbp_size",       identity),
+    "ta_elab_bytes"    => ("cake_smol_elab_size", identity),
+    # grim_total_time is parse+trim+write — the trimmer's whole job, which is what the
+    # externally-timed ft/tb arms measure. grim_trim_time alone would flatter us.
+    "ta_s"             => ("grim_total_time",     identity),
+    "ta_status"        => ("grim_total_time",     s -> isempty(s) ? "" : "ok"),
+    "ta_elab_status"   => ("veri_smol_status",    s -> uppercase(s) == "VERIFIED" ? "ok" : "fail"),
+    "ta_check_status"  => ("veri_smol_status",    s -> uppercase(s) == "VERIFIED" ? "ok" : "fail"),
+    "ta_elab_s"        => ("veri_smol_time",      identity),
+    "ta_check_s"       => ("veri_smol_time",      identity),
+)
+
 function readcsv(path)
     lines = readlines(path)
     isempty(lines) && return String[], Vector{Dict{String,String}}()
@@ -47,6 +80,46 @@ function readcsv(path)
         push!(rows, Dict(String(hdr[i]) => String(f[i]) for i in eachindex(hdr)))
     end
     return String.(hdr), rows
+end
+
+unq(x) = (y = strip(x); (length(y) >= 2 && y[1] == '"' && y[end] == '"') ? y[2:end-1] : y)
+
+"""
+Fill the base_* and ta_* columns of `rows` from a grid results CSV, for the rows where the
+stock proof provably matches. Returns (filled, mismatched, missing).
+"""
+function reuse!(rows, path, config)
+    hdr, grid = readcsv(path)
+    for c in ("instance", "config", "inp_opb_size", "inp_pbp_size")
+        c in hdr || error("reuse file $path has no `$c` column")
+    end
+    by = Dict{String,Dict{String,String}}()
+    for r in grid
+        unq(get(r, "config", "")) == config || continue
+        by[unq(r["instance"])] = r
+    end
+    println("reuse: $(length(by)) `$config` rows from $path")
+    filled = mismatch = missng = 0
+    for r in rows
+        g = get(by, r["instance"], nothing)
+        if g === nothing
+            missng += 1; continue
+        end
+        # The guard. Both sizes, exactly; a proof that differs at all is a different proof.
+        if unq(g["inp_opb_size"]) != strip(r["opb_bytes"]) ||
+           unq(g["inp_pbp_size"]) != strip(r["pbp_bytes"])
+            mismatch += 1
+            r["rc_note"] = "reuse-mismatch"
+            continue
+        end
+        for (dst, (src, f)) in REUSE_MAP
+            haskey(g, src) || continue     # column absent in this grid CSV: leave it empty
+            v = unq(g[src])
+            r[dst] = isempty(v) ? "" : String(f(v))
+        end
+        filled += 1
+    end
+    return filled, mismatch, missng
 end
 
 # A row counts for a tool only if that tool produced a proof the SHARED checker accepted.
@@ -106,9 +179,20 @@ end
 # ── load ─────────────────────────────────────────────────────────────────────────────
 args = copy(ARGS)
 texout = nothing
+reusefile = nothing; reuseconfig = "gss-lazy"
 let i = findfirst(a -> startswith(a, "--tex="), args)
     if i !== nothing
         texout = args[i][7:end]; deleteat!(args, i)
+    end
+end
+let i = findfirst(a -> startswith(a, "--reuse="), args)
+    if i !== nothing
+        reusefile = args[i][9:end]; deleteat!(args, i)
+    end
+end
+let i = findfirst(a -> startswith(a, "--reuse-config="), args)
+    if i !== nothing
+        reuseconfig = args[i][16:end]; deleteat!(args, i)
     end
 end
 isempty(args) && (println("usage: julia scripts/companion_table.jl <compare.csv>... [--tex=out.tex]"); exit(1))
@@ -116,6 +200,18 @@ rows = Dict{String,String}[]
 for p in args
     _, rr = readcsv(p); append!(rows, rr)
     println("read $(length(rr)) rows from $p")
+end
+if reusefile !== nothing
+    for r in rows, c in keys(REUSE_MAP)
+        haskey(r, c) || (r[c] = "")
+    end
+    f, m, x = reuse!(rows, reusefile, reuseconfig)
+    println("reuse: filled $f row(s), $m proof MISMATCH, $x not in the grid run")
+    if m > 0
+        println("  !! $m row(s) read a different stock proof than the grid did.")
+        println("     Their reused columns were dropped. If this is more than a handful,")
+        println("     the solver is not reproducing and base/ta must be measured, not reused.")
+    end
 end
 present = [t for t in TOOLS if any(r -> get(r, "$(t)_status", "") != "", rows)]
 println("tools present: ", join(present, ", "))
