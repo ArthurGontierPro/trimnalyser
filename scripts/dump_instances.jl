@@ -10,7 +10,11 @@
 # shuffling belongs to the consumer, with its own recorded seed.
 using TrimAnalyser
 TrimAnalyser.parse_config!(copy(ARGS))
-list = TrimAnalyser.allgraphinstances()
+# allgraphinstances() prints its own "%Generated N instances ..." banner to stdout, which
+# would land in the list as a 25,591st "instance". Swallow it — stdout here is the list.
+list = redirect_stdout(devnull) do
+    TrimAnalyser.allgraphinstances()
+end
 for i in list
     println(i)
 end
