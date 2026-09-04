@@ -84,10 +84,10 @@ end
 
 unq(x) = (y = strip(x); (length(y) >= 2 && y[1] == '"' && y[end] == '"') ? y[2:end-1] : y)
 
-"""
-Fill the base_* and ta_* columns of `rows` from a grid results CSV, for the rows where the
-stock proof provably matches. Returns (filled, mismatched, missing).
-"""
+# Fill the base_* and ta_* columns of `rows` from a grid results CSV, for the rows where
+# the stock proof provably matches. Returns (filled, mismatched, missing).
+# A plain comment, not a docstring: this file is also partially evaluated (prefix up to the
+# load section) by the reuse validation, and `@doc` at that boundary does not survive it.
 function reuse!(rows, path, config)
     hdr, grid = readcsv(path)
     for c in ("instance", "config", "inp_opb_size", "inp_pbp_size")
