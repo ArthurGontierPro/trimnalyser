@@ -93,7 +93,7 @@ fi
 (( fail == 0 )) || exit 1
 
 HDR=$(cat <<'EOF'
-instance,family,rc_note,opb_bytes,pbp_bytes,pbp_lines,base_status,base_s,base_bytes,base_lines,ta_status,ta_s,ta_opb_bytes,ta_pbp_bytes,ta_elab_status,ta_elab_s,ta_elab_bytes,ta_elab_lines,ta_check_status,ta_check_s,ft_status,ft_s,ft_opb_bytes,ft_pbp_bytes,ft_pbp_lines,ft_check_status,ft_check_s,tb_status,tb_s,tb_opb_bytes,tb_pbp_bytes,tb_pbp_lines,tb_check_status,tb_check_s
+instance,family,rc_note,opb_bytes,pbp_bytes,pbp_lines,base_status,base_s,base_bytes,base_lines,ta_status,ta_s,ta_opb_bytes,ta_pbp_bytes,ta_elab_status,ta_elab_s,ta_elab_bytes,ta_elab_lines,ta_check_status,ta_check_s,ft_status,ft_s,ft_opb_bytes,ft_pbp_bytes,ft_pbp_lines,ft_check_status,ft_check_s,ft_steps,ft_note,tb_status,tb_s,tb_opb_bytes,tb_pbp_bytes,tb_pbp_lines,tb_check_status,tb_check_s,tb_steps,tb_note
 EOF
 )
 
@@ -116,7 +116,7 @@ runone() {
         *)        fam=other ;;
     esac
     if [[ ! -s "$opb" || ! -s "$pbp" ]]; then
-        printf '%s,%s,%s,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,\n' "$ins" "$fam" "noproof" > "$part"
+        printf '%s,%s,%s,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,\n' "$ins" "$fam" "noproof" > "$part"
         return 0
     fi
 
@@ -144,8 +144,8 @@ runone() {
     base_status=; base_s=; base_b=; base_l=
     ta_status=; ta_s=; ta_opb_b=; ta_pbp_b=
     ta_el_status=; ta_el_s=; ta_el_b=; ta_el_l=; ta_ck_status=; ta_ck_s=
-    ft_status=; ft_s=; ft_opb_b=; ft_pbp_b=; ft_pbp_l=; ft_ck_status=; ft_ck_s=
-    tb_status=; tb_s=; tb_opb_b=; tb_pbp_b=; tb_pbp_l=; tb_ck_status=; tb_ck_s=
+    ft_status=; ft_s=; ft_opb_b=; ft_pbp_b=; ft_pbp_l=; ft_ck_status=; ft_ck_s=; ft_steps=; ft_note=
+    tb_status=; tb_s=; tb_opb_b=; tb_pbp_b=; tb_pbp_l=; tb_ck_status=; tb_ck_s=; tb_steps=; tb_note=
 
     # ── baseline: elaborate the untrimmed proof ──────────────────────────────────────
     if [[ " $RUN_ARMS " == *" base "* ]]; then
@@ -199,11 +199,20 @@ runone() {
         local oopb="$PROOFS$ins.$tag.opb" opbp="$PROOFS$ins.$tag.pbp"
         rm -f "$oopb" "$opbp"
         echo "### $tag: $bin trim $opb $pbp $oopb -e $opbp" >> "$log"
+        local n1; n1=$(wc -l < "$log")
+        # No --solution-state: these are UNSAT proofs and log no solutions (`grep -c '^sol'`
+        # is 0), so the default `none` is the accurate promise. The binary warns anyway.
         timed timeout -k "$GRACE" "$TT" "$bin" trim "$opb" "$pbp" "$oopb" -e "$opbp"
         local s=$EL st; st=$(stat_of $RC)
-        local ob pb pl ck cs
+        local ob pb pl ck cs steps note
         ob=$(bytes "$oopb"); pb=$(bytes "$opbp"); pl=$(lines "$opbp")
         [[ $RC -eq 0 && $pb -gt 0 ]] || st="${st/ok/notrim}"
+        # Its own report of how much it removed, and — when it refuses a proof VeriPB
+        # itself accepts — the reason, so the failures can be classified and sent
+        # upstream instead of showing up as a bare count.
+        steps=$(tail -n +"$n1" "$log" | sed -n 's/^Number of trimmed steps: *\([0-9]*\).*/\1/p' | head -1)
+        note=$(tail -n +"$n1" "$log" | grep -m1 -E '^(Error|Caused by|    [A-Z])' | tr ',;' '..' | cut -c1-160)
+        [[ $RC -eq 0 ]] && note=""
         ck=; cs=
         if [[ "$st" == "ok" ]]; then
             # The trimmer may or may not emit a reformulated model; when it does not,
@@ -216,22 +225,22 @@ runone() {
             [[ $RC -eq 0 ]] && { tail -n +"$n0" "$log" | grep -q 'VERIFIED' || ck=notverified; }
         fi
         [[ "$KEEP" == "1" ]] || rm -f "$oopb" "$opbp"
-        ARM_OUT="$st,$s,$ob,$pb,$pl,$ck,$cs"
+        ARM_OUT="$st,$s,$ob,$pb,$pl,$ck,$cs,$steps,$note"
     }
     if [[ " $RUN_ARMS " == *" ft "* ]]; then
-        run_vp_arm ft "$VERIPB_FT"; IFS=, read -r ft_status ft_s ft_opb_b ft_pbp_b ft_pbp_l ft_ck_status ft_ck_s <<<"$ARM_OUT"
+        run_vp_arm ft "$VERIPB_FT"; IFS=, read -r ft_status ft_s ft_opb_b ft_pbp_b ft_pbp_l ft_ck_status ft_ck_s ft_steps ft_note <<<"$ARM_OUT"
     fi
     if [[ " $RUN_ARMS " == *" tb "* ]]; then
-        run_vp_arm tb "$VERIPB_TB"; IFS=, read -r tb_status tb_s tb_opb_b tb_pbp_b tb_pbp_l tb_ck_status tb_ck_s <<<"$ARM_OUT"
+        run_vp_arm tb "$VERIPB_TB"; IFS=, read -r tb_status tb_s tb_opb_b tb_pbp_b tb_pbp_l tb_ck_status tb_ck_s tb_steps tb_note <<<"$ARM_OUT"
     fi
 
-    printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+    printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         "$ins" "$fam" "" "$opb_b" "$pbp_b" "$pbp_l" \
         "$base_status" "$base_s" "$base_b" "$base_l" \
         "$ta_status" "$ta_s" "$ta_opb_b" "$ta_pbp_b" \
         "$ta_el_status" "$ta_el_s" "$ta_el_b" "$ta_el_l" "$ta_ck_status" "$ta_ck_s" \
-        "$ft_status" "$ft_s" "$ft_opb_b" "$ft_pbp_b" "$ft_pbp_l" "$ft_ck_status" "$ft_ck_s" \
-        "$tb_status" "$tb_s" "$tb_opb_b" "$tb_pbp_b" "$tb_pbp_l" "$tb_ck_status" "$tb_ck_s" \
+        "$ft_status" "$ft_s" "$ft_opb_b" "$ft_pbp_b" "$ft_pbp_l" "$ft_ck_status" "$ft_ck_s" "$ft_steps" "$ft_note" \
+        "$tb_status" "$tb_s" "$tb_opb_b" "$tb_pbp_b" "$tb_pbp_l" "$tb_ck_status" "$tb_ck_s" "$tb_steps" "$tb_note" \
         > "$part"
     echo "  done $ins  base=$base_status/${base_s}s ta=$ta_status/${ta_s}s ft=$ft_status/${ft_s}s tb=$tb_status/${tb_s}s"
 }
@@ -248,7 +257,7 @@ N=$(echo "$LIST" | wc -l)
 echo "=== companion comparison: $N instances, arms:$RUN_ARMS, JOBS=$JOBS, tt=$TT vt=$VT ==="
 echo "    proofs   $PROOFS"
 echo "    binaries $VERIPB | $VERIPB_FT | $VERIPB_TB"
-echo "$LIST" | xargs -P "$JOBS" -n1 -I{} bash -c 'runone "$@"' _ {}
+echo "$LIST" | xargs -P "$JOBS" -I{} bash -c 'runone "$@"' _ {}
 
 { echo "$HDR"; echo "$LIST" | while read -r i; do [[ -s "$WORK/$i.csv" ]] && cat "$WORK/$i.csv"; done; } > "$OUTCSV"
 echo "=== wrote $OUTCSV ($(( $(wc -l < "$OUTCSV") - 1 )) rows) ==="
