@@ -162,6 +162,60 @@ is the shared-sysimage race that killed `lad-fc-pl` with a Bus error on 2026-09-
 launcher also builds each node's sysimage up front, so no two chunks can race on it, and
 refuses to start if `src/` and `bin/` differ from the grid's `f70d02c`.
 
+### The fix, and why the first launch was wrong
+
+`feature_trimmer`'s bug is two lines in `src/trimmer.rs`. There are **two** label tables:
+`Context::label_to_id`, which `PolRule`'s lexer consults for `pol` operands, and the
+`Parser`'s own, which `Parser::constraint_id()` consults for hint lists (`... : @label`).
+The parser's table is extended only from the return value of
+`ProofProcessor::get_returned_constraint_id`. `Verifier` returns the id; `Trimmer` inserted
+into the Context table and then returned `None` **unconditionally**, so the parser's table
+stayed frozen at the formula's labels. That is exactly why substituting an `.opb`-defined
+label made the error vanish, and why `pol` operands were unaffected.
+
+```rust
+-        let id = unsafe { self.get_returned_constraint_id().unwrap_unchecked() };
++        let id = self.get_returned_constraint_id()?;
+         self.context.label_to_id.insert(label, id);
+-        None
++        Some(id)
+```
+
+`?` in place of `unwrap_unchecked()` also removes latent UB: `trimmer.rs:93` sets
+`returned_constraint_id = None` on the order-`pol` branch, so a labelled rule there was
+unwrapping a `None` inside `unsafe`. `cargo test --release` is unchanged at 657 passed /
+0 failed, and the trimmed proof now passes the reference checker. Patch:
+`/cluster/arthur/veripb-bug/fix.patch`.
+
+**The full run was first launched against the UNFIXED binary, and that was a mistake.**
+Every proof the bug hits would have been banked as an `ft` refusal, and the paired ratios
+computed on precisely the subset the bug spares — the exclusion-set bias this whole design
+exists to avoid. Caught before either shard finished its first chunk; **0 rows banked**,
+nothing to discard.
+
+Two guards came out of it, both in `companion_compare.sh` / `companion_run_all.sh`:
+
+* every run stamps the sha256 and version of each binary beside its CSV;
+* the driver **refuses to append** to an output directory whose stamp disagrees, because
+  `compare-all.csv` accumulates chunks over days across three nodes and a trimmer rebuilt
+  mid-run would otherwise split a column into two populations that look like one.
+
+The stamp earned itself immediately: its first output read `absent veripb_tb`. That binary
+had been built on fataepyc-01's node-local `/scratch` and existed nowhere else, so the
+third arm was being skipped on the other two shards — silently, in every respect except
+the stamp. Same failure mode as `cake_pb` before it was staged in `dist`.
+
+### Which run measures which trimmer
+
+| run | `ft` binary | what its `ft` column means |
+|---|---|---|
+| 171-instance stratified (fataepyc-01) | **unfixed** `e98c4a31` | `feature_trimmer` *as published* — its refusal rate is the number we owe the VeriPB devs |
+| full suite (all three shards) | `e98c4a31` **+ the fix** | the real head-to-head |
+
+That split is deliberate, not an accident of timing: the sample is left alone to finish on
+the unfixed binary, and fataepyc-01 installs the fixed one only afterwards, on its way into
+shard 3.
+
 ## Disk reclaimed
 
 The three finished NDS-rerun proof trees were deleted, ~10 TB in total, after checking that
