@@ -84,6 +84,27 @@ echo "   checkout    $(git -C "$SRC" log --oneline -1)"
 echo "════════════════════════════════════════════════════════════════════════"
 [[ "${DRYRUN:-0}" == "1" ]] && exit 0
 
+# ── binary stamp for the whole shard ─────────────────────────────────────────────────
+# compare-all.csv accumulates chunks over days. If a trimmer is rebuilt between chunks the
+# column silently becomes two populations, and nothing in the CSV says so. Stamp once, and
+# refuse to continue against a different stamp: better a loud stop than a mixed column.
+STAMP="$OUTDIR/BINARIES.txt"
+{
+    for b in "$VERIPB" "${VERIPB_FT:-/scratch/arthur/veripb_ft}" "${VERIPB_TB:-/scratch/arthur/veripb_tb}"; do
+        if [[ -x "$b" ]]; then printf '%s %s\n' "$(sha256sum "$b" | cut -c1-16)" "$(basename "$b")"
+        else printf 'absent %s\n' "$(basename "$b")"; fi
+    done
+    printf '%s trimnalyser\n' "$(git -C "$SRC" rev-parse --short HEAD)"
+} > "$STAMP.new"
+if [[ -f "$STAMP" ]] && ! diff -q "$STAMP" "$STAMP.new" >/dev/null; then
+    echo "REFUSING TO CONTINUE: the binaries changed since this output directory was started." >&2
+    diff "$STAMP" "$STAMP.new" >&2
+    echo "Move $OUTDIR aside (its rows were produced by the older binaries) or point OUTDIR elsewhere." >&2
+    exit 1
+fi
+mv "$STAMP.new" "$STAMP"
+echo "   binaries    $(tr '\n' ' ' < "$STAMP")"
+
 cd "$SRC"
 for ((c = 1; c <= NCHUNK; c++)); do
     tag=$(printf 'c%04d' "$c")

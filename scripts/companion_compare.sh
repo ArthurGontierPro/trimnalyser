@@ -92,6 +92,31 @@ if [[ " $RUN_ARMS " == *" ta "* ]]; then
 fi
 (( fail == 0 )) || exit 1
 
+# ── provenance ───────────────────────────────────────────────────────────────────────
+# Which binary produced which column is not recoverable from the CSV, and the columns are
+# pooled across chunks and across nodes. A trimmer rebuilt mid-run — a bug fix, say —
+# therefore silently splits a column into two populations that look like one. So every run
+# stamps the exact binaries beside its CSV, and companion_run_all.sh refuses to append to a
+# CSV whose stamp disagrees.
+binstamp() {
+    local p="$1" name="$2"
+    if [[ -x "$p" ]]; then
+        printf '%-10s %s  %s  %s\n' "$name" "$(sha256sum "$p" | cut -c1-16)" \
+               "$(stat -c %s "$p")" "$("$p" --version 2>&1 | head -1)"
+    else
+        printf '%-10s (absent)\n' "$name"
+    fi
+}
+{
+    echo "# binaries used by $(basename "$OUTCSV") — $(date -Iseconds) on $(hostname -s)"
+    binstamp "$VERIPB"    veripb
+    binstamp "$VERIPB_FT" veripb_ft
+    binstamp "$VERIPB_TB" veripb_tb
+    printf '%-10s %s\n' trimnalyser "$(git -C "$REPO" log --oneline -1 2>/dev/null || echo unknown)"
+    printf '%-10s arms:%s tt=%s vt=%s jobs=%s\n' settings "$RUN_ARMS" "$TT" "$VT" "$JOBS"
+} > "${OUTCSV%.csv}.binaries.txt"
+sed 's/^/    /' "${OUTCSV%.csv}.binaries.txt"
+
 HDR=$(cat <<'EOF'
 instance,family,rc_note,opb_bytes,pbp_bytes,pbp_lines,base_status,base_s,base_bytes,base_lines,ta_status,ta_s,ta_opb_bytes,ta_pbp_bytes,ta_elab_status,ta_elab_s,ta_elab_bytes,ta_elab_lines,ta_check_status,ta_check_s,ft_status,ft_s,ft_opb_bytes,ft_pbp_bytes,ft_pbp_lines,ft_check_status,ft_check_s,ft_steps,ft_note,tb_status,tb_s,tb_opb_bytes,tb_pbp_bytes,tb_pbp_lines,tb_check_status,tb_check_s,tb_steps,tb_note
 EOF
