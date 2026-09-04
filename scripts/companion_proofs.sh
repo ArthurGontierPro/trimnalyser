@@ -63,7 +63,7 @@ fi
 # refs/remotes.  Hence also the default below: the upstream's UPSTREAM, not its HEAD.
 ORIGIN_URL="$(git -C "$UPSTREAM" remote get-url origin 2>/dev/null || true)"
 [[ -n "$ORIGIN_URL" ]] && git -C "$SRC" remote set-url origin "$ORIGIN_URL"
-git -C "$SRC" fetch --quiet --all --prune || echo "   fetch failed — using what is already here"
+timeout 120 git -C "$SRC" fetch --quiet --all --prune || echo "   fetch failed or timed out — using what is already here"
 WANT="${COMPANION_REF:-$(git -C "$UPSTREAM" rev-parse '@{u}' 2>/dev/null || git -C "$UPSTREAM" rev-parse HEAD)}"
 git -C "$SRC" checkout --quiet --force --detach "$WANT" 2>/dev/null || {
     echo "cannot check out $WANT in $SRC — is it pushed?" >&2; exit 1; }

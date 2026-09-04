@@ -28,9 +28,13 @@ mkdir -p "$OUT" "$WORKROOT" "$CARGOROOT"
 # The branch may have appeared upstream since the last fetch. Failure is not fatal:
 # an already-fetched ref still builds, and feature/trimmer-base is expected to fail
 # here until the repo is reachable.
-echo "== fetching $REPO =="
-git -C "$REPO" fetch --all --prune 2>&1 | sed 's/^/   /' || \
-    echo "   fetch failed (no credentials?) — building from already-fetched refs"
+# `timeout` is not optional here. The compute nodes are on a private network reachable
+# only through the head node, so a fetch of an unreachable remote does not fail — it
+# hangs on TCP connect, forever, with no output. That is exactly what it did on
+# fataepyc-01. A failed fetch is fine: an already-fetched ref still builds.
+echo "== fetching $REPO (60s limit) =="
+timeout 60 git -C "$REPO" fetch --all --prune 2>&1 | sed 's/^/   /' || \
+    echo "   fetch failed or timed out — building from already-fetched refs"
 
 build_one() {                       # $1 = branch  $2 = output binary name
     local branch="$1" name="$2"
@@ -45,7 +49,7 @@ build_one() {                       # $1 = branch  $2 = output binary name
     echo "== $name <- origin/$branch ($sha) =="
 
     if [[ -d "$wt" ]]; then
-        git -C "$wt" fetch origin "$branch" 2>/dev/null || true
+        timeout 60 git -C "$wt" fetch origin "$branch" 2>/dev/null || true
         git -C "$wt" checkout --quiet --force --detach "origin/$branch"
     else
         git -C "$REPO" worktree add --quiet --detach "$wt" "origin/$branch"
