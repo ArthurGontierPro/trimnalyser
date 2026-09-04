@@ -55,8 +55,16 @@ if [[ ! -d "$SRC/.git" ]]; then
     echo "== cloning $UPSTREAM -> $SRC =="
     git clone --quiet "$UPSTREAM" "$SRC"
 fi
-git -C "$SRC" fetch --quiet origin || git -C "$SRC" fetch --quiet "$UPSTREAM" || true
-WANT="${COMPANION_REF:-$(git -C "$UPSTREAM" rev-parse HEAD)}"
+# Point at the REAL origin, not at $UPSTREAM. Cloning from a local path makes that path
+# the new origin, and a fetch from it transfers refs/heads only — so a commit that exists
+# in $UPSTREAM merely as a remote-tracking ref would never arrive. That is the normal
+# state here: while the grid is running, $UPSTREAM's worktree is deliberately pinned to
+# the commit the live columns were launched at, and everything newer is only in
+# refs/remotes.  Hence also the default below: the upstream's UPSTREAM, not its HEAD.
+ORIGIN_URL="$(git -C "$UPSTREAM" remote get-url origin 2>/dev/null || true)"
+[[ -n "$ORIGIN_URL" ]] && git -C "$SRC" remote set-url origin "$ORIGIN_URL"
+git -C "$SRC" fetch --quiet --all --prune || echo "   fetch failed — using what is already here"
+WANT="${COMPANION_REF:-$(git -C "$UPSTREAM" rev-parse '@{u}' 2>/dev/null || git -C "$UPSTREAM" rev-parse HEAD)}"
 git -C "$SRC" checkout --quiet --force --detach "$WANT" 2>/dev/null || {
     echo "cannot check out $WANT in $SRC — is it pushed?" >&2; exit 1; }
 echo "== companion checkout at $(git -C "$SRC" rev-parse --short HEAD) =="
