@@ -49,6 +49,17 @@ ALLFILE="${ALLFILE:-$HOME/companion-sets/all-instances.txt}"
 CHUNK="${CHUNK:-96}"       JOBS="${JOBS:-24}"     THREADS="${THREADS:-92,1}"
 ST="${ST:-600}"            STNOPL="${STNOPL:-60}" TT="${TT:-1800}"
 VT="${VT:-1800}"           MAXMEM="${MAXMEM:-32}" CONFIG="${CONFIG:-gss-lazy}"
+# The compare phase is plain bash and never enters the orchestrator, so `maxmem=` and
+# `--threads` reach the solve phase and stop there.  These carry the policy into it.
+#
+# COMPMEM is the compare phase's per-process kill threshold.  It must equal MAXMEM, and
+# the reason is not tidiness: the grid's own `verif` stage already elaborates full proofs
+# under the orchestrator's 32 GB monitor, and the reuse join takes the base and ta arms
+# from grid rows.  Giving ft/tb 50 GB here would measure the two new trimmers against a
+# budget the arms they are compared to never had, and the paired ratios would silently
+# span two memory regimes.  Raise both together or neither.
+COMPMEM="${COMPMEM:-$MAXMEM}"
+MINFREE="${MINFREE:-200}"  GATE_MIN="${GATE_MIN:-1}"  SETTLE="${SETTLE:-15}"
 SEED="${SEED:-20260904}"   ARMS="${ARMS:-base ta ft tb}"
 
 [[ -f "$ALLFILE" ]] || { echo "missing instance list: $ALLFILE" >&2; exit 1; }
@@ -79,6 +90,7 @@ echo " companion full run — shard $SHARD/$NSHARD on $(hostname -s)"
 echo "   instances   $N   in $NCHUNK chunk(s) of $CHUNK"
 echo "   arms        $ARMS"
 echo "   timeouts    st=$ST tt=$TT vt=$VT   jobs=$JOBS threads=$THREADS"
+echo "   memory      solve maxmem=${MAXMEM}G  compare maxmem=${COMPMEM}G/proc  minfree=${MINFREE}G  gate>${GATE_MIN}G  settle=${SETTLE}s"
 echo "   out         $OUTDIR"
 echo "   checkout    $(git -C "$SRC" log --oneline -1)"
 echo "════════════════════════════════════════════════════════════════════════"
@@ -129,10 +141,22 @@ for ((c = 1; c <= NCHUNK; c++)); do
     # ── compare every trimmer on those proofs ────────────────────────────────────────
     echo "── [$tag] compare"
     TRIMNALYSER_REPO="$SRC" JOBS="$JOBS" TT="$TT" VT="$VT" ARMS="$ARMS" KEEP=0 \
+      MAXMEM_GB="$COMPMEM" MINFREE_GB="$MINFREE" GATE_MIN_GB="$GATE_MIN" SETTLE="$SETTLE" \
       bash scripts/companion_compare.sh "$inst" "$pdir" "$OUTDIR/csv/$tag.csv" \
         || echo "  [$tag] compare returned $? — keeping whatever rows landed"
 
     # ── bank the rows, then reclaim the disk ─────────────────────────────────────────
+    # Recover a compare phase that was SIGKILLed between its last part file and its own
+    # assemble step -- what happened on 2026-09-04, when 1102 finished rows sat on disk
+    # and none was banked.  compare traps INT/TERM now, but SIGKILL cannot be trapped.
+    parts="$OUTDIR/csv/$tag.parts"
+    if [[ ! -s "$OUTDIR/csv/$tag.csv" && -d "$parts" && -f "$parts/.header" ]]; then
+        n=$(ls "$parts"/*.csv 2>/dev/null | wc -l)
+        if [[ "$n" -gt 0 ]]; then
+            echo "  [$tag] compare left no csv; assembling $n part file(s) from $parts"
+            { cat "$parts/.header"; cat "$parts"/*.csv; } > "$OUTDIR/csv/$tag.csv"
+        fi
+    fi
     if [[ -s "$OUTDIR/csv/$tag.csv" ]]; then
         if [[ ! -s "$OUTDIR/compare-all.csv" ]]; then
             cp "$OUTDIR/csv/$tag.csv" "$OUTDIR/compare-all.csv"

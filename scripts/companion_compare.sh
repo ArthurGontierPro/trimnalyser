@@ -46,6 +46,28 @@ PROOFS="${2:?}"; OUTCSV="${3:?}"
 PROOFS="${PROOFS%/}/"
 
 JOBS="${JOBS:-8}"
+# ── memory policy ────────────────────────────────────────────────────────────────────
+# Mirrors the orchestrator's, because this phase never enters it: companion_compare.sh
+# is plain bash, so `--threads` and `maxmem=` (Julia arguments) reach the solve phase and
+# stop there.  The 2026-09-04 run died exactly here -- 48 unbounded `veripb -e` of
+# multi-gigabyte proofs, 1.9 TB peak on a 2.0 TB node, kernel OOM killer took the whole
+# tmux scope including the driver shell, which is why the log ends without an error.
+#
+# Two mechanisms, doing different jobs (see the comment on wait_for_memory in
+# src/utilities.jl).  Neither is a `ulimit`: most instances need well under a gigabyte,
+# so a per-job hard cap sized for the worst case would idle the node.
+#   MAXMEM_GB   per-process kill threshold  -- catches ONE runaway
+#   MINFREE_GB  admission gate              -- catches N well-behaved jobs summing to too much
+MAXMEM_GB="${MAXMEM_GB:-50}"
+MINFREE_GB="${MINFREE_GB:-200}"
+# Only proofs at least this large take the gate.  Memory tracks proof size closely and the
+# overwhelming majority of instances are tiny, so gating them all would buy a lock
+# round-trip per measurement and no protection.
+GATE_MIN_GB="${GATE_MIN_GB:-1}"
+# Seconds the gate is held after admitting a heavy job.  Without it a burst of freed
+# memory admits every waiter in the same instant: they all read the same MemAvailable,
+# none has grown its RSS yet, and the node is straight back where it was.
+SETTLE="${SETTLE:-15}"
 TT="${TT:-6000}"
 VT="${VT:-6000}"
 ARMS="${ARMS:-base ta ft tb}"
@@ -121,9 +143,46 @@ HDR=$(cat <<'EOF'
 instance,family,rc_note,opb_bytes,pbp_bytes,pbp_lines,base_status,base_s,base_bytes,base_lines,ta_status,ta_s,ta_opb_bytes,ta_pbp_bytes,ta_elab_status,ta_elab_s,ta_elab_bytes,ta_elab_lines,ta_check_status,ta_check_s,ft_status,ft_s,ft_opb_bytes,ft_pbp_bytes,ft_pbp_lines,ft_check_status,ft_check_s,ft_steps,ft_note,tb_status,tb_s,tb_opb_bytes,tb_pbp_bytes,tb_pbp_lines,tb_check_status,tb_check_s,tb_steps,tb_note
 EOF
 )
+printf '%s\n' "$HDR" > "$WORK/.header"   # for driver-side recovery after a SIGKILL
+
+# ── admission gate ───────────────────────────────────────────────────────────────────
+memavail_gb() { awk '/^MemAvailable:/{printf "%d", $2/1048576}' /proc/meminfo; }
+
+# Block until the node has MINFREE_GB free before starting a heavyweight child.
+#
+# MUST be called OUTSIDE `timed` and OUTSIDE `timeout`.  Inside `timeout`, a job that
+# queued twenty minutes for RAM would be killed at VT having done no work; inside `timed`,
+# the queue wait would land in the recorded elapsed seconds and the column would measure
+# node contention instead of the trimmer.  Both would be silent.
+#
+# Reads $log and $pbp_b from runone (neither is `local` there, so both are visible).
+wait_for_memory() {
+    local stage="$1" t0=$SECONDS avail announced=0
+    [[ "${MINFREE_GB:-0}" -le 0 ]] && return 0
+    # Fast path: a small proof cannot be the job that fills a terabyte.
+    [[ "${pbp_b:-0}" -lt $(( GATE_MIN_GB * 1024 * 1024 * 1024 )) ]] && return 0
+    exec 9>>"$WORK/.gate.lock"
+    while :; do
+        flock 9
+        avail=$(memavail_gb)
+        if [[ "$avail" -ge "$MINFREE_GB" ]]; then
+            sleep "$SETTLE"          # hold the gate while the admitted job grows
+            flock -u 9; exec 9>&-
+            [[ "$announced" -eq 1 ]] && echo "### admitted after $((SECONDS-t0))s" >> "$log"
+            return 0
+        fi
+        flock -u 9
+        if [[ "$announced" -eq 0 ]]; then
+            echo "### waiting for memory ($stage): ${avail}G free < ${MINFREE_GB}G" >> "$log"
+            announced=1
+        fi
+        sleep $(( 5 + RANDOM % 10 ))     # jitter, so waiters do not poll in lockstep
+    done
+}
+export -f wait_for_memory memavail_gb
 
 # ── the per-instance body, exported for xargs ────────────────────────────────────────
-export PROOFS TT VT KEEP CONFIG GRACE VERIPB VERIPB_FT VERIPB_TB REPO SO WORK LOGDIR RUN_ARMS
+export PROOFS TT VT KEEP CONFIG GRACE VERIPB VERIPB_FT VERIPB_TB REPO SO WORK LOGDIR RUN_ARMS MAXMEM_GB MINFREE_GB GATE_MIN_GB SETTLE
 
 runone() {
     ins="$1"
@@ -161,8 +220,18 @@ runone() {
     # appended, hence the `tail -n +$n0`.
     lines() { [[ -s "$1" ]] && wc -l < "$1" | tr -d ' ' || echo 0; }
     bytes() { [[ -e "$1" ]] && stat -c %s "$1" || echo 0; }
-    # A timeout kill shows as 124 (or 137 after the -k escalation).
-    stat_of() { case "$1" in 0) echo ok ;; 124|137) echo timeout ;; *) echo "rc$1" ;; esac; }
+    # 137 has two producers: `timeout -k`'s escalation, and the watchdog's kill -9.
+    # The watchdog leaves a marker so the two stay distinguishable -- a memout and a
+    # timeout are different findings about a trimmer and must never be pooled.
+    stat_of() {
+        case "$1" in
+            0)   echo ok ;;
+            124) echo timeout ;;
+            137) if [[ -f "$WORK/.memout/$ins" ]]; then rm -f "$WORK/.memout/$ins"; echo memout
+                 else echo timeout; fi ;;
+            *)   echo "rc$1" ;;
+        esac
+    }
 
     opb_b=$(bytes "$opb"); pbp_b=$(bytes "$pbp"); pbp_l=$(lines "$pbp")
 
@@ -177,6 +246,7 @@ runone() {
         out="$PROOFS$ins.full.elab.pbp"
         echo "### base: $VERIPB $opb $pbp -e $out" >> "$log"
         n0=$(wc -l < "$log")
+        wait_for_memory "base"
         timed timeout -k "$GRACE" "$VT" "$VERIPB" "$opb" "$pbp" -e "$out"
         base_s=$EL; base_status=$(stat_of $RC)
         [[ $RC -eq 0 ]] && { tail -n +"$n0" "$log" | grep -q 'VERIFIED' || base_status=notverified; }
@@ -190,6 +260,7 @@ runone() {
         jflags=()
         [[ -f "$SO" ]] && { jflags=(--sysimage "$SO" --project="$REPO"); export TRIMNALYSER_SYSIMAGE=1; }
         echo "### ta: julia bin/trimnalyser.jl $ins subprocess tt=$TT config=$CONFIG $PROOFS" >> "$log"
+        wait_for_memory "ta"
         timed timeout -k "$GRACE" "$TT" julia +1.12.2 "${jflags[@]}" --startup-file=no \
               "$REPO/bin/trimnalyser.jl" "$ins" subprocess "tt=$TT" "config=$CONFIG" "$PROOFS"
         ta_s=$EL; ta_status=$(stat_of $RC)
@@ -200,6 +271,7 @@ runone() {
             out="$PROOFS$ins.ta.elab.pbp"
             echo "### ta-elab: $VERIPB $ins.smol.opb $ins.smol.pbp -e $out" >> "$log"
             n0=$(wc -l < "$log")
+            wait_for_memory "ta-elab"
             timed timeout -k "$GRACE" "$VT" "$VERIPB" "$PROOFS$ins.smol.opb" "$PROOFS$ins.smol.pbp" -e "$out"
             ta_el_s=$EL; ta_el_status=$(stat_of $RC)
             [[ $RC -eq 0 ]] && { tail -n +"$n0" "$log" | grep -q 'VERIFIED' || ta_el_status=notverified; }
@@ -209,6 +281,7 @@ runone() {
             if [[ "$ta_el_status" == "ok" ]]; then
                 echo "### ta-check: $VERIPB $ins.smol.opb $ins.ta.elab.pbp" >> "$log"
                 n0=$(wc -l < "$log")
+                wait_for_memory "ta-check"
                 timed timeout -k "$GRACE" "$VT" "$VERIPB" "$PROOFS$ins.smol.opb" "$out"
                 ta_ck_s=$EL; ta_ck_status=$(stat_of $RC)
                 [[ $RC -eq 0 ]] && { tail -n +"$n0" "$log" | grep -q 'VERIFIED' || ta_ck_status=notverified; }
@@ -238,6 +311,7 @@ runone() {
         local n1; n1=$(wc -l < "$log")
         # No --solution-state: these are UNSAT proofs and log no solutions (`grep -c '^sol'`
         # is 0), so the default `none` is the accurate promise. The binary warns anyway.
+        wait_for_memory "$tag-trim"
         timed timeout -k "$GRACE" "$TT" "${trimcmd[@]}"
         local s=$EL st; st=$(stat_of $RC)
         local ob pb pl ck cs steps note
@@ -259,6 +333,7 @@ runone() {
             local model="$oopb"; [[ -s "$oopb" ]] || model="$opb"
             echo "### $tag-check: $VERIPB $model $opbp" >> "$log"
             local n0; n0=$(wc -l < "$log")
+            wait_for_memory "$tag-check"
             timed timeout -k "$GRACE" "$VT" "$VERIPB" "$model" "$opbp"
             cs=$EL; ck=$(stat_of $RC)
             [[ $RC -eq 0 ]] && { tail -n +"$n0" "$log" | grep -q 'VERIFIED' || ck=notverified; }
@@ -296,7 +371,72 @@ N=$(echo "$LIST" | wc -l)
 echo "=== companion comparison: $N instances, arms:$RUN_ARMS, JOBS=$JOBS, tt=$TT vt=$VT ==="
 echo "    proofs   $PROOFS"
 echo "    binaries $VERIPB | $VERIPB_FT | $VERIPB_TB"
+
+# Longest-processing-time-first.  Memory and elapsed time both track proof size, so
+# starting the big ones early stops them convoying at the tail of the chunk -- which is
+# exactly the shape that peaked at 1.9 TB on 2026-09-04, when the only jobs still running
+# were the forty-eight largest proofs in the chunk.  Ordering is scheduling only; it
+# changes no measurement.
+LIST=$(echo "$LIST" | while read -r i; do
+           printf '%s\t%s\n' "$(stat -c %s "$PROOFS$i.pbp" 2>/dev/null || echo 0)" "$i"
+       done | sort -k1,1nr | cut -f2)
+
+# ── per-process watchdog ─────────────────────────────────────────────────────────────
+# The other half of the memory policy: the gate stops N well-behaved jobs from summing to
+# more than the node has, this stops ONE job running away.  Same threshold and same
+# 10s poll as the orchestrator's monitor (src/orchestrator.jl), which does not run in
+# this phase.
+watchdog() {
+    local maxkb=$(( MAXMEM_GB * 1024 * 1024 )) pid cmd a0 rss ins path
+    mkdir -p "$WORK/.memout"
+    while [[ -e "$WORK/.watchdog" ]]; do
+        for d in /proc/[0-9]*; do
+            pid=${d#/proc/}
+            [[ -r "$d/cmdline" ]] || continue
+            cmd=$(tr '\0' '\n' < "$d/cmdline" 2>/dev/null) || continue
+            [[ -z "$cmd" ]] && continue
+            a0=$(head -1 <<<"$cmd"); a0=${a0##*/}
+            # Only binaries this harness launches, and only when the command line points
+            # into THIS run's proof directory -- a shared node may be running the grid's
+            # own veripb, which is not ours to kill.  argv[0] is checked as well as the
+            # path because the `timeout` wrapper also carries $PROOFS in its argv, and
+            # killing the wrapper would orphan the real child rather than stop it.
+            case "$a0" in veripb|veripb_ft|veripb_tb|julia) ;; *) continue ;; esac
+            grep -qF "$PROOFS" <<<"$cmd" || continue
+            rss=$(awk '/^VmRSS:/{print $2}' "$d/status" 2>/dev/null)
+            [[ -n "$rss" ]] || continue
+            (( rss > maxkb )) || continue
+            if [[ "$a0" == julia ]]; then
+                ins=$(awk '/trimnalyser\.jl$/{getline; print; exit}' <<<"$cmd")
+            else
+                path=$(grep -m1 -F "$PROOFS" <<<"$cmd"); ins=${path##*/}
+                ins=$(sed -E 's/\.(smol\.opb|smol\.pbp|full\.elab\.pbp|ta\.elab\.pbp|ft\.opb|ft\.pbp|tb\.opb|tb\.pbp|opb|pbp)$//' <<<"$ins")
+            fi
+            # Marker first, kill second: if the order were reversed, runone could read
+            # rc=137 and find no marker, and record a memout as a timeout.
+            [[ -n "$ins" ]] && : > "$WORK/.memout/$ins"
+            echo "  MEM KILL ${ins:-?} (pid=$pid, $a0): $(( rss / 1048576 )) GB > $MAXMEM_GB GB"
+            kill -9 "$pid" 2>/dev/null
+        done
+        sleep 10
+    done
+}
+
+# Assemble whatever rows exist.  Also runs on INT/TERM: the 2026-09-04 OOM killed the
+# driver between the last part file and this line, and the chunk's 1102 finished rows
+# were never banked even though every one of them was on disk.
+assemble() {
+    { echo "$HDR"; echo "$LIST" | while read -r i; do
+          [[ -s "$WORK/$i.csv" ]] && cat "$WORK/$i.csv"; done; } > "$OUTCSV"
+}
+trap 'rm -f "$WORK/.watchdog"; assemble; echo "=== interrupted; banked $(( $(wc -l < "$OUTCSV") - 1 )) rows ==="; exit 130' INT TERM
+
+: > "$WORK/.watchdog"
+watchdog & WDPID=$!
+echo "    memory  maxmem=${MAXMEM_GB}G/proc  minfree=${MINFREE_GB}G  gate>${GATE_MIN_GB}G  settle=${SETTLE}s"
+
 echo "$LIST" | xargs -P "$JOBS" -I{} bash -c 'runone "$@"' _ {}
 
-{ echo "$HDR"; echo "$LIST" | while read -r i; do [[ -s "$WORK/$i.csv" ]] && cat "$WORK/$i.csv"; done; } > "$OUTCSV"
+rm -f "$WORK/.watchdog"; wait "$WDPID" 2>/dev/null
+assemble
 echo "=== wrote $OUTCSV ($(( $(wc -l < "$OUTCSV") - 1 )) rows) ==="
