@@ -152,6 +152,29 @@ cmake --build build -j 48    # ~40s
 
 **SSH is non-interactive and does not source `.bashrc`**, so `julia` isn't on `PATH`. Wrap remote commands: `ssh fataepyc-07 'bash -lc "..."'`. Long runs need `tmux`/`nohup` — each SSH is a fresh shell.
 
+### Companion trimmer columns (`gss-lazy-ft`, `gss-lazy-tb`)
+
+Two ordinary appendix-grid columns, one per VeriPB-native trimmer, each `solve -> that
+trimmer -> verif its output -> release`, 25,590 instances at the same parameters as every
+published column. `companion=ft|tb` selects the arm (`src/companion.jl`); `parse_config!`
+refuses a `companion=`/`config=` pair whose keys disagree, because the config key names the
+shared append-only log and two runs under one key would interleave their blocks.
+
+They do **not** re-measure `veripb -e` on the untrimmed proof, nor our own trimmer. Both are
+already published from runs with identical parameters.
+
+The companion stage short-circuits **before** the trim/verif path in both drivers. It must
+not sit behind `trim_status === :ok`: that ran the companions only on instances our own
+trimmer had already succeeded on, which silently restricts the comparison to the subset that
+flatters us.
+
+**`ft` needs two local patches, both in `/cluster/arthur/veripb-bug/`.** Upstream
+`feature_trimmer` @ `e98c4a31` cannot resolve a proof-step label used as an `ia` hint
+(`docs/veripb-trimmer-label-bug.md`), and resolves a *shadowed* `pol` label against the final
+binding rather than the line's (`docs/veripb-trimmer-label-shadowing-bug.md`) — the second
+one silently produced unverifiable trimmed proofs for 25 % of instances. Measure only with
+`veripb_ft_fixed2` (`5e8663ceae5c0540`); the earlier `veripb_ft_fixed` carries the second bug.
+
 ## Related projects
 
 **LAD with VeriPB proof logging** — `~/ladveri` (`git@github.com:ArthurGontierPro/ladveri.git`). Since 2026-08-12 there is a *second* proof-producing SIP solver, verified end-to-end through CakeML. Relevant to M5: it can test whether our per-family proof fingerprints are instance properties or Glasgow artefacts. **Pilot-only — it has never run a real benchmark instance**, has no proof deletions, and emits no proof at all on clique instances. Read `ROADMAP.md` "M5-proof" for the full capability limits before planning any run.
