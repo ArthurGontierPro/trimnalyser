@@ -1,4 +1,19 @@
 #!/bin/bash
+# SUPERSEDED by scripts/companion_run.sh (2026-09-07).
+#
+# This drove the companion trimmers from bash -- xargs for concurrency, chunks for disk,
+# its own memory policy. Both of those were mistakes:
+#
+#   * Our own trimmer's numbers come from a run under the orchestrator. Measuring the
+#     companions under a different scheduler compares schedulers as much as trimmers.
+#   * The chunking existed to bound peak disk, sized against a 13 TB figure that was
+#     itself a proof leak (fixed in f70d02c). The orchestrator's release_raw drops each
+#     proof as its instance finishes, so the problem does not arise there at all.
+#
+# The companions are now a pipeline stage (src/companion.jl) and all four arms come from
+# one orchestrator run. Kept for reference and for the bug-report reproduction; do not
+# use it to produce table numbers.
+
 # ══════════════════════════════════════════════════════════════════════════════════════
 # Head-to-head: TrimAnalyser vs the two VeriPB trimmers, on one and the same stock proof.
 #
