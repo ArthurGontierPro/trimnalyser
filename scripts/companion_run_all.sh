@@ -44,7 +44,15 @@ esac
 
 SCRATCH="${SCRATCH:-/scratch/arthur}"
 OUTDIR="${OUTDIR:-$SCRATCH/companion-full}"
-SRC="${COMPANION_SRC:-$HOME/trimnalyser-companion}"
+# Per-host by default, and a hard failure if it is missing -- never a silent fallback to
+# a shared tree.  $HOME is one NFS mount across all nine nodes, so a single unsuffixed
+# checkout means three shards sharing one working tree and one trimnalyser.so: the
+# shared-sysimage Bus error, and a `git reset` under a running node.  It also hid a stale
+# script for a whole relaunch on 2026-09-07 -- the per-node checkouts were updated, the
+# shared one was not, and every tb row came back rc2 from an argv the branch stopped
+# accepting.  Failing loudly is the point; see gssbin's silent fallback for the same
+# lesson learned the expensive way.
+SRC="${COMPANION_SRC:-$HOME/trimnalyser-companion-$(hostname -s)}"
 ALLFILE="${ALLFILE:-$HOME/companion-sets/all-instances.txt}"
 CHUNK="${CHUNK:-96}"       JOBS="${JOBS:-24}"     THREADS="${THREADS:-92,1}"
 ST="${ST:-600}"            STNOPL="${STNOPL:-60}" TT="${TT:-1800}"
@@ -63,7 +71,10 @@ MINFREE="${MINFREE:-200}"  GATE_MIN="${GATE_MIN:-1}"  SETTLE="${SETTLE:-15}"
 SEED="${SEED:-20260904}"   ARMS="${ARMS:-base ta ft tb}"
 
 [[ -f "$ALLFILE" ]] || { echo "missing instance list: $ALLFILE" >&2; exit 1; }
-[[ -d "$SRC/.git" ]] || { echo "missing companion checkout: $SRC" >&2; exit 1; }
+[[ -d "$SRC/.git" ]] || { echo "missing companion checkout: $SRC" >&2
+    echo "  per-node checkouts are deliberate: \$HOME is shared NFS across all nine nodes." >&2
+    echo "  create it, or set COMPANION_SRC explicitly -- do not point several nodes at one tree." >&2
+    exit 1; }
 mkdir -p "$OUTDIR"/{chunks,csv,proofs,logs}
 
 # shellcheck source=/dev/null
