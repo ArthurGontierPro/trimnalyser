@@ -119,6 +119,19 @@
         # share a log file and an instance's timings would depend on which ran first.
     function companion(ins)
         isempty(_cfg[].companion) && return
+        # The untrimmed proof's size, under the same keys the normal path uses. It is the
+        # denominator of every ratio in the table, and it is what a join against the
+        # already-published columns is guarded on: two rows describe the same proof only
+        # if these agree. Logged here because the normal trim path, which usually logs
+        # them, does not run in a companion column. Cheap, and it makes the column
+        # self-sufficient rather than only meaningful next to another one.
+        let o = _cfg[].proofs * ins * opb, p = _cfg[].proofs * ins * pbp
+            if isfile(o) && isfile(p)
+                logstage(ins, "inp OPB SIZE", filesize(o))
+                logstage(ins, "inp PBP SIZE", filesize(p))
+                logstage(ins, "inp SIZE",     filesize(o) + filesize(p))
+            end
+        end
         for arm in companion_arms
             arm.tag == _cfg[].companion && return companion_arm(ins, arm)
         end
