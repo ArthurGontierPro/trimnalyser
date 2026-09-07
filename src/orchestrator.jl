@@ -578,6 +578,18 @@
 
     function run_instance_batch(ins, subargs, script)
         prepare_instance(ins) === :ok || return
+        # A companion column is solve, trim with that one companion trimmer, verify its
+        # output. Nothing else runs: the untrimmed proof's elaboration and our own
+        # trimmer are already published from runs with these same parameters, and
+        # re-deriving them here would spend days of solver time on numbers we have.
+        if !isempty(_cfg[].companion)
+            try
+                companion(ins)
+            finally
+                release_raw(ins)
+            end
+            return
+        end
         # The full proof is certified BEFORE the trim, and its elaboration is deleted
         # before the trimmer starts. The order matters twice: it is what lets a run report
         # "the untrimmed proof could not be certified, the trimmed one could" as a fact
@@ -590,11 +602,6 @@
             # rescue result is about, so it must not be skipped here.
             trim_status = run_trim_subprocess(ins, subargs, script)
             trim_status === :ok || return
-            # Before release_raw: the companion trimmers read the raw proof, the same one
-            # our trimmer just read. After our trim rather than before it, so the two are
-            # never in flight together and neither one's timing includes the other's
-            # memory pressure.
-            companion(ins)
             release_raw(ins)
             smol_vt,smol_vs,smol_ct,smol_cs = _cfg[].verif ? certify(ins, "smol") :
                                                              (-1,:missing,-1,:missing)
@@ -623,6 +630,14 @@
             end
         end
         prepare_instance(ins) === :ok || return
+        if !isempty(_cfg[].companion)
+            try
+                companion(ins)
+            finally
+                release_raw(ins)
+            end
+            return
+        end
         grim_verif_ok = false
         try
             if !_cfg[].nonorm
@@ -631,9 +646,6 @@
                 parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
                 printabline2(ins,parse_time,trim_time,write_time,cone_stats)
                 !isempty(coremsg) && println(coremsg)
-                # Mirror of the batch driver: the companions read the raw proof, so they
-                # run here, after our own trim and before the raw pair is released.
-                companion(ins)
                 # After printabline2, which reads the raw proof's sizes for the table row,
                 # and not under clit, whose second trim reads the same raw pair.
                 _cfg[].clit || release_raw(ins)

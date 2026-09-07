@@ -48,6 +48,14 @@ const SOLVER_CONFIGS = Dict{String,SolverConfig}(
     "gss-noclique"   => SolverConfig("gss", gssbin("2180663"), ["--no-clique-detection"],                   false),
     "gss-default"    => SolverConfig("gss", gssbin("861a84f"), _gss_base,                                   true),
     "gss-lazy"       => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
+    # Companion trimmer columns. Identical to gss-lazy in every solver respect -- same
+    # build, same switches -- because the proof being trimmed must be the same proof. They
+    # exist as separate keys only to keep the two runs apart: the key namespaces the proofs
+    # directory (node-local, so harmless) and the .out file name in /cluster/arthur/logs,
+    # which is SHARED NFS. Two concurrent runs under one key would append their per-run
+    # blocks into a single file and each would read the other's as its own last block.
+    "gss-lazy-ft"    => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
+    "gss-lazy-tb"    => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
     # ── tab:configs-gss-ablations. One switch each against `gss-lazy`, same binary, so the
     #    baseline column IS gss-lazy and the two tables share it.
     "gss-lazy-nostaged"   => SolverConfig("gss", gssbin("1ff87ba"), ["--no-clique-detection"],              true),
@@ -139,7 +147,7 @@ mutable struct Config
     overwrite      ::Bool
     nosup          ::Bool
     keepraw        ::Bool
-    companion      ::Bool
+    companion      ::String
     subprocess     ::Bool
     minnodes       ::Int
     maxnodes       ::Int
@@ -158,8 +166,7 @@ end
 const _cfg = Ref{Config}()
 
 const argflags = Set(["clit","core","verif","cake","no","rand","sort","clean","atable",
-                      "profile","solve","resolv","allgraphs","keepraw","subprocess",
-                      "companion"])
+                      "profile","solve","resolv","allgraphs","keepraw","subprocess"])
 
 function parse_config!(args=ARGS)
     argval(prefix, T, default) = (i = findfirst(x -> startswith(x, prefix), args);
@@ -188,6 +195,22 @@ function parse_config!(args=ARGS)
     instfile_val = let i = findfirst(x -> startswith(x, "instfile="), args)
         i !== nothing ? String(args[i][10:end]) : nothing
     end
+    # companion=<tag> selects ONE companion trimmer and turns the run into that trimmer's
+    # column: solve, trim with it, verify its output. Our own trimmer and the untrimmed
+    # proof's elaboration are deliberately not re-measured -- both are already published,
+    # from runs with these same parameters, and re-deriving them would cost days of solver
+    # time to reproduce numbers we have.
+    companion_val = let i = findfirst(x -> startswith(x, "companion="), args)
+        i === nothing ? "" : String(args[i][11:end])
+    end
+    if !isempty(companion_val)
+        companion_val in ("ft", "tb") ||
+            error("companion=$companion_val — valid values: ft, tb")
+        # The two must agree or the run writes one trimmer's numbers into the other's log.
+        endswith(config_val, "-" * companion_val) || error(
+            "companion=$companion_val with config=$config_val: the config key must end " *
+            "in -$companion_val, or the two runs collide in /cluster/arthur/logs")
+    end
     _cfg[] = Config(
         inst_val,
         "clit"             in args,
@@ -209,7 +232,7 @@ function parse_config!(args=ARGS)
         "overwrite"        in args,
         "no-supplementals" in args,
         "keepraw"          in args,
-        "companion"        in args,
+        companion_val,
         "subprocess"       in args,
         argval("minnodes=", Int,     0),
         argval("maxnodes=", Int,     typemax(Int)),

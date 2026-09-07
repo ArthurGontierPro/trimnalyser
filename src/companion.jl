@@ -1,26 +1,28 @@
 # ══ Companion trimmers ════════════════════════════════════════════════════════════════════════
 #
-# The two VeriPB trimmers — `feature_trimmer` and `feature/trimmer-base` — run as a stage
-# of this pipeline rather than from a shell harness beside it.
+# One column per companion trimmer, run exactly like every other column of the appendix
+# grid: 92 threads, maxmem=32, the same timeouts, the same instance set, the same
+# orchestrator. `companion=ft` and `companion=tb` each make one full run.
 #
-# WHY A STAGE, NOT A SCRIPT. The numbers our own trimmer contributes to the comparison
-# come from the grid, which runs under this orchestrator: 92 threads, the admission gate
-# in `wait_for_memory`, the OOM monitor's per-process ceiling, one `timeout` per stage,
-# sentinels for resume, and `release_raw` deleting each proof as its instance finishes. A
-# bash harness reproduces none of that faithfully. Measuring the companions there and ours
-# here compares two schedulers at least as much as it compares two trimmers, and the
-# scheduler differences are the larger effect: the first attempt at a harness put 48
-# unbounded elaborations on one node and used 1.9 TB of 2.0 TB.
+#   ./trimnalyser --threads 92,1 solve verif companion=ft config=gss-lazy-ft allgraphs ...
 #
-# It also removes the reason that harness had to work in batches. Two phases — solve
-# everything, then compare everything — force every proof to exist at once, which is a
-# disk problem that needs chunking to solve. Interleaved per instance, a proof lives only
-# while its own instance is in flight, so peak disk is bounded by concurrency instead of
-# by the size of the instance set. That is why the grid runs 25,590 instances in one pass.
+# WHAT IT DOES NOT MEASURE, on purpose: the untrimmed proof's elaboration, and our own
+# trimmer. Both are already published from runs with these same parameters, so
+# re-deriving them would cost days of solver time to reproduce numbers we have. The
+# comparison joins this column's sizes and times against those.
+#
+# WHY A STAGE AND NOT A SHELL HARNESS. The published numbers come from runs under this
+# orchestrator: the admission gate in `wait_for_memory`, the OOM monitor's per-process
+# ceiling, one `timeout` per stage, sentinels for resume, and `release_raw` dropping each
+# proof as its instance finishes. A trimmer measured under a different scheduler is not
+# comparable to them -- and the difference is large: the harness this replaces put 48
+# unbounded elaborations on one node and used 1.9 TB of 2.0 TB before the kernel
+# intervened. Running here also removes that harness's need to work in batches, since
+# peak disk follows concurrency rather than the size of the instance set.
 #
 # SHAPE follows `certify` deliberately, line for line: check the binary, check the inputs,
-# go through `runcapture` (which is where the admission gate is), classify the exit code
-# before reading stdout, `logstage` every field, and delete the artefacts on every path.
+# go through `runcapture` (which is where the admission gate is), classify 124/137 before
+# reading stdout, `logstage` every field, delete the artefacts on every path.
 
     const companion_ft = get(ENV, "VERIPB_FT",
         _cluster ? "/scratch/arthur/veripb_ft" : "")
@@ -101,6 +103,11 @@
              occursin("VERIFIED", out) ? :verified : :failed
         logstage(ins, "$(arm.tag) VERI", uppercase(string(st)))
         logstage(ins, "$(arm.tag) VERI TIME", round(vt; digits=2))
+        # Resume marker, same as the normal path's. A verdict is a verdict: a proof this
+        # trimmer produced and the checker rejected is a RESULT for the table, not work to
+        # redo. Timeouts and memouts are deliberately left unmarked so a rerun at a larger
+        # tt= or maxmem= picks them up, which is how every other stage behaves.
+        st in (:verified, :failed) && touch(_cfg[].proofs * ins * ".done")
         printstyled("  $ins $(arm.tag) $(st === :verified ? "verified" : string(st)) $(round(vt; digits=1))s\n";
                     color = st === :verified ? :cyan : :yellow)
     end
@@ -108,9 +115,11 @@
         # Both arms, in order. Sequential per instance on purpose: they are two
         # measurements of the same proof, and running them concurrently would have each
         # one's timing depend on the other's memory pressure.
+        # The one arm this run is a column for. Never both: two trimmers in one run would
+        # share a log file and an instance's timings would depend on which ran first.
     function companion(ins)
-        _cfg[].companion || return
+        isempty(_cfg[].companion) && return
         for arm in companion_arms
-            companion_arm(ins, arm)
+            arm.tag == _cfg[].companion && return companion_arm(ins, arm)
         end
     end
