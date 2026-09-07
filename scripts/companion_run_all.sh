@@ -150,9 +150,15 @@ for ((c = 1; c <= NCHUNK; c++)); do
     # assemble step -- what happened on 2026-09-04, when 1102 finished rows sat on disk
     # and none was banked.  compare traps INT/TERM now, but SIGKILL cannot be trapped.
     parts="$OUTDIR/csv/$tag.parts"
-    if [[ ! -s "$OUTDIR/csv/$tag.csv" && -d "$parts" && -f "$parts/.header" ]]; then
+    if [[ ! -s "$OUTDIR/csv/$tag.csv" && -d "$parts" ]]; then
         n=$(ls "$parts"/*.csv 2>/dev/null | wc -l)
         if [[ "$n" -gt 0 ]]; then
+            # compare writes .header, but parts left by a run that predates it are still
+            # perfectly good rows -- fall back to the schema in the script itself rather
+            # than discard them.  The header is the single line after the HDR heredoc.
+            hdr="$parts/.header"
+            [[ -f "$hdr" ]] || { sed -n "/^HDR=\$(cat <<'EOF'/{n;p;q}" \
+                                     "$SRC/scripts/companion_compare.sh" > "$parts/.header"; }
             echo "  [$tag] compare left no csv; assembling $n part file(s) from $parts"
             { cat "$parts/.header"; cat "$parts"/*.csv; } > "$OUTDIR/csv/$tag.csv"
         fi
