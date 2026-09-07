@@ -183,7 +183,11 @@ wait_for_memory() {
         # every exit path, so its absence means abandon the instance rather than wait on
         # a parent that is gone.  Exits this instance's `bash -c` without writing a part,
         # which is correct -- the row was never measured.
-        if [[ ! -e "$WORK/.watchdog" ]]; then
+        # Two ways the driver can go, and the marker only covers one of them: on INT/TERM
+        # the trap removes it, but a SIGKILL runs no trap -- which is exactly how the
+        # 2026-09-04 run died, the kernel OOM killer taking the whole tmux scope.  So the
+        # marker also carries the driver's pid, and a live pid is the second condition.
+        if [[ ! -e "$WORK/.watchdog" ]] || ! kill -0 "$(cat "$WORK/.watchdog" 2>/dev/null)" 2>/dev/null; then
             echo "### driver gone while waiting for memory — abandoning $ins" >> "$log"
             exec 9>&-; exit 143
         fi
@@ -400,7 +404,7 @@ LIST=$(echo "$LIST" | while read -r i; do
 watchdog() {
     local maxkb=$(( MAXMEM_GB * 1024 * 1024 )) pid cmd a0 rss ins path
     mkdir -p "$WORK/.memout"
-    while [[ -e "$WORK/.watchdog" ]]; do
+    while [[ -e "$WORK/.watchdog" ]] && kill -0 "$DRIVER_PID" 2>/dev/null; do
         for d in /proc/[0-9]*; do
             pid=${d#/proc/}
             [[ -r "$d/cmdline" ]] || continue
@@ -449,7 +453,8 @@ cleanup() {
 }
 trap 'cleanup; assemble; echo "=== interrupted; banked $(( $(wc -l < "$OUTCSV") - 1 )) rows ==="; exit 130' INT TERM
 
-: > "$WORK/.watchdog"
+DRIVER_PID=$$; export DRIVER_PID
+echo "$DRIVER_PID" > "$WORK/.watchdog"     # contents are the liveness check; see wait_for_memory
 watchdog & WDPID=$!
 echo "    memory  maxmem=${MAXMEM_GB}G/proc  minfree=${MINFREE_GB}G  gate>${GATE_MIN_GB}G  settle=${SETTLE}s"
 
