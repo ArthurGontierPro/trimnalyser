@@ -44,6 +44,7 @@ include("trimmer.jl")
 include("writer.jl")
 include("solver.jl")
 include("output.jl")
+include("companion.jl")
 include("pipeline.jl")
 include("orchestrator.jl")
 

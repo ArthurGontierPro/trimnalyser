@@ -41,6 +41,12 @@ const CSV_COLUMNS = [
     "inp_opb_size", "inp_pbp_size", "inp_total_size",
     "inp_literals", "inp_variables",
     "inp_opb_nbeq", "inp_pbp_nbeq", "inp_total_nbeq",
+    # Companion trimmers, run as a pipeline stage (src/companion.jl) so they meet the
+    # same admission gate, per-process ceiling and timeouts our own trimmer does.
+    "ft_trim_status", "ft_time", "ft_opb_size", "ft_pbp_size", "ft_steps",
+    "ft_veri_status", "ft_veri_time", "ft_note",
+    "tb_trim_status", "tb_time", "tb_opb_size", "tb_pbp_size", "tb_steps",
+    "tb_veri_status", "tb_veri_time", "tb_note",
     # Grim (DFS) results
     "grim_parse_time", "grim_trim_time", "grim_write_time", "grim_total_time",
     "grim_opb_cone", "grim_pbp_cone", "grim_total_cone",
@@ -210,6 +216,18 @@ const _SUFFIX_RULES = [
     ("inp SIZE ",         "inp_total_size",  Int),
     ("inp LIT ",          "inp_literals",    Int),
     ("inp VAR ",          "inp_variables",   Int),
+    # Companion trimmers (feature_trimmer / feature/trimmer-base), one pair per arm.
+    # Same shape as grim's, so the three are directly comparable in the CSV.
+    ("ft TIME ",          "ft_time",         Float64),
+    ("ft OPB SIZE ",      "ft_opb_size",     Int),
+    ("ft PBP SIZE ",      "ft_pbp_size",     Int),
+    ("ft STEPS ",         "ft_steps",        Int),
+    ("ft VERI TIME ",     "ft_veri_time",    Float64),
+    ("tb TIME ",          "tb_time",         Float64),
+    ("tb OPB SIZE ",      "tb_opb_size",     Int),
+    ("tb PBP SIZE ",      "tb_pbp_size",     Int),
+    ("tb STEPS ",         "tb_steps",        Int),
+    ("tb VERI TIME ",     "tb_veri_time",    Float64),
     # Grim timing & output sizes
     ("grim PARSE TIME ",  "grim_parse_time", Float64),
     ("grim TRIM TIME ",   "grim_trim_time",  Float64),
@@ -354,6 +372,14 @@ function parse_out_file(filepath)
         # logged under the legacy key "veri TIME", the trimmed one's under "veri smol TIME".
         let m = match(r"^veri full ([A-Z]+)$", line); m !== nothing && (data["veri_full_status"] = m.captures[1]); end
         let m = match(r"^veri smol ([A-Z]+)$", line); m !== nothing && (data["veri_smol_status"] = m.captures[1]); end
+        # "<arm> TRIM <STATUS>" and "<arm> VERI <STATUS>". Anchored on the status word
+        # being all-caps and terminal so "ft TIME 1.2" and "ft VERI TIME 3.4" cannot match.
+        let m = match(r"^(ft|tb) TRIM ([A-Z]+)$", line)
+            m !== nothing && (data["$(m.captures[1])_trim_status"] = m.captures[2]); end
+        let m = match(r"^(ft|tb) VERI ([A-Z]+)$", line)
+            m !== nothing && (data["$(m.captures[1])_veri_status"] = m.captures[2]); end
+        let m = match(r"^(ft|tb) NOTE (.+)$", line)
+            m !== nothing && (data["$(m.captures[1])_note"] = m.captures[2]); end
         let m = match(r"^cake (full|smol) ([A-Z_]+)$", line)
             m !== nothing && (data["cake_$(m.captures[1])_status"] = m.captures[2]); end
         let m = match(r"^cake (full|smol) TIME (\d+)", line)
@@ -570,6 +596,20 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             push!(row, get(data, "inp_opb_nbeq", ""))
             push!(row, get(data, "inp_pbp_nbeq", ""))
             push!(row, get(data, "inp_total_nbeq", ""))
+
+            # Companion trimmers — position must match CSV_COLUMNS exactly; the row is
+            # built positionally, so a name added there without a push! here shifts every
+            # later column silently. The length check below is what catches that.
+            for arm in ("ft", "tb")
+                push!(row, csv_quote(get(data, "$(arm)_trim_status", "")))
+                push!(row, get(data, "$(arm)_time", ""))
+                push!(row, get(data, "$(arm)_opb_size", ""))
+                push!(row, get(data, "$(arm)_pbp_size", ""))
+                push!(row, get(data, "$(arm)_steps", ""))
+                push!(row, csv_quote(get(data, "$(arm)_veri_status", "")))
+                push!(row, get(data, "$(arm)_veri_time", ""))
+                push!(row, csv_quote(get(data, "$(arm)_note", "")))
+            end
 
             # Grim stats
             push!(row, get(data, "grim_parse_time", ""))
@@ -814,6 +854,14 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
                 println(stderr, "WARNING: $instance has $(length(row)) fields, expected $(length(CSV_COLUMNS)) — skipping")
                 continue
             end
+            # The row is assembled by positional push!, so a column added to CSV_COLUMNS
+            # without a matching push! (or the reverse) shifts every field after it and
+            # produces a CSV that parses cleanly with every value under the wrong name.
+            # Nothing downstream could detect that, so it is caught here, once, loudly.
+            length(row) == length(CSV_COLUMNS) || error(
+                "row/column mismatch: built $(length(row)) fields for " *
+                "$(length(CSV_COLUMNS)) columns (instance $instance). " *
+                "A CSV_COLUMNS entry has no push!, or a push! has no column.")
             println(io, join(row, ","))
         end
     end
