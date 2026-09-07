@@ -176,6 +176,17 @@ wait_for_memory() {
             echo "### waiting for memory ($stage): ${avail}G free < ${MINFREE_GB}G" >> "$log"
             announced=1
         fi
+        # The wait is deliberately unbounded -- queueing beats being OOM-killed by the
+        # kernel, which picks its own victim.  But unbounded plus orphaned is a wedge: if
+        # the driver dies, nothing will ever admit this job and it spins until someone
+        # notices.  The watchdog marker is the liveness link; the driver removes it on
+        # every exit path, so its absence means abandon the instance rather than wait on
+        # a parent that is gone.  Exits this instance's `bash -c` without writing a part,
+        # which is correct -- the row was never measured.
+        if [[ ! -e "$WORK/.watchdog" ]]; then
+            echo "### driver gone while waiting for memory — abandoning $ins" >> "$log"
+            exec 9>&-; exit 143
+        fi
         sleep $(( 5 + RANDOM % 10 ))     # jitter, so waiters do not poll in lockstep
     done
 }
@@ -429,13 +440,24 @@ assemble() {
     { echo "$HDR"; echo "$LIST" | while read -r i; do
           [[ -s "$WORK/$i.csv" ]] && cat "$WORK/$i.csv"; done; } > "$OUTCSV"
 }
-trap 'rm -f "$WORK/.watchdog"; assemble; echo "=== interrupted; banked $(( $(wc -l < "$OUTCSV") - 1 )) rows ==="; exit 130' INT TERM
+# Removing the marker first is what releases every job queued in the gate: they check it
+# each poll and abandon rather than wait on a driver that is exiting.  Then the running
+# measurements are signalled, then whatever finished is banked.
+cleanup() {
+    rm -f "$WORK/.watchdog"
+    [[ -n "${XPID:-}" ]] && { pkill -TERM -P "$XPID" 2>/dev/null; kill -TERM "$XPID" 2>/dev/null; }
+}
+trap 'cleanup; assemble; echo "=== interrupted; banked $(( $(wc -l < "$OUTCSV") - 1 )) rows ==="; exit 130' INT TERM
 
 : > "$WORK/.watchdog"
 watchdog & WDPID=$!
 echo "    memory  maxmem=${MAXMEM_GB}G/proc  minfree=${MINFREE_GB}G  gate>${GATE_MIN_GB}G  settle=${SETTLE}s"
 
-echo "$LIST" | xargs -P "$JOBS" -I{} bash -c 'runone "$@"' _ {}
+# Backgrounded so the INT/TERM trap can run while the driver is blocked here: bash serves
+# a trap during `wait`, but not during a foreground pipeline.
+echo "$LIST" | xargs -P "$JOBS" -I{} bash -c 'runone "$@"' _ {} &
+XPID=$!
+wait "$XPID"
 
 rm -f "$WORK/.watchdog"; wait "$WDPID" 2>/dev/null
 assemble
