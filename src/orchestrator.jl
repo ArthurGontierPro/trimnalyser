@@ -781,7 +781,12 @@
                         (is_trimmer || is_solver || is_veripb) || continue
                         # Extract instance name from cmdline (args are \0-separated)
                         cmdargs = split(cmdline, '\0')
-                        stage = is_trimmer ? "trim" : is_solver ? "solve" : "verif"
+                        # `veripbpath` prefix-matches the companion binaries (veripb_ft,
+                        # veripb_tb), which is deliberate — they need the ceiling too — but
+                        # it made every companion TRIM report itself as stage "verif" in
+                        # the .err marker. Read the subcommand instead of assuming.
+                        stage = is_trimmer ? "trim" : is_solver ? "solve" :
+                                occursin("\0trim\0", cmdline) ? "trim" : "verif"
                         inst_name = if is_trimmer
                             idx = findfirst(is_instance_name, cmdargs)
                             idx !== nothing ? String(cmdargs[idx]) : "?"

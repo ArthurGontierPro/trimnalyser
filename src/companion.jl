@@ -36,6 +36,29 @@
     const companion_arms = ((tag = "ft", bin = companion_ft, model = true),
                             (tag = "tb", bin = companion_tb, model = false))
 
+        # Did the OOM monitor kill something between `mark` and now?
+        #
+        # The exit code alone is not enough. The monitor's `kill -9` surfaces as 137 only
+        # when it reaches the monitored binary; when it reaches the `timeout` wrapper
+        # instead -- which it can, because the wrapper's cmdline contains the binary path
+        # and so matches the same scan -- Julia reports a signal death, not 137, and the
+        # stage was misfiled as a plain failure. That is how 3,816 OOM kills on the tb
+        # column were logged as TRIM FAILED and read as proof rejections.
+        #
+        # The monitor always appends "OOM at <rss>G" to .err BEFORE it kills, so that
+        # marker is the reliable signal. .err is append-only across an instance's whole
+        # run, so compare against a mark taken before the stage started rather than
+        # grepping the file: an earlier stage's OOM must not be attributed to this one.
+    errmark(ins) = (f = _cfg[].proofs * ins * ".err"; isfile(f) ? filesize(f) : 0)
+
+    function oom_since(ins, mark)
+        f = _cfg[].proofs * ins * ".err"
+        isfile(f) || return false
+        filesize(f) > mark || return false
+        tail = open(f) do io; seek(io, mark); read(io, String) end
+        return occursin("OOM at", tail)
+    end
+
         # One companion arm on one instance.
         #
         # Returns nothing; everything it measures goes to the log, which is what
@@ -56,6 +79,7 @@
         tryrm(oo); tryrm(op)
         cmd = arm.model ? `$(arm.bin) trim $o $p $oo -e $op` :
                           `$(arm.bin) trim $o $p -e $op`
+        mark = errmark(ins)
         (t, code, out, err) = runcapture(cmd, _cfg[].trimtimeout, op;
                                         stage = "companion $(arm.tag)", ins = ins)
         # 124 and 137 before anything else, for the same reason certify does it: a killed
@@ -63,7 +87,7 @@
         # are different findings about a trimmer and must not be pooled with each other or
         # with a proof it genuinely rejects.
         status = code == 124 ? :timeout :
-                 code == 137 ? :memout  :
+                 (code == 137 || oom_since(ins, mark)) ? :memout :
                  (code == 0 && isfile(op) && filesize(op) > 0) ? :ok : :failed
         logstage(ins, "$(arm.tag) TRIM", uppercase(string(status)))
         logstage(ins, "$(arm.tag) TIME", round(t; digits=2))
@@ -96,10 +120,14 @@
         # A trimmer that emits no reformulated model leaves its proof against the ORIGINAL
         # formula; using an empty file here would reject every proof for the wrong reason.
         model = (isfile(oo) && filesize(oo) > 0) ? oo : orig_opb
+        mark = errmark(ins)
         (vt, code, out, _) = runcapture(`$veripbpath $model $op`, _cfg[].veriftimeout, op;
                                         stage = "companion $(arm.tag) check", ins = ins)
-        # VERIFIED on stdout, never a file's existence — see certify.
-        st = code == 124 ? :timeout : code == 137 ? :memout :
+        # VERIFIED on stdout, never a file's existence — see certify. And a memout before a
+        # rejection: an OOM-killed checker prints nothing, which is indistinguishable from a
+        # refusal if only stdout is consulted. See oom_since.
+        st = code == 124 ? :timeout :
+             (code == 137 || oom_since(ins, mark)) ? :memout :
              occursin("VERIFIED", out) ? :verified : :failed
         logstage(ins, "$(arm.tag) VERI", uppercase(string(st)))
         logstage(ins, "$(arm.tag) VERI TIME", round(vt; digits=2))
