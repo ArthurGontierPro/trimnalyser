@@ -69,7 +69,9 @@ with `run LIMITS …`, `run SOLVER …`, `run FLAGS …`, `run RESOLV_GATE verip
 
 ## For the paper side — read before aggregating
 
-1. **`config_grid.py::normalise_m7` will misread this CSV.** It keys "pre-M7 rundir" on
+1. **`config_grid.py::normalise_m7` would have misread this CSV — FIXED 2026-10-12** (paper
+   repo, `is_m7()` keys on `solve_verdict`/`nopl_verdict`; self-test passes, six published
+   columns reproduce byte for byte, the 8-3 run is untouched). The original trap: it keyed "pre-M7 rundir" on
    `d.status.notna().any()`, and `status` is populated again here (it is the solver's
    `status = true|false` line, as it was before M7). With that guard taken, it skips the
    `veri_smol_verified` 0→NaN repair, so every FAILED/TIMEOUT/MEMOUT row counts as certified.
