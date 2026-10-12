@@ -1,0 +1,141 @@
+# Resolv rerun, 2026-10-12 (arm 2 of RERUN-REQUEST.md, in arm L)
+
+The first part of the rerun `~/papers/trimnalyser-paper/RERUN-REQUEST.md` asks for: resolv
+**without the CakePB gate**, on the lazy build, over the whole benchmark. One column, one node
+(fataepyc-07), launched 2026-10-12 — see "Launch" below for the exact time and command.
+
+## What it measures
+
+The grid's resolv loop only recursed on a core when CakePB had accepted the trimmed proof
+(`recurse_ok`, `src/orchestrator.jl`). That selected the images population by CakePB's heap
+wall, not by anything about the instance. This run recurses whenever the trim succeeded and
+**VeriPB** verified the trimmed proof; CakePB still runs on every proof and its verdict is
+logged (`cake full|smol <STATUS>`), it just no longer stops the loop.
+
+Everything else is the published `gss-lazy` column: same build, same switches, same limits,
+same instance enumeration. So arm L's full-pipeline numbers (solve, elaborate, VeriPB, CakePB,
+trim, VeriPB and CakePB on the trimmed proof) come out of the same run.
+
+## Configuration
+
+| | |
+|---|---|
+| config key | `gss-lazy-resolv` (`src/config.jl`); a new key so its blocks stay out of the published `gss-lazy` logs |
+| solver | Glasgow `1ff87ba` = HEAD of `lazy-adjacency-relabelled` on the laptop, the cluster and `origin` (checked 2026-10-12). The "latest labelled solver". |
+| binary | `/scratch/arthur/glasgow_subgraph_solver_1ff87ba`, sha256 `be51f986…9e71ea` (`/cluster/arthur/dist/MANIFEST`, staged 2026-08-28) |
+| switches | `--staged --no-clique-detection --prove` (`_gss_base`) |
+| veripb | `/scratch/arthur/veripb`, sha256 `66c300a7…18c011a` |
+| cake_pb | `/scratch/arthur/cake_pb`, sha256 `5948bd58…09b72` (post-`c41ce52`, the weakening fix) |
+| trimnalyser | `e587066` on `diag/littrim-experiment` |
+| limits | `stnopl=60 st=600 tt=6000 vt=6000 ct=6000 maxmem=32`, `--threads 92,1` (the grid's) |
+| instance set | `allgraphs rand` = the 25,590 of every published column (LV, bio, images-CVIU11, meshes-CVIU11, phase, scalefree, images-PR15 all included by the enumerator) |
+| extra args | `nocakegate` |
+| machine | fataepyc-07: 2× AMD EPYC 7643 48-core (192 threads), 2 TB RAM, `/scratch` 13 TB md0 |
+| logs | `/cluster/arthur/logs/<ins>.gss.gss-lazy-resolv.out` (+ `.coreN` for resolv iterations) |
+| benchlog | `/cluster/arthur/benchlogs/gss-lazy-resolv.fataepyc-07.<ts>.log` |
+| proofs | `/scratch/arthur/proofs/gss/gss-lazy-resolv/` (node-local, deleted as the run proceeds) |
+
+The full sha256 of every binary is printed at the top of the benchlog (`binary <sha> <path>`
+lines, added to `bench_config.sh` for this run), and every run block in every log now opens
+with `run LIMITS …`, `run SOLVER …`, `run FLAGS …`, `run RESOLV_GATE veripb`,
+`run TRIMNALYSER e587066`.
+
+## What changed in the pipeline for this run (commit `e587066`)
+
+- `nocakegate` flag; `recurse_ok` ignores Cake's verdict when it is set. The gate in force is
+  stamped as `run RESOLV_GATE veripb+cake|veripb|none|off`.
+- The solver's own `key = value` summary (`status`, `nodes`, `propagations`, `runtime`,
+  `restarts`, `shape_graphs`, `supplemental_graph_names`, `subsumed_supplemental_graphs`, …)
+  is copied from `.solverout` into the append-only log after every solve. Unprefixed for the
+  logging solve, `nopl `-prefixed for the tier-1 solve. This is why `solver_nodes`,
+  `solver_propagations`, `status`, `pattern_vertices`, `target_vertices`, `runtime_ms` were
+  empty in every `runs-0903` CSV: the lines went to a file in the proof tree that is deleted.
+- Peak RSS: the solver runs under GNU time → `solve MAXRSS_KB` / `nopl MAXRSS_KB`; the trim
+  subprocess logs its own VmHWM → `grim MAXRSS_KB`.
+- A solve killed by the OOM monitor is logged `solve VERDICT MEMOUT` + `solve MEMOUT 32.0`
+  (was: TIMEOUT, with a `.timeoutNNN` sentinel on top of the `.memoutNNN`). Tier-1 solves get
+  `nopl TIMEOUT 60` / `nopl MEMOUT 32.0`; the monitor can now name a tier-1 solve (via the
+  parent GNU time process's `-o <ins>.rss`), which it could not before.
+- `aggregate_results.jl`: 24 columns **appended** after every existing one (none moved, none
+  repurposed): `nopl_nodes nopl_propagations nopl_runtime_ms solver_restarts
+  solver_shape_graphs solver_supplemental_levels solver_subsumed_levels
+  solver_supplemental_graphs solver_subsumed_graphs nopl_maxrss_kb solve_maxrss_kb
+  grim_maxrss_kb error_stage nopl_timeout_s nopl_memout_gb solve_timeout_s solve_memout_gb
+  trim_timeout_s trim_memout_gb run_limits run_solver run_flags run_resolv_gate
+  run_trimnalyser_rev`. `error_type` is filled from the log's `TIMEOUT|MEMOUT` lines when the
+  `.err` is gone, so it is non-empty after the proof tree is deleted; `error_stage` says
+  `nopl|solve|trim`.
+
+## For the paper side — read before aggregating
+
+1. **`config_grid.py::normalise_m7` will misread this CSV.** It keys "pre-M7 rundir" on
+   `d.status.notna().any()`, and `status` is populated again here (it is the solver's
+   `status = true|false` line, as it was before M7). With that guard taken, it skips the
+   `veri_smol_verified` 0→NaN repair, so every FAILED/TIMEOUT/MEMOUT row counts as certified.
+   Key the guard on something else — `run_trimnalyser_rev` being present, or `solve_verdict`
+   being non-empty — before using this run. `sec6_0903.py` reads `solve_verdict ∈ {SAT,UNSAT}`
+   and is unaffected, but note the new value `MEMOUT` beside `TIMEOUT`.
+2. `status` here is the **logging** solve's verdict, so it is empty for instances the tier-1
+   solve already settled (SAT) or that never reached tier 2. `solve_verdict.fillna(nopl_verdict)`
+   remains the complete verdict, as in every M7 column.
+3. **Resolv rows**: `resolv_iter_pat_nodes`/`resolv_iter_tar_nodes` come from the `resolv ITER n
+   PAT p TAR t` lines of the base instance's log; the per-iteration trim metrics come from the
+   `.coreN` logs. The key is new, so no stale `.coreN` log from an older run can be mistaken for
+   this run's (the aggregator counts iterations by the existence of `.coreN` files).
+4. `cake_smol_status` is recorded for every trimmed proof; the recursion no longer depends on
+   it. Filter on it yourself if a Cake-certified subset is wanted.
+
+## Not in this run (deliberately)
+
+- Arms E, G, M and the throughput arm (3): those need three more Glasgow builds and are the
+  second part of the rerun. This run is arm L only.
+- "Smallest n at which T_n differs from T_{n-1}" and "minimum common-neighbourhood size over
+  pairs at distance two": `1ff87ba` does not print them, and the solver binary was not
+  changed for this run (it must stay the published `gss-lazy` build). The levels built
+  (`solver_supplemental_levels`, from `supplemental_graph_names`) and the levels that
+  collapsed (`solver_subsumed_levels`, from `subsumed_supplemental_graphs`) ARE there.
+- Elaborated sizes: `cake_elab_size` / `cake_smol_elab_size` as before.
+- The alternative conflict-analysis rule (`gclt_*`): not run.
+
+## Launch
+
+Started **2026-10-12 13:49:08 UTC** on fataepyc-07, tmux session `grid-gss-lazy-resolv`,
+benchlog `/cluster/arthur/benchlogs/gss-lazy-resolv.fataepyc-07.20261012-134906.log`:
+
+```
+CONFIGS=gss-lazy-resolv NODES=fataepyc-07 EXTRA=nocakegate SKIP_SYSIMAGE=1 bash scripts/run_grid.sh launch
+# which ran, on the node:
+./trimnalyser --threads 92,1 solve resolv verif cake config=gss-lazy-resolv \
+    stnopl=60 st=600 tt=6000 vt=6000 ct=6000 maxmem=32 allgraphs rand nocakegate
+```
+
+Sysimage rebuilt once beforehand with `cluster_env.sh` sourced and the precompile cache
+purged (`build_sysimage.jl`, 150 s), then checked with `check_sysimage_env()`; no other
+column had written a benchlog since 2026-09-10, so nothing had the shared `.so` mapped.
+
+**Smoke tests before the launch, and why their traces were removed.** A single-instance run
+of `LVg10g12` at scale 60, then a five-instance batch (`LVg6g7 LVg10g28 LVg17g24 bio001064
+LVg10g12`, `INSTFILE`, scale 60) to exercise the subprocess trim and the recursion: three of
+the five iterated (LVg6g7 19→4→3, bio001064 46→18→16, LVg17g24 four iterations), every core
+certified by both checkers, no `.rss` left behind. Then the config's proof tree and the
+smoke's log files (base + `.coreN`, by explicit name) were deleted: a smoke `.done` makes
+the real run skip that instance silently (observed — the batch smoke skipped `LVg10g12`
+because the single-instance smoke had marked it), and a stale `.coreN` log would be counted
+as a resolv iteration by the aggregator. The real run therefore started on an empty tree and
+needs no `overwrite`.
+
+**Watching it:** `bash scripts/run_grid.sh status` (CONFIGS/NODES as above), or count
+`*.gss.gss-lazy-resolv.out` only via the proof dir's `.done`/sentinels — never `ls` the
+900k-entry logs directory over NFS.
+
+**Aggregating it** (on the node, once the session has ended):
+
+```
+julia scripts/aggregate_results.jl /scratch/arthur/proofs/gss/gss-lazy-resolv \
+      /cluster/arthur/m7-1012/gss-lazy-resolv/cluster_results.csv /cluster/arthur/logs
+```
+
+Build the symlink farm of just this key's logs first (see `docs/runs/` and the
+`project-appendix-data-provenance` memory): the aggregator `readdir()`s the whole logs
+directory otherwise. Aggregate while the proof tree still exists if `.err` details are wanted
+beyond what the log carries; `error_type`/`error_stage` no longer depend on it.
