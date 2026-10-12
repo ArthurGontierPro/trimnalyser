@@ -188,7 +188,7 @@ const CSV_COLUMNS = [
     "error_stage", "nopl_timeout_s", "nopl_memout_gb", "solve_timeout_s", "solve_memout_gb",
     "trim_timeout_s", "trim_memout_gb",
     "run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev",
-    "run_cake_heap",
+    "run_cake_heap", "cake_full_exhausted", "cake_smol_exhausted", "cakeiso_full_exhausted",
 ]
 
 function _parse_frac(s)
@@ -418,6 +418,10 @@ function parse_out_file(filepath)
             m !== nothing && (data[m.captures[1] == "smol" ? "cake_smol_elab_size" : "cake_elab_size"] = m.captures[2]); end
         let m = match(r"^cakeiso full ([A-Z_]+)$", line); m !== nothing && (data["cakeiso_full_status"] = m.captures[1]); end
         let m = match(r"^cakeiso full TIME (\d+)", line); m !== nothing && (data["cakeiso_full_time"] = m.captures[1]); end
+        # Which CakeML resource ran out (heap|stack), beside the MEMOUT status.
+        let m = match(r"^cake full EXHAUSTED (\w+)$", line);    m !== nothing && (data["cake_full_exhausted"]    = m.captures[1]); end
+        let m = match(r"^cake smol EXHAUSTED (\w+)$", line);    m !== nothing && (data["cake_smol_exhausted"]    = m.captures[1]); end
+        let m = match(r"^cakeiso full EXHAUSTED (\w+)$", line); m !== nothing && (data["cakeiso_full_exhausted"] = m.captures[1]); end
         # veri_smol_verified is the legacy 0/1 flag. It must stay 0 for every outcome that
         # is not VERIFIED — FAILED, TIMEOUT and MEMOUT all used to fall through to an empty
         # cell, which is indistinguishable from "the stage never ran".
@@ -949,7 +953,7 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
                 push!(row, get(data, k, ""))
             end
             for k in ("run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev",
-                      "run_cake_heap")
+                      "run_cake_heap", "cake_full_exhausted", "cake_smol_exhausted", "cakeiso_full_exhausted")
                 let v = get(data, k, ""); push!(row, v == "" ? "" : csv_quote(v)) end
             end
 

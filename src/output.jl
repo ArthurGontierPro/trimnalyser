@@ -530,29 +530,29 @@
     const cakepbpath  = get(ENV, "CAKE_PB",
         _cluster ? "/scratch/arthur/cake_pb"     : "/home/arthur_gla/CakePB-dev/cake_pb")
 
-        # CakeML reads these from the ENVIRONMENT at startup, in megabytes. They are not
-        # command-line flags — passing `--CML_HEAP_SIZE=8192` makes cake treat the flag as
-        # the input filename — and they are not compile-time constants. Left unset, cake
-        # runs at CakeML's built-in default, and any proof needing more exits with
-        # "CakeML heap space exhausted", which cakestatus reports as :memout. That made a
-        # too-small default indistinguishable from a genuine resource limit.
+        # Heap and stack, in MB. CakeML allocates heap+stack as ONE block at startup, and a
+        # long check sweeps the whole heap (copying collector), so the pair IS cake's
+        # resident footprint — the quantity the OOM monitor kills the trimmer, the solver
+        # and veripb at (`maxmem=`). Equal budgets therefore means heap + stack = maxmem:
+        # with maxmem=32 that is 28672 + 4096. The stack keeps the cakepb-dev default
+        # (4096 from maxmem=32 up), which no run has exhausted: 368/368 exhaustion files on
+        # the surviving gss-lazy-norestarts tree say heap, and cake_pb recorded no FAILED
+        # at all across thirteen columns. The assumption is checked by every run: an
+        # exhaustion is logged as `cake <tag> EXHAUSTED heap|stack`.
+        # Until 2026-10-12 the heap was pinned to min(8192, maxmem) and the stack to 4096 —
+        # a limit four times stricter than every other stage's, and with the post-08-27
+        # binary (see cakeflags) effectively 4096/4096.
         #
-        # CakeML mallocs heap+stack UP FRONT and aborts with "failed to allocate sufficient
-        # CakeML heap and stack space" if the allocation is refused — it is not lazily
-        # mapped, so these cannot simply be set to maxmem=. Resident use stays far below
-        # the reservation (LVg10g12 verifies in ~300 MB either way), but the reservation
-        # still has to succeed, and 32 GB is already refused on an 8 GB laptop.
-        #
-        # 8192/4096 are therefore fixed defaults, not a function of maxmem=, and are capped
-        # by maxmem= so cake can never reserve more than a stage's budget. This bound is
-        # also why cake needs no entry in the OOM monitor: it cannot grow past these
-        # numbers, it exits instead.
-        # An explicit CML_HEAP_SIZE / CML_STACK_SIZE in the environment still wins.
+        # CakeML aborts with "failed to allocate sufficient CakeML heap and stack space" if
+        # the malloc is refused (overcommit_memory=0 refuses a block larger than RAM+swap),
+        # which is why a laptop cannot run with the cluster's maxmem=. An explicit
+        # CML_HEAP_SIZE / CML_STACK_SIZE in the environment still wins here; which binary
+        # actually honours the environment is cakeflags()'s business.
     _cake_budget_mb() = max(512, round(Int, _cfg[].maxinstmem_gb * 1024))
-    cake_heap_mb()  = parse(Int, get(ENV, "CML_HEAP_SIZE",
-                                     string(min(8192, _cake_budget_mb()))))
     cake_stack_mb() = parse(Int, get(ENV, "CML_STACK_SIZE",
-                                     string(min(4096, _cake_budget_mb() ÷ 2))))
+                                     string(min(4096, _cake_budget_mb() ÷ 8))))
+    cake_heap_mb()  = parse(Int, get(ENV, "CML_HEAP_SIZE",
+                                     string(max(256, _cake_budget_mb() - cake_stack_mb()))))
         # Pairs, not a wrapped Cmd. `runcapture` interpolates into `timeout $tl $cmd`, and
         # Julia rejects an env-carrying Cmd anywhere but the first interpolant
         # ("Non-default environment behavior is only permitted for the first interpolant"),
@@ -621,14 +621,18 @@
 
         # Both CakeML checkers exit 0 on a FAILED check and print their diagnostics on
         # stderr. "s VERIFIED" on stdout is the only success signal either of them gives.
-        # Running out of heap is the one thing they do exit non-zero for, and it is a
-        # resource limit rather than a rejection: CakeML's heap is fixed at compile time
-        # (CML_HEAP_SIZE), so it cannot OOM the node but it also cannot grow into a proof
-        # that needs more. Reported as :memout so a rebuild with a larger heap is
-        # distinguishable from a proof the checker actually refuses.
+        # Running out of memory is the one thing they do exit non-zero for — the wrapper
+        # exits 1 with "CakeML heap space exhausted" and 2 with "CakeML stack space
+        # exhausted" — and it is a resource limit rather than a rejection: the block is
+        # fixed at startup, so cake cannot OOM the node but also cannot grow into a proof
+        # that needs more. Both are :memout, with the resource named on its own log line
+        # (cake_exhausted). Until 2026-10-12 only the heap message was recognised and a
+        # stack exhaustion would have been booked :failed, i.e. as a refused proof.
+    cake_exhausted(err) = occursin("heap space exhausted", err)  ? "heap"  :
+                          occursin("stack space exhausted", err) ? "stack" : ""
     cakestatus(code, out, err) = code == 124 ? :timeout :
                                  code == 137 ? :memout  :
-                                 occursin("heap space exhausted", err) ? :memout :
+                                 cake_exhausted(err) != "" ? :memout :
                                  occursin("s VERIFIED", out) ? :verified : :failed
 
     function printcertify(ins, tag, t, status)
@@ -653,6 +657,7 @@
         st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".$tag.cake.err", out*err)
         logstage(ins, "cake $tag", uppercase(string(st)))
+        let x = cake_exhausted(err); x == "" || logstage(ins, "cake $tag EXHAUSTED", x) end
         logstage(ins, "cake $tag TIME", trunc(Int, t))
         printstyled("  $ins cake $tag $(trunc(Int,t))s $(uppercase(string(st)))\n";
                     color = st === :verified ? :green : st === :failed ? :red : :yellow)
@@ -672,6 +677,7 @@
         st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".cakeiso.err", out*err)
         logstage(ins, "cakeiso full", uppercase(string(st)))
+        let x = cake_exhausted(err); x == "" || logstage(ins, "cakeiso full EXHAUSTED", x) end
         logstage(ins, "cakeiso full TIME", trunc(Int, t))
         printstyled("  $ins cakeiso $(trunc(Int,t))s $(uppercase(string(st)))\n";
                     color = st === :verified ? :green : st === :failed ? :red : :yellow)
