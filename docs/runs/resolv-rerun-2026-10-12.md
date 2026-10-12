@@ -189,3 +189,30 @@ Two defects, one of which is a decision:
 Also noted, not a defect: `.done` is written before the resolv loop starts
 (`orchestrator.jl`), so a `.done` count overstates completed instances by the resolv
 iterations in flight, and an instance interrupted mid-resolv is skipped on resume.
+
+### Which heap each published column ran with (measured 2026-10-12 from `runs-0903`)
+
+| column (CSV dir) | run window | cake_pb | heap | full-proof wall | cake full MEMOUT | MEMOUT < 456 MB model |
+|---|---|---|---|---|---|---|
+| `sep01-gss-lazy` (lazy baseline, printed everywhere) | 08-24 19:13 → 08-27 05:33 | pre-c41ce52 | **8 GB** | 455 MB | 520 | 25 |
+| `sep01-gss-lazy-base` (pre-NDS, not a column) | 08-24 → 08-27 | pre-c41ce52 | 8 GB | 455 MB | 425 | 23 |
+| `sep01-gss-proof` (pre-NDS, not a column) | 08-24 → 08-28 | pre-c41ce52 | 8 GB | 455 MB | 426 | 24 |
+| `sep01-gss-proof-nds` (default logging `861a84f`) | 08-28 17:04 → 09-01 10:37 | c41ce52 | **4 GB** | 219 MB | 1303 | 754 |
+| `sep01-gss-lazy-base-nds` | 08-28 → 08-31 | c41ce52 | 4 GB | 219 MB | 1230 | 763 |
+| `gss-lazy-nostaged` | 09-01/09-03 → 09-05 | c41ce52 | 4 GB | 219 MB | 1280 | 672 |
+| `gss-lazy-nosupp` | 09-01/09-03 → 09-06 | c41ce52 | 4 GB | 221 MB | 1783 | 1313 |
+| `gss-lazy-norestarts` | 09-01/09-03 → 09-04 | c41ce52 | 4 GB | 219 MB | 1357 | 789 |
+| `gss-lazy-cliques` | 09-03 → 09-10 | c41ce52 | 4 GB | 219 MB | 1127 | 740 |
+| `lad-alldiff-pl`, `lad-fc-pl` (+ `-capped`) | 08-31 → 09-09 | c41ce52 (pb + iso) | 4 GB | 222 MB | 1532 / 1529 | 832 / 832 |
+| `gss-lazy-resolv` (this run, first hour) | 10-12 13:49 → | c41ce52 | 4 GB | 216 MB | 30 of 385 | 30 |
+
+Wall = largest model CakePB verified a full proof for; no model above it verified in that
+column. The 08-27 14:04 staging of the new binary reached the nodes with the 08-28 17:04
+`setup_all_nodes` relaunch; the three 08-24 columns ran to completion on the old one.
+Companion columns (`-ft`, `-tb`) and the no-logging columns carry no CakePB data.
+
+So only the lazy baseline (and two pre-NDS columns that are not in the paper) have the
+intended 8 GB. The default-logging column, the four ablation columns and both LAD columns
+are at 4 GB. Any CakePB memout comparison across that boundary in the current appendix is
+confounded by the heap (the `project-cake-formula-bound` warning, now with the exact list),
+and the "456 MB wall" in the paper text is the 8 GB figure.
