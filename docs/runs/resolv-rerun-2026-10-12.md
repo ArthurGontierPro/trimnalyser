@@ -26,10 +26,11 @@ trim, VeriPB and CakePB on the trimmed proof) come out of the same run.
 | switches | `--staged --no-clique-detection --prove` (`_gss_base`) |
 | veripb | `/scratch/arthur/veripb`, sha256 `66c300a7…18c011a` |
 | cake_pb | `/scratch/arthur/cake_pb`, sha256 `5948bd58…09b72` (post-`c41ce52`, the weakening fix) |
-| trimnalyser | `e587066` on `diag/littrim-experiment` |
+| trimnalyser | `3bedcb9` on `diag/littrim-experiment` (first launch: `e587066`, see "Restart") |
 | limits | `stnopl=60 st=600 tt=6000 vt=6000 ct=6000 maxmem=32`, `--threads 92,1` (the grid's) |
 | instance set | `allgraphs rand` = the 25,590 of every published column (LV, bio, images-CVIU11, meshes-CVIU11, phase, scalefree, images-PR15 all included by the enumerator) |
-| extra args | `nocakegate` |
+| extra args | `nocakegate minmem=500` (first launch: `nocakegate`) |
+| CakePB memory | heap 28672 MB + stack 4096 MB = maxmem, passed as `--CML_HEAP_SIZE=`/`--CML_STACK_SIZE=` flags, stamped `run CAKE_HEAP_MB 28672 STACK_MB 4096 VIA flags` (first launch: 8192/4096 requested through the environment, which this cake_pb ignores → 4096/4096 in force) |
 | machine | fataepyc-07: 2× AMD EPYC 7643 48-core (192 threads), 2 TB RAM, `/scratch` 13 TB md0 |
 | logs | `/cluster/arthur/logs/<ins>.gss.gss-lazy-resolv.out` (+ `.coreN` for resolv iterations) |
 | benchlog | `/cluster/arthur/benchlogs/gss-lazy-resolv.fataepyc-07.<ts>.log` |
@@ -216,3 +217,55 @@ intended 8 GB. The default-logging column, the four ablation columns and both LA
 are at 4 GB. Any CakePB memout comparison across that boundary in the current appendix is
 confounded by the heap (the `project-cake-formula-bound` warning, now with the exact list),
 and the "456 MB wall" in the paper text is the 8 GB figure.
+
+## Restart (2026-10-12, after the first-hour check)
+
+Stopped at 15:11 UTC on the decision to fix the CakePB memory. Clean restart: the proof
+tree deleted, the 1,187 log files of the 770 touched instances deleted by explicit name
+(base and `.core1..20` of every instance named in the first benchlog), nothing else in
+`/cluster/arthur/logs` touched. Node pulled to `3bedcb9`, sysimage rebuilt with
+`cluster_env.sh` sourced, `check_sysimage_env()` passed.
+
+What `3bedcb9` changes against `e587066` (commits `e0e3c71`, `3bedcb9`):
+
+- **CakePB memory = maxmem.** `heap = maxmem − stack`, `stack = min(4096, maxmem/8)` →
+  28672 + 4096 MB at maxmem=32, passed as flags (the post-08-27 wrapper ignores the
+  environment; see `cakeflags()` and `project-cake-heap-flag-regression`). Rationale: the
+  trimmer, solver and veripb are killed at 32 GB resident; CakeML's heap+stack is one block
+  that a long check sweeps entirely, so it is cake's resident footprint; equal budgets means
+  heap+stack = maxmem. The stack keeps the cakepb-dev default: 368/368 exhaustion files on
+  the surviving `gss-lazy-norestarts` tree say heap, and cake_pb has no FAILED verdict in
+  any of the thirteen columns. The 2,241/2,212 cake_pb_iso FAILED of the LAD columns are
+  unexplained (their stderr is on unbooked nodes) and will be classified by the new line.
+- **`cake <tag> EXHAUSTED heap|stack`** on every CakeML exhaustion; both are MEMOUT (a stack
+  exhaustion used to be FAILED). Aggregated as `cake_full_exhausted`, `cake_smol_exhausted`,
+  `cakeiso_full_exhausted` (appended).
+- **`minmem=500`**: no heavyweight child is launched while less than 500 GB is free. A
+  28 GB heap means a cake check can grow to 32 GB resident; 92 slots at the old 100 GB floor
+  left no room for that growth. The node has 2 TB and 7 GB of swap.
+- **A monitor-killed trim is booked `trim MEMOUT`** (termsignal folded into 128+n).
+
+Published columns and the CakePB heap: `sep01-gss-lazy` and the two pre-NDS columns ran at
+8192/4096 (old wrapper, environment honoured); every column from 2026-08-28 on at
+4096/4096. Columns to rerun end to end for CakePB figures at the new setting — proofs are
+not kept, so there is no cake-only rerun: arms L, E, G, M (the rerun request's "certified
+by CakePB" per arm) and `lad-alldiff-pl` + `lad-fc-pl` (the only CakePB numbers in the
+paper's prose: §4's "accepts almost every trimmed LV proof" and appendix A's 38.9 % vs
+57.3 % / 3,543 of 3,544). The four lazy ablation columns and `gss-proof-nds` print no
+CakePB cell (`config_grid.py` reads none); their 4 GB cake data is not to be cited.
+
+**Relaunched 2026-10-12 15:53:51 UTC**, tmux `grid-gss-lazy-resolv`, benchlog
+`/cluster/arthur/benchlogs/gss-lazy-resolv.fataepyc-07.20261012-155350.log`:
+
+```
+CONFIGS=gss-lazy-resolv NODES=fataepyc-07 EXTRA="nocakegate minmem=500" SKIP_SYSIMAGE=1 bash scripts/run_grid.sh launch
+# on the node:
+./trimnalyser --threads 92,1 solve resolv verif cake config=gss-lazy-resolv \
+    stnopl=60 st=600 tt=6000 vt=6000 ct=6000 maxmem=32 allgraphs rand nocakegate minmem=500
+```
+
+Verified on the first processes: `cake_pb --CML_HEAP_SIZE=28672 --CML_STACK_SIZE=4096 …`,
+VmPeak 33,558,008 kB (= 32 GB + 3.5 MB); every run block opens with
+`run CAKE_HEAP_MB 28672 STACK_MB 4096 VIA flags`; `%OOM limit: 32.0 GB per subprocess,
+minfreemem: 500 GB`. The 13:49 benchlog is the aborted first launch and is not part of
+the run's data; its instances' logs were deleted before the relaunch.
