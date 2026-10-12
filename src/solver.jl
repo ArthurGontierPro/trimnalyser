@@ -172,6 +172,40 @@
         occursin("SATISFIABLE",   c) && return :sat
         return :unknown end
 
+    const gnutime = "/usr/bin/time"
+
+        # Copies the solver's own `key = value` summary out of .solverout — which lives in
+        # the proof tree and dies with it — into the append-only log, the one record that
+        # survives a run. Unprefixed for the logging solve, so the legacy `nodes = ` and
+        # `status = ` readers in aggregate_results.jl see the very lines the solver used
+        # to pipe straight into .out; `nopl ` in front of each for the tier-1 solve, so the
+        # two tiers cannot overwrite each other. Noise (the mapping, the command line, the
+        # file names) is dropped; everything else, the supplemental-graph names and the
+        # subsumed slots included, goes through verbatim. The peak RSS GNU time recorded
+        # goes in beside them as `<tier> MAXRSS_KB`, and its file is removed.
+    function log_solver_stats(ins, prove::Bool, rssfile)
+        pfx  = prove ? "" : "nopl "
+        skip = ("mapping", "commandline", "hostname", "started_at", "pattern_file",
+                "target_file", "nogoods_lengths", "by_thread_nodes")
+        lines = String[]
+        if isfile(solveroutpath(ins))
+            for l in eachline(solveroutpath(ins))
+                m = match(r"^([a-z0-9_]+) = ", l)
+                m === nothing && continue
+                m.captures[1] in skip && continue
+                push!(lines, pfx * l)
+            end
+        end
+        if isfile(rssfile)
+            m = match(r"maxrss_kb = (\d+)", read(rssfile, String))
+            m !== nothing && push!(lines, (prove ? "solve" : "nopl") * " MAXRSS_KB " * m.captures[1])
+            tryrm(rssfile)
+        end
+        isempty(lines) && return
+        logopen(ins) do f
+            for l in lines; println(f, l) end
+        end end
+
     function runsipsolver(out_prefix, pat_lad, tar_lad; prove::Bool=true,
                           timeout::Int=_cfg[].solvertimeout)
         binary = solverconfig().binary
@@ -184,16 +218,26 @@
         # Skip rather than solve into a nearly-full disk: an ENOSPC mid-write yields a
         # truncated proof, which is indistinguishable from a solver memout downstream.
         wait_for_disk("solve", out_prefix) || return (false, false)
+        # GNU time, where it exists, records the solver's peak RSS into a file of its own
+        # (never into .err, which is error evidence). It passes the exit status through —
+        # 137 for the monitor's kill -9, 124 under `timeout` (checked on fataepyc-07,
+        # 2026-10-12) — so the branches below see exactly what they saw before. The OOM
+        # monitor matches it as a second "solver" process for the instance; it weighs
+        # a few MB and is never the one killed.
+        rssfile = _cfg[].proofs*out_prefix*".rss"
+        tryrm(rssfile)
+        timeargs = isfile(gnutime) ? [gnutime, "-o", rssfile, "-f", "maxrss_kb = %M"] : String[]
         open(solveroutpath(out_prefix), "a") do fout
             open(errfile, "a") do ferr
                 proveargs = prove ? ["--prove", _cfg[].proofs*out_prefix] : String[]
                 p = run(pipeline(
-                    ignorestatus(`timeout $timeout $binary
+                    ignorestatus(`timeout $timeout $timeargs $binary
                         $proveargs $options --format lad $pat_lad $tar_lad`),
                     stdout=fout, stderr=ferr))
                 exitcode = p.exitcode
             end
         end
+        log_solver_stats(out_prefix, prove, rssfile)
         if exitcode in (124, 137)
             isfile(errfile) && filesize(errfile) == 0 && tryrm(errfile)
             return (false, true)

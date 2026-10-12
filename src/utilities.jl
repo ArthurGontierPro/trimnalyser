@@ -113,6 +113,15 @@ function process_rss_gb(pid::Int)
     catch end
     return 0.0 end
 
+    # Peak resident set of THIS process (VmHWM from /proc/self/status, kB); 0 if unreadable.
+function self_peak_rss_kb()
+    try
+        for line in eachline("/proc/self/status")
+            startswith(line, "VmHWM:") && return parse(Int, split(line)[2])
+        end
+    catch end
+    return 0 end
+
 onlyname(x) = splitext(basename(x))[1]
 ext(x) = splitext(basename(x))[2]
 noext(x) = splitext(x)[1]

@@ -177,6 +177,17 @@ const CSV_COLUMNS = [
     # M3.5: variable order — cone and full
     "grim_cone_uniq_pat", "grim_cone_uniq_tar",
     "grim_full_uniq_pat", "grim_full_uniq_tar"
+    # 2026-10 rerun (RERUN-REQUEST.md): solver stats per tier, peak RSS per stage, the
+    # limit a stage died on, supplemental-level counts, and the run block's provenance.
+    # Appended, never interleaved: every earlier column keeps its position and meaning.
+    "nopl_nodes", "nopl_propagations", "nopl_runtime_ms",
+    "solver_restarts", "solver_shape_graphs",
+    "solver_supplemental_levels", "solver_subsumed_levels",
+    "solver_supplemental_graphs", "solver_subsumed_graphs",
+    "nopl_maxrss_kb", "solve_maxrss_kb", "grim_maxrss_kb",
+    "error_stage", "nopl_timeout_s", "nopl_memout_gb", "solve_timeout_s", "solve_memout_gb",
+    "trim_timeout_s", "trim_memout_gb",
+    "run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev",
 ]
 
 function _parse_frac(s)
@@ -291,6 +302,23 @@ const _REGEX_RULES = [
     (r"^runtime\s*=\s*(\d+)",                      "runtime_ms",                    Int),
     (r"^nodes\s*=\s*(\d+)",                        "solver_nodes",                  Int),
     (r"^propagations\s*=\s*(\d+)",                 "solver_propagations",           Int),
+    (r"^restarts\s*=\s*(\d+)",                     "solver_restarts",               Int),
+    (r"^shape_graphs\s*=\s*(\d+)",                 "solver_shape_graphs",           Int),
+    # The tier-1 (no-logging) solve's lines, prefixed `nopl ` by log_solver_stats
+    # (src/solver.jl) so they cannot overwrite the logging solve's lines above.
+    (r"^nopl nodes\s*=\s*(\d+)",                   "nopl_nodes",                    Int),
+    (r"^nopl propagations\s*=\s*(\d+)",            "nopl_propagations",             Int),
+    (r"^nopl runtime\s*=\s*(\d+)",                 "nopl_runtime_ms",               Int),
+    # Peak RSS (kB) per stage, and the limit a stage died on, when it did.
+    (r"^nopl MAXRSS_KB (\d+)",                     "nopl_maxrss_kb",                Int),
+    (r"^solve MAXRSS_KB (\d+)",                    "solve_maxrss_kb",               Int),
+    (r"^grim MAXRSS_KB (\d+)",                     "grim_maxrss_kb",                Int),
+    (r"^nopl TIMEOUT (\d+)",                       "nopl_timeout_s",                Int),
+    (r"^nopl MEMOUT ([\d.]+)",                     "nopl_memout_gb",                Float64),
+    (r"^solve TIMEOUT (\d+)",                      "solve_timeout_s",               Int),
+    (r"^solve MEMOUT ([\d.]+)",                    "solve_memout_gb",               Float64),
+    (r"^trim TIMEOUT (\d+)",                       "trim_timeout_s",                Int),
+    (r"^trim MEMOUT ([\d.]+)",                     "trim_memout_gb",                Float64),
 ]
 
 # Fraction rules: match(rx, line) → _parse_frac → data[key_a] = numerator
@@ -396,6 +424,17 @@ function parse_out_file(filepath)
             m !== nothing && (data["veri_smol_verified"] = m.captures[1] == "VERIFIED" ? 1 : 0); end
         line == "veri smol NOT VERIFIED" && (data["veri_smol_verified"] = 0)
         let m = match(r"^status\s*=\s*(\w+)", line); m !== nothing && (data["status"] = m.captures[1]); end
+        # Supplemental-graph bookkeeping from the solver (1ff87ba prints both; the subsumed
+        # line is absent when every slot was distinct) and the run block's own provenance.
+        let m = match(r"^supplemental_graph_names = (.*)$", line)
+            m !== nothing && (data["solver_supplemental_graphs"] = strip(m.captures[1])); end
+        let m = match(r"^subsumed_supplemental_graphs = (.*)$", line)
+            m !== nothing && (data["solver_subsumed_graphs"] = strip(m.captures[1])); end
+        let m = match(r"^run LIMITS (.+)$", line);       m !== nothing && (data["run_limits"]          = m.captures[1]); end
+        let m = match(r"^run SOLVER (.+)$", line);       m !== nothing && (data["run_solver"]          = m.captures[1]); end
+        let m = match(r"^run FLAGS (.*)$", line);        m !== nothing && (data["run_flags"]           = m.captures[1]); end
+        let m = match(r"^run RESOLV_GATE (\S+)$", line); m !== nothing && (data["run_resolv_gate"]     = m.captures[1]); end
+        let m = match(r"^run TRIMNALYSER (\S+)$", line); m !== nothing && (data["run_trimnalyser_rev"] = m.captures[1]); end
         let m = match(r"^resolv ITER \d+ PAT (\d+) TAR (\d+)$", line)
             if m !== nothing
                 push!(get!(data, "resolv_iter_pat") do; Int[] end, parse(Int, m.captures[1]))
@@ -574,6 +613,21 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             rowproofs = proofdir_for(proofdir, proofroot, solver, config)
             err_file = joinpath(rowproofs, instance * ".err")
             has_error, error_type, error_details = parse_err_file(err_file)
+            # The .err lives in the node-local proof tree and is gone once that is. The
+            # log carries the same facts as `<stage> TIMEOUT|MEMOUT` lines, so fill the
+            # classification from them when the .err is absent, and always name the
+            # stage: at most one of nopl/solve/trim can have died on an instance.
+            error_stage = haskey(data, "trim_timeout_s")  || haskey(data, "trim_memout_gb")  ? "trim"  :
+                          haskey(data, "solve_timeout_s") || haskey(data, "solve_memout_gb") ? "solve" :
+                          haskey(data, "nopl_timeout_s")  || haskey(data, "nopl_memout_gb")  ? "nopl"  : ""
+            if !has_error && error_stage != ""
+                has_error = true
+                if haskey(data, error_stage * "_memout_gb")
+                    error_type, error_details = "OOM",     "$(error_stage) limit $(data[error_stage * "_memout_gb"])G"
+                else
+                    error_type, error_details = "Timeout", "$(error_stage) $(data[error_stage * "_timeout_s"])s"
+                end
+            end
 
             resolv_iters = count_resolv_iterations(logdir, instance, tag)
             iter_sizes_total, iter_sizes_opb, iter_sizes_pbp = get_iteration_fields(
@@ -862,6 +916,31 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
                 "row/column mismatch: built $(length(row)) fields for " *
                 "$(length(CSV_COLUMNS)) columns (instance $instance). " *
                 "A CSV_COLUMNS entry has no push!, or a push! has no column.")
+            # 2026-10 rerun columns, in CSV_COLUMNS order.
+            for k in ("nopl_nodes", "nopl_propagations", "nopl_runtime_ms", "solver_restarts", "solver_shape_graphs")
+                push!(row, get(data, k, ""))
+            end
+            let names = get(data, "solver_supplemental_graphs", nothing),
+                subs  = get(data, "solver_subsumed_graphs", nothing)
+                # names[1] is "original", so levels = words - 1; subsumed defaults to 0 once the
+                # solver reported at all, because it omits the line when nothing collapsed.
+                push!(row, names === nothing ? "" : max(length(split(names)) - 1, 0))
+                push!(row, names === nothing ? "" : subs === nothing ? 0 : length(split(subs)))
+                push!(row, names === nothing ? "" : csv_quote(names))
+                push!(row, subs  === nothing ? "" : csv_quote(subs))
+            end
+            for k in ("nopl_maxrss_kb", "solve_maxrss_kb", "grim_maxrss_kb")
+                push!(row, get(data, k, ""))
+            end
+            push!(row, error_stage == "" ? "" : csv_quote(error_stage))
+            for k in ("nopl_timeout_s", "nopl_memout_gb", "solve_timeout_s", "solve_memout_gb",
+                      "trim_timeout_s", "trim_memout_gb")
+                push!(row, get(data, k, ""))
+            end
+            for k in ("run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev")
+                let v = get(data, k, ""); push!(row, v == "" ? "" : csv_quote(v)) end
+            end
+
             println(io, join(row, ","))
         end
     end

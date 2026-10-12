@@ -155,6 +155,14 @@ fi
 [[ -n "${EXTRA:-}" ]] && ARGS+=(${EXTRA})
 
 echo "config=$CONFIG kind=$KIND scale=$SCALE  stnopl=$STNOPL st=$ST tt=$TT vt=$VT ct=$CT"
+# Stamp the binaries into the benchlog. A column is attributable to a build only if the
+# hash sits beside its output: a binary rebuilt mid-run splits a column into two
+# populations that look like one (2026-09-04).
+REVBIN=""; [[ -n "${VAR:-}" ]] && REVBIN="${!VAR:-}"
+for b in "$SOLVER_GSS" "$REVBIN" "$SOLVER_LAD" "$VERIPB" "$CAKE_PB"; do
+    [[ -n "$b" && -f "$b" ]] && echo "binary $(sha256sum "$b")"
+done | sort -u || true
+echo "trimnalyser $(git rev-parse --short HEAD 2>/dev/null || echo unknown)$(git status --porcelain -- src scripts bin 2>/dev/null | grep -q . && echo -dirty)"
 echo "logs -> $LOGS/<instance>.$KIND.$CONFIG.out"
 echo "+ ./trimnalyser ${ARGS[*]}"
 [[ "${DRYRUN:-0}" == "1" ]] && exit 0

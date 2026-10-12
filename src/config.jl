@@ -56,6 +56,12 @@ const SOLVER_CONFIGS = Dict{String,SolverConfig}(
     # blocks into a single file and each would read the other's as its own last block.
     "gss-lazy-ft"    => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
     "gss-lazy-tb"    => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                   true),
+    # Resolv arm of the 2026-10 rerun (~/papers/trimnalyser-paper/RERUN-REQUEST.md, arm 2):
+    # gss-lazy's build and switches, run with `nocakegate` so the resolv loop recurses on
+    # every VeriPB-verified trimmed proof whatever CakePB said. A separate key for the same
+    # reason as the companion columns: its blocks must stay out of the published gss-lazy
+    # logs, whose LAST block is what every re-aggregation reads.
+    "gss-lazy-resolv" => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                  true),
     # ── tab:configs-gss-ablations. One switch each against `gss-lazy`, same binary, so the
     #    baseline column IS gss-lazy and the two tables share it.
     "gss-lazy-nostaged"   => SolverConfig("gss", gssbin("1ff87ba"), ["--no-clique-detection"],              true),
@@ -109,6 +115,19 @@ function runheader(ins)
     logopen(ins) do f
         println(f, "=== RUN ", Base.Libc.strftime("%Y-%m-%dT%H:%M:%S", time()),
                    " ", gethostname(), " ", _cfg[].config, " ===")
+        # Provenance inside every block, so a log is attributable without the benchlog:
+        # the limits actually in force, the binary and its switches, the resolv gate, and
+        # the trimnalyser revision. `run KEY value`, one line each, like every other stage.
+        let c = _cfg[]
+            println(f, "run LIMITS stnopl=", c.nopltimeout, " st=", c.solvertimeout,
+                       " tt=", c.trimtimeout, " vt=", c.veriftimeout, " ct=", c.caketimeout,
+                       " maxmem=", c.maxinstmem_gb, " threads=", Threads.nthreads())
+            println(f, "run SOLVER ", solverconfig().binary)
+            println(f, "run FLAGS ", join(solverflags(), " "))
+            println(f, "run RESOLV_GATE ", !c.resolv ? "off" : !c.verif ? "none" :
+                                            (c.cake && c.cakegate) ? "veripb+cake" : "veripb")
+            println(f, "run TRIMNALYSER ", _trimrev[])
+        end
         # bio graphs are DIRECTED. LAD reads them as undirected without warning, so its
         # verdict answers a different question than Glasgow's (on bio 001->002 Glasgow
         # says SAT and LAD says UNSAT), and CakePB rejects the encoding outright so the
@@ -135,6 +154,7 @@ mutable struct Config
     sort_by_size   ::Bool
     verif          ::Bool
     cake           ::Bool
+    cakegate       ::Bool     # resolv recurses only past a Cake-verified trimmed proof; `nocakegate` lifts it
     profile        ::Bool
     nonorm         ::Bool
     core           ::Bool
@@ -164,6 +184,10 @@ mutable struct Config
 end
 
 const _cfg = Ref{Config}()
+
+    # The trimnalyser revision that is running, stamped into every run block. Filled once
+    # by parse_config!; the trim subprocess (25k of them per run) does not ask git.
+const _trimrev = Ref("unknown")
 
 const argflags = Set(["clit","core","verif","cake","no","rand","sort","clean","atable",
                       "profile","solve","resolv","allgraphs","keepraw","subprocess"])
@@ -220,6 +244,7 @@ function parse_config!(args=ARGS)
         "sort"             in args,
         "verif"            in args,
         "cake"             in args,
+        !("nocakegate"     in args),
         "profile"          in args,
         "no"               in args,
         "core"             in args,
@@ -254,5 +279,15 @@ function parse_config!(args=ARGS)
     )
     mkpath(_cfg[].proofs)
     mkpath(logroot)
+    if !_cfg[].subprocess
+        _trimrev[] = try
+            repo = dirname(@__DIR__)
+            rev = readchomp(pipeline(`git -C $repo rev-parse --short HEAD`, stderr=devnull))
+            dirty = !isempty(readchomp(pipeline(`git -C $repo status --porcelain -- src scripts bin`, stderr=devnull)))
+            dirty ? rev * "-dirty" : rev
+        catch
+            "unknown"
+        end
+    end
     return _cfg[]
 end

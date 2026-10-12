@@ -483,8 +483,17 @@
                         printstyled("  $ins SAT (no-logging solve) — skipping\n"; color=:yellow)
                         return :skip
                     elseif v0 === :unknown
-                        mark_timeout!(ins, _cfg[].nopltimeout)
-                        printstyled("  $ins did not conclude in $(_cfg[].nopltimeout)s without logging — skipping\n"; color=:red)
+                        # The monitor's kill -9 and the timeout both land here. The monitor
+                        # has already written .memoutNNN and "OOM at" into .err; say which
+                        # it was, because the log is all that outlives the proof tree.
+                        if first(was_oom_killed(ins))
+                            logstage(ins, "nopl MEMOUT", _cfg[].maxinstmem_gb)
+                            printstyled("  $ins OOM killed in the no-logging solve — skipping\n"; color=:red)
+                        else
+                            mark_timeout!(ins, _cfg[].nopltimeout)
+                            logstage(ins, "nopl TIMEOUT", _cfg[].nopltimeout)
+                            printstyled("  $ins did not conclude in $(_cfg[].nopltimeout)s without logging — skipping\n"; color=:red)
+                        end
                         return :skip
                     end
                     if !solverconfig().proves
@@ -503,6 +512,14 @@
                         tryrm(_cfg[].proofs * ins * opb)
                         printstyled("  $ins SAT — skipping\n"; color=:yellow)
                         logstage(ins, "solve VERDICT", "SAT"); logstage(ins, "solve TIME", round(t; digits=2))
+                    elseif timed_out && first(was_oom_killed(ins))
+                        # Exit 137 from the monitor's kill -9, which has already written
+                        # .memoutNNN and the "OOM at" line. Not a timeout: no .timeoutNNN,
+                        # or the instance would stay skipped under a larger maxmem= too.
+                        tryrm(_cfg[].proofs * ins * pbp)
+                        tryrm(_cfg[].proofs * ins * opb)
+                        printstyled("  $ins solver OOM killed ($(round(t;digits=1))s)\n"; color=:red)
+                        logstage(ins, "solve VERDICT", "MEMOUT"); logstage(ins, "solve MEMOUT", _cfg[].maxinstmem_gb)
                     elseif timed_out
                         mark_timeout!(ins, _cfg[].solvertimeout)
                         tryrm(_cfg[].proofs * ins * pbp)
@@ -564,14 +581,17 @@
         # Gate on the recursion into the reduced instance. A coreN chain built on a proof
         # that was never certified is not evidence of anything, so the loop is entered only
         # when the trimmed proof passed every checker that is switched on: VeriPB always,
-        # and Cake too when `cake` is set.
+        # and Cake too when `cake` is set — unless `nocakegate`, which drops the Cake half:
+        # the recursion then follows VeriPB alone and Cake's verdict is recorded but not
+        # acted on. Without it resolv only ever ran on the Cake-selected subset, which is
+        # the bias RERUN-REQUEST.md's arm 2 exists to remove.
     function recurse_ok(ins, smol_vs, smol_cs)
         _cfg[].resolv || return false
         _cfg[].verif  || return true
         if smol_vs !== :verified
             logstage(ins, "resolv STOP", "smol_$(smol_vs)"); return false
         end
-        if _cfg[].cake && smol_cs !== :verified
+        if _cfg[].cake && _cfg[].cakegate && smol_cs !== :verified
             logstage(ins, "resolv STOP", "smolcake_$(smol_cs)"); return false
         end
         return true end
@@ -753,6 +773,29 @@
                 b = strip_suffix(basename(cmdargs[i + 1]))
                 isempty(b) ? "?" : String(b)
             end
+            # A tier-1 (no-logging) Glasgow solve carries no --prove and nothing else
+            # that names the instance, so its OOM used to be booked against "?" — no
+            # sentinel, no "OOM at" in the right .err, and the solve was then logged as a
+            # timeout. Its parent is GNU time with `-o <proofs><instance>.rss`
+            # (runsipsolver), so the name is one hop up. Defensive throughout: an
+            # exception here would be swallowed by the loop's catch and silently stop
+            # every kill, so every failure returns "?" instead.
+            function inst_from_parent_rss(pid)
+                try
+                    ppid = 0
+                    for line in eachline("/proc/$pid/status")
+                        startswith(line, "PPid:") && (ppid = parse(Int, split(line)[2]); break)
+                    end
+                    ppid > 1 || return "?"
+                    pargs = split(read("/proc/$ppid/cmdline", String), '\0')
+                    i = findfirst(a -> endswith(a, ".rss"), pargs)
+                    i === nothing && return "?"
+                    b = basename(pargs[i])[1:end-4]
+                    return isempty(b) ? "?" : String(b)
+                catch
+                    return "?"
+                end
+            end
             function inst_from_opb(cmdargs)      # veripb -e <elab> <opb> <pbp>
                 i = findfirst(a -> endswith(a, opb), cmdargs)
                 i === nothing && return "?"
@@ -791,7 +834,9 @@
                             idx = findfirst(is_instance_name, cmdargs)
                             idx !== nothing ? String(cmdargs[idx]) : "?"
                         elseif is_solver
-                            inst_after(cmdargs, solver_flag)
+                            let n = inst_after(cmdargs, solver_flag)
+                                n == "?" ? inst_from_parent_rss(pid) : n
+                            end
                         else
                             inst_from_opb(cmdargs)
                         end

@@ -168,6 +168,10 @@
             parse_time,trim_time,write_time,cone_stats,coremsg = trimnalyse(ins; mode=Grim())
             printabline2(ins,parse_time,trim_time,write_time,cone_stats)
             !isempty(coremsg) && println(coremsg)
+            # Peak RSS of this process, beside the trim times. The trim-only subprocess
+            # exists for GC isolation, so in batch mode this is the trimmer's own high-water
+            # mark (sysimage baseline included), not the orchestrator's.
+            let kb = self_peak_rss_kb(); kb > 0 && logstage(ins, "grim MAXRSS_KB", kb) end
         end
         if _cfg[].clit
             printabline(ins)
