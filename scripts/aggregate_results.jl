@@ -188,6 +188,7 @@ const CSV_COLUMNS = [
     "error_stage", "nopl_timeout_s", "nopl_memout_gb", "solve_timeout_s", "solve_memout_gb",
     "trim_timeout_s", "trim_memout_gb",
     "run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev",
+    "run_cake_heap",
 ]
 
 function _parse_frac(s)
@@ -435,6 +436,7 @@ function parse_out_file(filepath)
         let m = match(r"^run FLAGS (.*)$", line);        m !== nothing && (data["run_flags"]           = m.captures[1]); end
         let m = match(r"^run RESOLV_GATE (\S+)$", line); m !== nothing && (data["run_resolv_gate"]     = m.captures[1]); end
         let m = match(r"^run TRIMNALYSER (\S+)$", line); m !== nothing && (data["run_trimnalyser_rev"] = m.captures[1]); end
+        let m = match(r"^run CAKE_HEAP_MB (.+)$", line); m !== nothing && (data["run_cake_heap"]        = m.captures[1]); end
         let m = match(r"^resolv ITER \d+ PAT (\d+) TAR (\d+)$", line)
             if m !== nothing
                 push!(get!(data, "resolv_iter_pat") do; Int[] end, parse(Int, m.captures[1]))
@@ -620,6 +622,15 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             error_stage = haskey(data, "trim_timeout_s")  || haskey(data, "trim_memout_gb")  ? "trim"  :
                           haskey(data, "solve_timeout_s") || haskey(data, "solve_memout_gb") ? "solve" :
                           haskey(data, "nopl_timeout_s")  || haskey(data, "nopl_memout_gb")  ? "nopl"  : ""
+            # The OOM monitor's own .err line names the stage ("OOM at 32.8G (limit 32.0G,
+            # stage trim)"), and before 2026-10-12 a monitor-killed trim wrote no log line
+            # at all (run_trim_subprocess took a signal death for exit 0), so for those
+            # rows the .err is the only place the stage exists.
+            if error_stage == "" && isfile(err_file)
+                let m = match(r"stage (nopl|solve|trim)", read(err_file, String))
+                    m !== nothing && (error_stage = m.captures[1])
+                end
+            end
             if !has_error && error_stage != ""
                 has_error = true
                 if haskey(data, error_stage * "_memout_gb")
@@ -937,7 +948,8 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
                       "trim_timeout_s", "trim_memout_gb")
                 push!(row, get(data, k, ""))
             end
-            for k in ("run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev")
+            for k in ("run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev",
+                      "run_cake_heap")
                 let v = get(data, k, ""); push!(row, v == "" ? "" : csv_quote(v)) end
             end
 

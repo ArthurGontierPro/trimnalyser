@@ -127,6 +127,11 @@ function runheader(ins)
             println(f, "run RESOLV_GATE ", !c.resolv ? "off" : !c.verif ? "none" :
                                             (c.cake && c.cakegate) ? "veripb+cake" : "veripb")
             println(f, "run TRIMNALYSER ", _trimrev[])
+            # Heap and stack cake will run with, and how they reach it — see cakeflags()
+            # in output.jl for why "env" means "4 GB whatever the numbers say" on the
+            # post-2026-08-27 binary.
+            c.cake && println(f, "run CAKE_HEAP_MB ", cake_heap_mb(), " STACK_MB ", cake_stack_mb(),
+                                 " VIA ", cake_takes_flags(cakepbpath) ? "flags" : "env")
         end
         # bio graphs are DIRECTED. LAD reads them as undirected without warning, so its
         # verdict answers a different question than Glasgow's (on bio 001->002 Glasgow

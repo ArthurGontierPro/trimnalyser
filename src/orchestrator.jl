@@ -311,7 +311,15 @@
                            stdout=subout, stderr=suberr),
                    wait=false)
         wait(proc)
-        exitcode = proc.exitcode
+        # libuv reports a signal death as exitcode 0 with termsignal set, and that is what
+        # the OOM monitor's `kill -9` produces here: coreutils `timeout` re-raises the
+        # child's signal on itself unless its own timer fired, so the monitor's kill
+        # arrives as a SIGKILL death of `timeout`, never as exit 137. Until 2026-10-12 that
+        # took the silent `else` branch below — no "trim MEMOUT" line, status :failed,
+        # "trim_failed" as the resolv stop reason — while the .err and .memoutNNN the
+        # monitor had written said memout (82 of the first 589 instances of the 10-12
+        # resolv rerun). Fold it into the shell's 128+signal convention the branches expect.
+        exitcode = proc.termsignal != 0 ? 128 + proc.termsignal : proc.exitcode
         if isfile(subout)
             out = read(subout, String)
             !isempty(out) && (print(out); flush(stdout))

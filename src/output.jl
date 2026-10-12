@@ -560,6 +560,36 @@
         # runcapture's catch swallowed it, and cake reported FAILED with no output at all.
     cakeenv() = ["CML_HEAP_SIZE"  => string(cake_heap_mb()),
                  "CML_STACK_SIZE" => string(cake_stack_mb())]
+        # The C wrapper (basis_ffi.c) changed between the two cake_pb builds in
+        # /cluster/arthur/dist. The pre-c41ce52 one sizes its heap from the ENVIRONMENT
+        # above; the 2026-08-27 one (c41ce52, the weakening fix) ignores the environment,
+        # takes `--CML_HEAP_SIZE=<n>` / `--CML_STACK_SIZE=<n>` on the command line, and
+        # without them runs at a compiled 4096/4096 default. Measured on fataepyc-07,
+        # 2026-10-12, VmPeak at startup: new binary 8.39 GB with the env set, 12.6 GB with
+        # the flags; old binary 12.6 GB with the env. So every cake figure of a column run
+        # after 2026-08-27 was taken at a 4 GB heap, not the 8 GB that `maxmem=32` was
+        # meant to give it — the full-proof wall sits at a 216 MB model there against the
+        # 456 MB of sep01-gss-lazy, on byte-identical inputs. The flags go only to a binary
+        # whose `--h` documents them: the old wrapper reads `--CML_HEAP_SIZE=8192` as the
+        # input filename, so it keeps the env. Probed once per binary, both streams, since
+        # the old wrapper answers `--h` on stdout and exit 0 and the new one on stderr.
+    const _cake_flag_support = Dict{String,Bool}()
+    const _cake_flag_lk = ReentrantLock()
+    function cake_takes_flags(bin)
+        lock(_cake_flag_lk) do
+            get!(_cake_flag_support, bin) do
+                try
+                    io = IOBuffer()
+                    run(pipeline(ignorestatus(`$bin --h`), stdout=io, stderr=io))
+                    occursin("CML_HEAP_SIZE", String(take!(io)))
+                catch
+                    false
+                end
+            end
+        end
+    end
+    cakeflags(bin) = cake_takes_flags(bin) ?
+        ["--CML_HEAP_SIZE=$(cake_heap_mb())", "--CML_STACK_SIZE=$(cake_stack_mb())"] : String[]
 
         # Runs `cmd` under `timeout tl`, capturing both streams via temp files next to
         # `stem`. Returns (seconds, exitcode, stdout, stderr); never throws.
@@ -617,7 +647,8 @@
             printstyled("  cake_pb not found at $cakepbpath — skipping cake\n"; color=:yellow)
             logstage(ins, "cake $tag", "MISSING"); return (-1, :missing)
         end
-        (t, code, out, err) = runcapture(`$cakepbpath $o $elab`, _cfg[].caketimeout, elab;
+        (t, code, out, err) = runcapture(`$cakepbpath $(cakeflags(cakepbpath)) $o $elab`,
+                                         _cfg[].caketimeout, elab;
                                          stage="cake $tag", ins=ins, env=cakeenv())
         st = cakestatus(code, out, err)
         st !== :verified && !isempty(strip(out*err)) && write(ins2*".$tag.cake.err", out*err)
@@ -635,7 +666,7 @@
         patfile, tarfile = parsegraphfiles(ins)
         (patfile === nothing || !isfile(patfile) || !isfile(tarfile)) &&
             (logstage(ins, "cakeiso full", "MISSING"); return)
-        (t, code, out, err) = runcapture(`$cakeisopath $patfile $tarfile $elab`,
+        (t, code, out, err) = runcapture(`$cakeisopath $(cakeflags(cakeisopath)) $patfile $tarfile $elab`,
                                          _cfg[].caketimeout, elab*".iso";
                                          stage="cakeiso", ins=ins, env=cakeenv())
         st = cakestatus(code, out, err)

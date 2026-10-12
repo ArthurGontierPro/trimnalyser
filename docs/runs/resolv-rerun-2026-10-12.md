@@ -139,3 +139,53 @@ Build the symlink farm of just this key's logs first (see `docs/runs/` and the
 `project-appendix-data-provenance` memory): the aggregator `readdir()`s the whole logs
 directory otherwise. Aggregate while the proof tree still exists if `.err` details are wanted
 beyond what the log carries; `error_type`/`error_stage` no longer depend on it.
+
+## First-hour check (14:50 UTC, 589 instances settled, 385 done)
+
+Everything that could be paired with the published `sep01-gss-lazy` column was: the 589
+instances settled so far are all in it, with the same verdicts (109 SAT, 11 tier-1 UNKNOWN,
+14 of 16 tier-2 timeouts also timed out there, the other 2 are borderline), byte-identical
+`inp OPB SIZE` and `inp LIT` on all 385 done instances, trim time ratio median 1.05, cake
+full time ratio median 1.00 where both verified, VeriPB on the trimmed proof 373/373, CakePB
+on the trimmed proof 372/373 (the published column had 10 FAILED among these — the c41ce52
+weakening bug, gone). Every new log line is present on every done instance (`run *`, `nopl *`,
+`nodes =`, `status =`, `*_MAXRSS_KB`, `supplemental_graph_names`); no OOM kill was booked
+against `?`; no `.rss` left behind; no deadlock signature (one thread in `ep_poll`, none in
+`anon_pipe_write`). Resolv iterated on 310 of 373; paired iteration counts equal the
+published ones except 8 instances that now iterate once where the Cake gate had stopped
+them (`smolcake_failed` → `stabilized`). Throughput ~10 inst/min on the random order,
+i.e. ~40 h for the set.
+
+Two defects, one of which is a decision:
+
+1. **CakePB runs at a 4 GB heap, not 8 GB.** The cake_pb staged 2026-08-27 (`5948bd58…`,
+   post-c41ce52) ignores `CML_HEAP_SIZE`/`CML_STACK_SIZE` in the environment and takes them
+   as `--CML_HEAP_SIZE=<n>` / `--CML_STACK_SIZE=<n>` flags, defaulting to 4096/4096. Probed
+   on fataepyc-07 with a FIFO as input so the process blocks after its startup `malloc`:
+   VmPeak 8.39 GB with the env (= 4096+4096), 12.6 GB with the flags (= 8192+4096); the
+   pre-c41ce52 binary gives 12.6 GB with the env. Consequence here: the full-proof CakePB
+   wall is a 216 MB model (largest verified 215 MB, smallest memout 217 MB) against 456 MB
+   in `sep01-gss-lazy`; 21 of the 385 done instances CakePB certified there are MEMOUT here.
+   The same applies to every column run after 2026-08-27 (`gss-lazy-norestarts`,
+   `-nostaged`, `-nosupp`, `-cliques`, `-ft`, `-tb`, the lad-* columns) — this is the
+   "looks like a 4 GB heap" note in `project-cake-formula-bound`, now root-caused.
+   Fixed in the code (`cakeflags()`, `src/output.jl`: the flags are passed to a binary whose
+   `--h` documents them, the env to the other; the heap in force is stamped as
+   `run CAKE_HEAP_MB 8192 STACK_MB 4096 VIA flags|env` and aggregated as `run_cake_heap`).
+   The running orchestrator cannot pick that up; it needs a stop, sysimage rebuild, clean
+   restart. Restart decision: see the next section.
+
+2. **A trim killed by the OOM monitor leaves no log line.** 82 of the 589 settled instances
+   are trim memouts (all `cviu11`/large LV, the same instances that have no trim result in
+   the published column), each with the monitor's `.memout32` and `OOM at 32.xG (limit
+   32.0G, stage trim)` in the `.err`, but none with `trim MEMOUT` in the log: libuv reports
+   a signal death as exitcode 0 + termsignal, and coreutils `timeout` re-raises the child's
+   SIGKILL on itself, so `run_trim_subprocess` took the silent `else` branch (status
+   `:failed`). Data is intact — `error_type` comes from the `.err` — and the aggregator now
+   also takes `error_stage` from the `.err`'s `stage …` word. The orchestrator folds
+   termsignal into 128+n so the 137 branch fires from the next launch on. Same silent path
+   existed in every grid column.
+
+Also noted, not a defect: `.done` is written before the resolv loop starts
+(`orchestrator.jl`), so a `.done` count overstates completed instances by the resolv
+iterations in flight, and an instance interrupted mid-resolv is skipped on resume.
