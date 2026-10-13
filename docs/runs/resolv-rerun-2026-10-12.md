@@ -287,3 +287,13 @@ published column records the same two as FAILED. Fixed for later arms in `runcap
 for this run the aggregator reclassifies `veri_* FAILED` to `MEMOUT` when the base
 instance's `.err` says `stage verif`, so **aggregate before the proof tree is deleted**.
 Also 2 solver OOM kills (LVg68g77 at 40 GB, LVg64g76), the dense-target wall.
+
+**CakeML stack usage, measured 2026-10-13 12:30 UTC** on the 20 cake_pb processes then
+running (full proofs, images and LV, 1–12 min old), from `/proc/<pid>/pagemap` over the
+stack end of the 32 GB block: high-water mark 0.8–36.3 MB, median ~21 MB; the heap is
+fully resident (28,672 MiB) from the first minute in every process. So the 4096 MB stack
+has a >100x margin on this sample, and a 1 GB stack would still have ~28x. The 34 heap
+memouts so far have models of 1.57–9.5 GB (56 MB of model per GB of heap, linear with the
+8 GB column's 456 MB wall); a 31 GB heap would move the wall to ~1.74 GB and recover about
+6 of them — ~0.1 % of the set — at the price of a restart and of E/G/M having to match.
+Kept at 28672 + 4096 for every arm.
