@@ -271,3 +271,19 @@ VmPeak 33,558,008 kB (= 32 GB + 3.5 MB); every run block opens with
 `run CAKE_HEAP_MB 28672 STACK_MB 4096 VIA flags`; `%OOM limit: 32.0 GB per subprocess,
 minfreemem: 500 GB`. The 13:49 benchlog is the aborted first launch and is not part of
 the run's data; its instances' logs were deleted before the relaunch.
+
+## Day-one check (2026-10-13 12:20 UTC, 20 h in)
+
+9,160 instances settled (5,735 done, 1,408 SAT, 573 solver timeouts, 1,444 memouts), a
+steady 750–970 per two hours → about 36 h to go. Load 93, 872 GB used, no memory or disk
+waits at the 500 GB floor, no wedge signature. Trim memouts + trim timeouts are 18.1 % of
+settled instances against 18.3 % "reached the trimmer, no trimmed-proof check" in the
+published column, 88 % of them images. CakePB at 28 GB: 33 full-proof memouts in 12,639
+checks (0.26 %; the published column had 2.6 % at 8 GB), all heap, none stack; 0 FAILED on
+either proof. VeriPB: 50 full-proof timeouts, 2 "FAILED" — and both of those are the OOM
+monitor killing veripb at 32 GB (`OOM KILL LVg68g76 (verif …)`, `LVg40g77`), booked FAILED
+because `runcapture` returned exit 0 for a signal death (same defect as the trim one). The
+published column records the same two as FAILED. Fixed for later arms in `runcapture`;
+for this run the aggregator reclassifies `veri_* FAILED` to `MEMOUT` when the base
+instance's `.err` says `stage verif`, so **aggregate before the proof tree is deleted**.
+Also 2 solver OOM kills (LVg68g77 at 40 GB, LVg64g76), the dense-target wall.

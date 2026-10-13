@@ -631,8 +631,20 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             # at all (run_trim_subprocess took a signal death for exit 0), so for those
             # rows the .err is the only place the stage exists.
             if error_stage == "" && isfile(err_file)
-                let m = match(r"stage (nopl|solve|trim)", read(err_file, String))
+                let m = match(r"stage (nopl|solve|trim|verif)", read(err_file, String))
                     m !== nothing && (error_stage = m.captures[1])
+                end
+            end
+            # A veripb the OOM monitor killed reached certify() as exit 0 + SIGKILL until
+            # 2026-10-13 (runcapture, output.jl) and was logged "veri <tag> FAILED". The
+            # monitor's .err line is the only record that it was a memout, not a rejection:
+            # reclassify from it. The base instance's .err only ever names the base
+            # instance's own stages (a core iteration has its own .err).
+            if error_stage == "verif"
+                if get(data, "veri_full_status", "") == "FAILED"
+                    data["veri_full_status"] = "MEMOUT"
+                elseif get(data, "veri_smol_status", "") == "FAILED"
+                    data["veri_smol_status"] = "MEMOUT"
                 end
             end
             if !has_error && error_stage != ""

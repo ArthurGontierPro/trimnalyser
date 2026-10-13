@@ -617,7 +617,14 @@
         err = isfile(te) ? read(te, String) : ""
         tryrm(to); tryrm(te)
         isempty(launcherr) || printstyled("  ", launcherr; color=:magenta)
-        return (t, p === nothing ? -1 : p.exitcode, out, launcherr * err) end
+        # A child the OOM monitor killed dies of SIGKILL, and `timeout` re-raises that
+        # signal on itself (it only exits 137 when its own timer fired), which libuv
+        # reports as exitcode 0 + termsignal 9. Folded into the shell's 128+n so the
+        # callers' `code == 137 → :memout` branches fire: until 2026-10-13 a veripb killed
+        # at maxmem was booked FAILED, i.e. as a rejected proof (LVg68g76, LVg40g77 in the
+        # 10-12 resolv rerun, and the same two in the published gss-lazy column).
+        code = p === nothing ? -1 : p.termsignal != 0 ? 128 + p.termsignal : p.exitcode
+        return (t, code, out, launcherr * err) end
 
         # Both CakeML checkers exit 0 on a FAILED check and print their diagnostics on
         # stderr. "s VERIFIED" on stdout is the only success signal either of them gives.
