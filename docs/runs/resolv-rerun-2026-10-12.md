@@ -302,13 +302,20 @@ OOM-killed (`<ins>.coreN.memout32`). 22 partial `.smol.*` files of 14 killed tri
 `sep01-gss-lazy`; on the 15,413 cones common to both runs every proof and cone is
 byte-identical.
 
-Aggregated 2026-10-16 12:46 UTC on the node into
+Aggregated 2026-10-16 13:47 UTC on the node into
 `/cluster/arthur/m7-1012/gss-lazy-resolv/cluster_results.csv` (25,590 × 316, sha256
-`c59082dd…`), mirrored to `~/trimnalyser/runs-1012/`, from a symlink farm of the key's 39,826
+`141aa910…`), mirrored to `~/trimnalyser/runs-1012/`, from a symlink farm of the key's 39,826
 logs with the proof tree still on disk. **The aggregator had not run since `e587066` and was
 broken twice over:** a missing comma after the appended columns (`cb39d52`) and the appended
 pushes placed after the row-length check, which skipped every row and wrote an empty CSV
-(`0a557de`). The CLAUDE.md syntax check covers `src/` only; run it on `scripts/` too.
+(`0a557de`); and the veripb-memout reclassification of `1cb91e3` keyed on the last stage that
+died, which for all three such instances was a later trim kill (`5fcc800`). The CLAUDE.md
+syntax check covers `src/` only; run it on `scripts/` too.
+
+What the rerun says about the paper's prose (memory against time as what stops the trimmer,
+same-binary noise under the §6 1.06, CakePB at 28 GB) is in the paper repository's
+`NUMBERS-PROVENANCE.md`, "What the rerun says about the prose", from
+`scripts/rerun_1012_claims.py`.
 
 What the paper takes from it (`~/papers/trimnalyser-paper`, `\rerun` marks, 2026-10-16):
 resolv factors LV 4.55 / meshes 3.25 / bio 1.72 / images 1.41 and fixpoint 99.82 % (15,446 of
