@@ -40,6 +40,11 @@ __pycache__/
 # caused the incident, so that the NEXT run's output is ignored by default.
 # =============================================================================
 
+# 0. Local mirrors of aggregated runs (runs-0903/, runs-1012/, ...): a README and a
+#    MANIFEST beside hundreds of MB of CSV, all regenerable from /cluster/arthur/logs.
+#    Their READMEs say they are gitignored; until 2026-10-16 that was not true.
+runs-*/
+
 # 1. Report files written by the aggregate/report scripts, in ANY directory.
 #    These exact names reappear in every new run dir and every A/B arm, so they
 #    are deliberately unanchored.

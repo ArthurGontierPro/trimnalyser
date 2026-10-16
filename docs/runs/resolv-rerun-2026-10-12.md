@@ -288,12 +288,33 @@ for this run the aggregator reclassifies `veri_* FAILED` to `MEMOUT` when the ba
 instance's `.err` says `stage verif`, so **aggregate before the proof tree is deleted**.
 Also 2 solver OOM kills (LVg68g77 at 40 GB, LVg64g76), the dense-target wall.
 
-**CakeML stack usage, measured 2026-10-13 12:30 UTC** on the 20 cake_pb processes then
-running (full proofs, images and LV, 1–12 min old), from `/proc/<pid>/pagemap` over the
-stack end of the 32 GB block: high-water mark 0.8–36.3 MB, median ~21 MB; the heap is
-fully resident (28,672 MiB) from the first minute in every process. So the 4096 MB stack
-has a >100x margin on this sample, and a 1 GB stack would still have ~28x. The 34 heap
-memouts so far have models of 1.57–9.5 GB (56 MB of model per GB of heap, linear with the
-8 GB column's 456 MB wall); a 31 GB heap would move the wall to ~1.74 GB and recover about
-6 of them — ~0.1 % of the set — at the price of a restart and of E/G/M having to match.
-Kept at 28672 + 4096 for every arm.
+## Finished, and aggregated (2026-10-16)
+
+The run ended 2026-10-15 02:18:56 UTC, 210,304 s (58.4 h) after the relaunch. Base
+instances: 3,900 tier-1 SAT, 523 tier-1 UNKNOWN, 981 logging-solve timeouts, 3 solver OOM
+kills (LVg64g76, LVg64g77, LVg68g77), 20,183 UNSAT with a full proof, of which 15,493 `.done`,
+4,020 trim OOM kills at 32 GB, 667 trim timeouts at 6,000 s (no sentinel: only solver
+timeouts and memouts get one) and 3 veripb OOM kills (LVg32g77, LVg40g77, LVg68g76, logged
+`veri full FAILED`, reclassified from the `.err` by `1cb91e3`). 88 CakeML heap exhaustions
+at 28 GB against 561 in the published column at 8 GB. 14,236 resolv iterations, 25 of them
+OOM-killed (`<ins>.coreN.memout32`). 22 partial `.smol.*` files of 14 killed trims remain
+(`run_trim_subprocess`'s non-`:ok` return skips `release_smol`). Every count pairs with
+`sep01-gss-lazy`; on the 15,413 cones common to both runs every proof and cone is
+byte-identical.
+
+Aggregated 2026-10-16 12:46 UTC on the node into
+`/cluster/arthur/m7-1012/gss-lazy-resolv/cluster_results.csv` (25,590 × 316, sha256
+`c59082dd…`), mirrored to `~/trimnalyser/runs-1012/`, from a symlink farm of the key's 39,826
+logs with the proof tree still on disk. **The aggregator had not run since `e587066` and was
+broken twice over:** a missing comma after the appended columns (`cb39d52`) and the appended
+pushes placed after the row-length check, which skipped every row and wrote an empty CSV
+(`0a557de`). The CLAUDE.md syntax check covers `src/` only; run it on `scripts/` too.
+
+What the paper takes from it (`~/papers/trimnalyser-paper`, `\rerun` marks, 2026-10-16):
+resolv factors LV 4.55 / meshes 3.25 / bio 1.72 / images 1.41 and fixpoint 99.82 % (15,446 of
+15,474) replacing 8-3's 4.2 / 3.3 / 1.7 / 1.4 and 99.9 %; the memout/timeout split of the
+4,689 untrimmed four-family instances (4,023 OOM, 666 timeouts; 4,080 images; 27 of them
+killed after the trimmer printed its statistics, which tab:instance-counts files as "no
+verification record"); the proxy
+`grim_full_prop > 0` equals `solver_nodes > 0` on every cone. The §4 "32 GB" doubt was
+cleared from the benchlogs: every launch line from 2026-08-24 19:06 on says `maxmem=32`.
