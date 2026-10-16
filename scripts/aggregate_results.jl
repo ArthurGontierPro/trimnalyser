@@ -640,7 +640,10 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             # monitor's .err line is the only record that it was a memout, not a rejection:
             # reclassify from it. The base instance's .err only ever names the base
             # instance's own stages (a core iteration has its own .err).
-            if error_stage == "verif"
+            # Keyed on the .err text, not on error_stage: an instance whose veripb was killed
+            # usually goes on to the trim stage and dies there too (LVg32g77, LVg40g77,
+            # LVg68g76 on 2026-10-12), and error_stage then names the trim.
+            if isfile(err_file) && occursin("stage verif", read(err_file, String))
                 if get(data, "veri_full_status", "") == "FAILED"
                     data["veri_full_status"] = "MEMOUT"
                 elseif get(data, "veri_smol_status", "") == "FAILED"
