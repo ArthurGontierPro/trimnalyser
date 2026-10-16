@@ -176,7 +176,7 @@ const CSV_COLUMNS = [
     "grim_cone_frac_d3g1", "grim_cone_frac_d3g2", "grim_cone_frac_d3g3", "grim_cone_frac_d3g_other",
     # M3.5: variable order — cone and full
     "grim_cone_uniq_pat", "grim_cone_uniq_tar",
-    "grim_full_uniq_pat", "grim_full_uniq_tar"
+    "grim_full_uniq_pat", "grim_full_uniq_tar",
     # 2026-10 rerun (RERUN-REQUEST.md): solver stats per tier, peak RSS per stage, the
     # limit a stage died on, supplemental-level counts, and the run block's provenance.
     # Appended, never interleaved: every earlier column keeps its position and meaning.
