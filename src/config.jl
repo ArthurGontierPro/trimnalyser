@@ -62,6 +62,14 @@ const SOLVER_CONFIGS = Dict{String,SolverConfig}(
     # reason as the companion columns: its blocks must stay out of the published gss-lazy
     # logs, whose LAST block is what every re-aggregation reads.
     "gss-lazy-resolv" => SolverConfig("gss", gssbin("1ff87ba"), _gss_base,                                  true),
+    # The solver before either change the cone's reading produced: the default-logging
+    # build with `--staged` off, so every supplemental graph is built and its justification
+    # written before any search, on every instance. `--staged` (build the layer only when a
+    # cheap first round fails) was added after AG's early readings and lazy generation after
+    # the full one; this column is the "shipped" end of the chain shipped -> staged -> lazy,
+    # paired per instance with gss-default (same binary, one switch). Launched 2026-10-17
+    # under the resolv arm's settings (`nocakegate minmem=500`, CakePB heap = maxmem).
+    "gss-default-nostaged" => SolverConfig("gss", gssbin("861a84f"), ["--no-clique-detection"],              true),
     # ── tab:configs-gss-ablations. One switch each against `gss-lazy`, same binary, so the
     #    baseline column IS gss-lazy and the two tables share it.
     "gss-lazy-nostaged"   => SolverConfig("gss", gssbin("1ff87ba"), ["--no-clique-detection"],              true),
