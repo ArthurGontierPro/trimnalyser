@@ -930,19 +930,6 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
             push!(row, get(data, "grim_full_uniq_pat", ""))
             push!(row, get(data, "grim_full_uniq_tar", ""))
 
-            # Write row
-            if length(row) != length(CSV_COLUMNS)
-                println(stderr, "WARNING: $instance has $(length(row)) fields, expected $(length(CSV_COLUMNS)) — skipping")
-                continue
-            end
-            # The row is assembled by positional push!, so a column added to CSV_COLUMNS
-            # without a matching push! (or the reverse) shifts every field after it and
-            # produces a CSV that parses cleanly with every value under the wrong name.
-            # Nothing downstream could detect that, so it is caught here, once, loudly.
-            length(row) == length(CSV_COLUMNS) || error(
-                "row/column mismatch: built $(length(row)) fields for " *
-                "$(length(CSV_COLUMNS)) columns (instance $instance). " *
-                "A CSV_COLUMNS entry has no push!, or a push! has no column.")
             # 2026-10 rerun columns, in CSV_COLUMNS order.
             for k in ("nopl_nodes", "nopl_propagations", "nopl_runtime_ms", "solver_restarts", "solver_shape_graphs")
                 push!(row, get(data, k, ""))
@@ -969,6 +956,19 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
                 let v = get(data, k, ""); push!(row, v == "" ? "" : csv_quote(v)) end
             end
 
+            # Write row
+            if length(row) != length(CSV_COLUMNS)
+                println(stderr, "WARNING: $instance has $(length(row)) fields, expected $(length(CSV_COLUMNS)) — skipping")
+                continue
+            end
+            # The row is assembled by positional push!, so a column added to CSV_COLUMNS
+            # without a matching push! (or the reverse) shifts every field after it and
+            # produces a CSV that parses cleanly with every value under the wrong name.
+            # Nothing downstream could detect that, so it is caught here, once, loudly.
+            length(row) == length(CSV_COLUMNS) || error(
+                "row/column mismatch: built $(length(row)) fields for " *
+                "$(length(CSV_COLUMNS)) columns (instance $instance). " *
+                "A CSV_COLUMNS entry has no push!, or a push! has no column.")
             println(io, join(row, ","))
         end
     end
