@@ -100,3 +100,17 @@ build's. So "every supplemental graph built, and its justification written, on e
 instance" (above) is not what the proofs show; something else gates the layer on those
 instances. The no-meshes line of the per-family tables is the same gate: the layer is never
 derived on a mesh in either build.
+
+Reading of `gss/homomorphism.cc` / `gss/innards/homomorphism_model.cc` (the
+`lazy-adjacency-relabelled` checkout on the node; to confirm on `861a84f` with Ciaran):
+`solve()` first calls `initialise_domains(domains, params.staged)`, and returns `complete`
+with no search when that empties a domain. With `stage1 == false` that filtering uses every
+graph's degrees and NDS, but `_check_degree_compatibility(..., stage1 || proof)` passes
+`true` whenever a proof is being written, i.e. under proof logging the initial filtering is
+the original graph's degrees and NDS in **both** builds. An instance refuted there never
+has the layer derived in either build, which is the 7,719 identical proofs; the layer is
+built before search only on the instances that survive it (5,129 of the 12,864 cones; 2,136
+of them then search), which is why 83.4 % of this column's cones are "refuted with no
+search" against 52.8 % of the staged build's (Stage 1 spends nodes on the original graph
+before building the layer). So the sentence above, "every supplemental graph built ... on
+every instance", should read "on every instance the initial filtering does not refute".
