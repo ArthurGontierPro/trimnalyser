@@ -1071,7 +1071,29 @@
         n
     end
 
+    # LAD construct labels (ladveri proof.c, `LBL`): every derived step is `@lad<construct><n>`,
+    # plus the three pre-existing referenceable ones `@p2<n>`, `@nds<n>`, `@de<n>`. Kept out of
+    # the Glasgow named-tuple fields: counted in a Dict, printed only when non-zero, so a
+    # Glasgow .out is byte-identical to before. Longest prefix first where one is a prefix
+    # of another (ladndspol/ladnds, laddegpol/laddeg, ladnbrpol/ladnbr, ladp2dompol/ladp2dom/ladp2pol/ladp2).
+    const LAD_LABEL_PREFIXES = [
+        "ladfcinj", "ladfcadj", "ladassert", "ladgac", "ladmatch",
+        "ladp2dompol", "ladp2dom", "ladp2pol", "ladp2",
+        "laddegpol", "laddeg", "ladndspol", "ladndsdeg", "ladnds", "ladloop",
+        "ladnbrpol", "ladnbr", "ladleaf", "ladnode", "ladroot", "ladbail", "ladde",
+    ]
+    const LAD_LABEL_CATS = Tuple(Symbol.(LAD_LABEL_PREFIXES))
+    const LAD_LABEL_CATSET = Set(LAD_LABEL_CATS)
+
+    function classify_lad_label(label::String)
+        for (i, pfx) in enumerate(LAD_LABEL_PREFIXES)
+            startswith(label, pfx) && return LAD_LABEL_CATS[i]
+        end
+        return :ladother
+    end
+
     function classify_label(label::String)
+        startswith(label, "lad")        && return classify_lad_label(label)
         startswith(label, "al1")        && return :al1
         startswith(label, "am1")        && return :am1
         startswith(label, "inj")        && return :inj
@@ -1125,6 +1147,10 @@
         startswith(label, "mcsfin")     && return :mcsfin
         startswith(label, "notconn")    && return :notconn
         startswith(label, "cliqedge")   && return :cliqedge
+        # LAD's pre-existing referenceable labels (no Glasgow label starts with these)
+        startswith(label, "p2")         && return :ladp2       # materialised paths-2 pairwise lemma
+        startswith(label, "nds")        && return :ladndsdeg   # degree elim inside an NDS argument
+        startswith(label, "de")         && return :ladde       # degree elim inside the edge-count bailout
         return :other
     end
 
@@ -1141,6 +1167,7 @@
         n_homcross = n_hombd = n_hompol = n_hominj = n_homdom = n_homfin = 0
         n_mcspart = n_mcsfin = n_notconn = n_cliqedge = 0
         n_other = 0
+        lad = Dict{Symbol,Int}()
         labeled_opb_ids = Set{Int}()
         labeled_pbp_ids = Set{Int}()
         for (label, id) in Iterators.flatten((ctrmap, ctrmap_evicted))
@@ -1199,6 +1226,7 @@
             elseif cat == :mcsfin;      n_mcsfin      += 1
             elseif cat == :notconn;     n_notconn     += 1
             elseif cat == :cliqedge;    n_cliqedge    += 1
+            elseif cat in LAD_LABEL_CATSET; lad[cat] = get(lad, cat, 0) + 1
             else                        n_other       += 1
             end
         end
@@ -1221,7 +1249,7 @@
          hominj=n_hominj, homdom=n_homdom, homfin=n_homfin,
          mcspart=n_mcspart, mcsfin=n_mcsfin,
          notconn=n_notconn, cliqedge=n_cliqedge,
-         other=n_other, unlabeled=n_unlabeled)
+         other=n_other, unlabeled=n_unlabeled, lad=lad)
     end
 
     function full_label_stats(ctrmap::Dict{String,Int}, ctrmap_evicted::Vector{Pair{String,Int}}, nbopb::Int, n_total::Int)
@@ -1237,6 +1265,7 @@
         n_homcross = n_hombd = n_hompol = n_hominj = n_homdom = n_homfin = 0
         n_mcspart = n_mcsfin = n_notconn = n_cliqedge = 0
         n_other = 0
+        lad = Dict{Symbol,Int}()
         labeled_opb_ids = Set{Int}()
         labeled_pbp_ids = Set{Int}()
         for (label, id) in Iterators.flatten((ctrmap, ctrmap_evicted))
@@ -1294,6 +1323,7 @@
             elseif cat == :mcsfin;      n_mcsfin      += 1
             elseif cat == :notconn;     n_notconn     += 1
             elseif cat == :cliqedge;    n_cliqedge    += 1
+            elseif cat in LAD_LABEL_CATSET; lad[cat] = get(lad, cat, 0) + 1
             else                        n_other       += 1
             end
         end
@@ -1316,7 +1346,7 @@
          hominj=n_hominj, homdom=n_homdom, homfin=n_homfin,
          mcspart=n_mcspart, mcsfin=n_mcsfin,
          notconn=n_notconn, cliqedge=n_cliqedge,
-         other=n_other, unlabeled=n_unlabeled)
+         other=n_other, unlabeled=n_unlabeled, lad=lad)
     end
 
     function writeout_labels(ins, cone, full, prefix)
@@ -1372,6 +1402,9 @@
             _lbl(f, "MCSFIN",        cone.mcsfin,        full.mcsfin)
             _lbl(f, "NOTCONN",       cone.notconn,       full.notconn)
             _lbl(f, "CLIQEDGE",      cone.cliqedge,      full.cliqedge)
+            for t in LAD_LABEL_CATS
+                _lbl(f, uppercase(String(t)), get(cone.lad, t, 0), get(full.lad, t, 0))
+            end
             (cone.unlabeled > 0 || full.unlabeled > 0) &&
                 println(f, prefix, " UNLABELED ", cone.unlabeled, "/", full.unlabeled)
         end

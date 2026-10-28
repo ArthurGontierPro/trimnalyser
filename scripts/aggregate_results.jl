@@ -189,6 +189,16 @@ const CSV_COLUMNS = [
     "trim_timeout_s", "trim_memout_gb",
     "run_limits", "run_solver", "run_flags", "run_resolv_gate", "run_trimnalyser_rev",
     "run_cake_heap", "cake_full_exhausted", "cake_smol_exhausted", "cakeiso_full_exhausted",
+    # LAD construct labels (ladveri proof.c LBL; src/output.jl LAD_LABEL_PREFIXES), cone then
+    # full. Appended after everything else so no earlier column moves; empty for Glasgow.
+    ["grim_cone_$t" for t in ("ladfcinj", "ladfcadj", "ladassert", "ladgac", "ladmatch",
+        "ladp2dompol", "ladp2dom", "ladp2pol", "ladp2", "laddegpol", "laddeg", "ladndspol",
+        "ladndsdeg", "ladnds", "ladloop", "ladnbrpol", "ladnbr", "ladleaf", "ladnode",
+        "ladroot", "ladbail", "ladde")]...,
+    ["grim_full_$t" for t in ("ladfcinj", "ladfcadj", "ladassert", "ladgac", "ladmatch",
+        "ladp2dompol", "ladp2dom", "ladp2pol", "ladp2", "laddegpol", "laddeg", "ladndspol",
+        "ladndsdeg", "ladnds", "ladloop", "ladnbrpol", "ladnbr", "ladleaf", "ladnode",
+        "ladroot", "ladbail", "ladde")]...,
 ]
 
 function _parse_frac(s)
@@ -214,6 +224,19 @@ const _LABEL_TAGS = [
 const _LABEL_REGEXES = Dict(
     tag => Regex("^grim LABEL $(uppercase(tag)) (\\d+/\\d+)\$")
     for tag in _LABEL_TAGS
+)
+
+# LAD construct labels: parsed like _LABEL_TAGS but pushed at the END of the row (see
+# CSV_COLUMNS), so they never shift a Glasgow column.
+const _LAD_LABEL_TAGS = [
+    "ladfcinj", "ladfcadj", "ladassert", "ladgac", "ladmatch",
+    "ladp2dompol", "ladp2dom", "ladp2pol", "ladp2", "laddegpol", "laddeg", "ladndspol",
+    "ladndsdeg", "ladnds", "ladloop", "ladnbrpol", "ladnbr", "ladleaf", "ladnode",
+    "ladroot", "ladbail", "ladde",
+]
+const _LAD_LABEL_REGEXES = Dict(
+    tag => Regex("^grim LABEL $(uppercase(tag)) (\\d+/\\d+)\$")
+    for tag in _LAD_LABEL_TAGS
 )
 
 # ── Table-driven .out parser ─────────────────────────────────────────────────
@@ -389,6 +412,17 @@ function parse_out_file(filepath)
                     a, b = _parse_frac(m.captures[1])
                     data["grim_cone_$tag"] = a
                     data["grim_full_$tag"] = b
+                end
+            end
+        end
+        if startswith(line, "grim LABEL LAD")
+            for tag in _LAD_LABEL_TAGS
+                let m = match(_LAD_LABEL_REGEXES[tag], line)
+                    if m !== nothing
+                        a, b = _parse_frac(m.captures[1])
+                        data["grim_cone_$tag"] = a
+                        data["grim_full_$tag"] = b
+                    end
                 end
             end
         end
@@ -958,6 +992,9 @@ function aggregate_results(proofdir::String, output_csv::String, logdir::String=
                       "run_cake_heap", "cake_full_exhausted", "cake_smol_exhausted", "cakeiso_full_exhausted")
                 let v = get(data, k, ""); push!(row, v == "" ? "" : csv_quote(v)) end
             end
+            # LAD construct labels — cone then full, last columns
+            for lc in _LAD_LABEL_TAGS; push!(row, get(data, "grim_cone_$lc", "")); end
+            for lc in _LAD_LABEL_TAGS; push!(row, get(data, "grim_full_$lc", "")); end
 
             # Write row
             if length(row) != length(CSV_COLUMNS)
