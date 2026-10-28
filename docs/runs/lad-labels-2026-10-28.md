@@ -129,8 +129,17 @@ Everything needed is in place on fataepyc-07 (the booked node):
 From the laptop:
 
 ```
-CONFIGS="lad-alldiff-lbl" NODES="fataepyc-07" EXTRA="mindisk=3000" bash scripts/run_grid.sh launch
+CONFIGS="lad-alldiff-lbl" NODES="fataepyc-07" EXTRA="mindisk=3000 minmem=500 nocakegate" bash scripts/run_grid.sh launch
 ```
+
+`minmem=500 nocakegate` is the October recipe (resolv rerun, gss-default-nostaged), the one
+that holds with the CakePB heap at `maxmem` (28 GB pre-faulted per Cake stage, since the
+2026-10-12 fix). **Launched twice wrongly on 2026-10-28** — first with the September
+`EXTRA="mindisk=3000"` only (default `minmem=100`): another session's `pkill -f veripb`
+contaminated it at 15 min; relaunched the same way, the node filled to 1.95 TB in waves
+with the 7 GB swap full and 58 memouts at 32 GB, 50 min in. Both were wiped (key tree +
+logs; console logs in `/cluster/arthur/benchlogs/contaminated-2026-10-28/`). **The valid
+run is the third launch, 2026-10-28 14:55 UTC**, resolv gated on VeriPB alone.
 
 Same limits as every published column (`stnopl=60 st=600 tt=6000 vt=6000 ct=6000 maxmem=32`),
 `allgraphs rand`, i.e. the full 25,590 including bio and images. Expect days on images and
