@@ -12,7 +12,7 @@ the solver, not to certify the instance.
 
 ## What changed
 
-- **ladveri `0e8ef31` + `b???????`** (branch `fix/initdomains-stack-overflow`): every `pol`,
+- **ladveri `0e8ef31` + `8a98328`** (branch `fix/initdomains-stack-overflow`): every `pol`,
   `rup` and `a` the proof logger emits is prefixed `@lad<construct><n>` (macro `LBL`,
   `proof.c`), `n` from its own counter. The three pre-existing referenceable labels
   `@p2<n>`, `@nds<n>`, `@de<n>` are untouched — the first attempt shared their counter and
