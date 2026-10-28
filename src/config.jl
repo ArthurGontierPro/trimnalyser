@@ -99,6 +99,12 @@ const SOLVER_CONFIGS = Dict{String,SolverConfig}(
     # names, so the bare -P must NOT appear here (it takes a FILE argument).
     "lad-alldiff-pl" => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "0"],                          true),
     "lad-fc-pl"      => SolverConfig("lad", ladsolverpath, ["-f", "1", "-c", "0"],                          true),
+    # ── LAD construct-label column (docs/runs/lad-labels-2026-10-28.md) ──
+    # Same solve as lad-alldiff-pl; a separate key so its run blocks never become the last
+    # block of the published lad-alldiff-pl logs. Needs the labelling LAD binary (ladveri
+    # 0e8ef31+, sha256 1c608339…) installed as $LAD_SOLVER; the labels are inert for VeriPB
+    # and the proof is byte-identical modulo them, so the solve measures nothing new.
+    "lad-alldiff-lbl" => SolverConfig("lad", ladsolverpath, ["-f", "0", "-c", "0"],                         true),
 )
 
 const default_config = "gss-lazy"   # current hardcoded behaviour: --staged --no-clique-detection --prove
