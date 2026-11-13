@@ -233,7 +233,7 @@
                              (sign ? Int8(1) : Int8(2)))            # assign variable
             for j in varrange(sys, v)
                 eid = Int(sys.var_eqs[j])
-                (eid <= init && eid != i) || continue               # only earlier/unrelated eqs
+                (rs.ok[eid] && eid != i) || continue                # only usable eqs (see ruptrail)
                 activate!(eid, rs, cone, on_frontier)               # re-queue equations containing v
             end
         end
@@ -245,13 +245,30 @@
         # from pq_nonprio.
     function ruptrail(sys::PBSystem, init::Int, t::Trail,
                       ante::Ante, on_frontier::BitVector,
-                      cone::BitVector, conelits, prism, subrange, rs::RupState, mode=Grim())
+                      cone::BitVector, conelits, prism, subrange, rs::RupState, mode=Grim();
+                      limit::Int=init, T::Int=-1, core_only::Bool=false,
+                      meta::Union{Nothing,ProofMeta}=nothing)
+        # `rs.ok` is the set of constraints this check may use. For a refutation that is
+        # "everything up to init outside a subproof". With database events (T >= 0) it is
+        # also "not deleted by event T or earlier", and for the goals VeriPB checks against
+        # the core only, "moved to core by event T or earlier". `init` (checked reversed) is
+        # always usable, even when it is the constraint being deleted or a synthetic goal.
         init_slack_cache!(t, sys)
         fill!(rs.que, false)               # reset queue (may have stale trues from early return)
         empty!(rs.pq_prio); empty!(rs.pq_nonprio)
-        for i in 1:init                    # seed both heaps with all eligible equations
+        ok = rs.ok; fill!(ok, false)
+        for i in 1:limit                   # seed both heaps with all eligible equations
             (!inprism(i, prism) || (i in subrange)) || continue
+            if T >= 0
+                meta.deathseq[i] > T || continue
+                (core_only && meta.coreseq[i] > T) && continue
+            end
+            ok[i] = true
             activate!(i, rs, cone, on_frontier)
+        end
+        if !ok[init]
+            ok[init] = true
+            activate!(init, rs, cone, on_frontier)
         end
         while true
             while !isempty(rs.pq_prio)     # drain priority equations first
@@ -281,7 +298,8 @@
         for j in ante.list; ante.flags[j] || continue; push!(link, j); push_frontier!(frontier, on_frontier, cone, j); end end
 
     function getcone!(cone, conelits, sys::PBSystem, systemlink, nbopb::Int,
-                      prism::Vector{UnitRange{Int64}}, redwitness, conclusion::String, obj, mode)
+                      prism::Vector{UnitRange{Int64}}, redwitness, conclusion::String, obj, mode;
+                      meta::ProofMeta=ProofMeta())
         n    = length(sys.rhs)
         prism_bv = falses(n)
         for r in prism, i in r
@@ -291,12 +309,16 @@
         trail      = Trail(length(sys.var_ptr) - 1)    # var_ptr has length n_vars+1 (CSR convention)
 
         firstcontradiction = 0                         # root of the backward reachability
+        # `ENUMERATION_COMPLETE 0 : id` is a refutation under another name: no solution was
+        # logged and constraint `id` is a contradiction.
+        conclusion == "ENUMERATION_COMPLETE 0" && (conclusion = "UNSAT")
         if conclusion == "UNSAT"
             firstcontradiction = getfirstcontradiction(sys, prism_bv)
         elseif occursin("BOUNDS", conclusion)
             firstcontradiction = getfirstboundeq(sys, obj, conclusion, cone)
         end
-        if firstcontradiction == 0
+        sk = skeleton(meta)                            # equienumerability: the database events are the roots
+        if firstcontradiction == 0 && !sk
             conclusion == "UNSAT" && printstyled("  [error] UNSAT contradiction not found\n"; color=:red)
             return
         end
@@ -308,12 +330,52 @@
 
         # Local function: clear ante, reset trail, run rup. i and subrange are parameters (not captured)
         # to avoid Julia boxing mutable loop variables. Everything else is captured from getcone! scope.
-        function do_rup!(i, subrange)
+        function do_rup!(i, subrange; limit=i, T=(sk ? evbefore(meta, i) : -1), core_only=false)
             ante_clear!(ante)
             reset!(trail)
-            ruptrail(sys, i, trail, ante, on_frontier, cone, conelits, prism_bv, subrange, rs, mode)
+            ruptrail(sys, i, trail, ante, on_frontier, cone, conelits, prism_bv, subrange, rs, mode;
+                     limit=limit, T=T, core_only=core_only, meta=meta)
         end
 
+        # Obligations of database event k (equienumerability proofs). Every event is kept in
+        # the trimmed proof, so each one is a root:
+        #   core id         the constraints it names must be derived
+        #   del, core id    checked deletion: explicit subproof → its closing contradiction;
+        #                   no witness → RUP from the remaining core; with a witness the
+        #                   goals are trivial in the proofs seen so far and are not re-checked
+        #   preserved_*     two goals, RUP from the core
+        function process_event!(k)
+            ev = meta.events[k]
+            if ev.kind === :core
+                for id in ev.ids; push_frontier!(frontier, on_frontier, cone, id); end
+            elseif ev.kind === :del
+                for id in ev.ids
+                    meta.deathseq[id] == k || continue         # already gone (wiped level)
+                    meta.coreseq[id] < k   || continue         # derived: unchecked
+                    if ev.sub != 0:0
+                        cone[ev.sub.start] = true
+                        push_frontier!(frontier, on_frontier, cone, ev.sub.stop)
+                    elseif isempty(ev.text)
+                        if do_rup!(id, 0:0; limit=ev.at, T=k, core_only=true)
+                            ante_remove!(ante, id)
+                            ante_into_frontier!(ante, frontier, on_frontier, cone)
+                        else
+                            printstyled("  [error] checked deletion of $id is not rup from the core\n"; color=:red)
+                        end
+                    end
+                end
+            elseif ev.kind === :padd || ev.kind === :prm
+                for g in ev.goals
+                    if do_rup!(g, 0:0; limit=ev.at, T=k, core_only=true)
+                        ante_remove!(ante, g)
+                        ante_into_frontier!(ante, frontier, on_frontier, cone)
+                    else
+                        printstyled("  [error] goal of `$(ev.text)` is not rup from the core\n"; color=:red)
+                    end
+                end
+            end end
+
+        if firstcontradiction != 0
         cone[firstcontradiction] = true
         if systemlink[firstcontradiction - nbopb][1] == -2   # contradiction is a pol: antecedents explicit in link
             # Treat it exactly like any other pol step. Two things this branch used to skip:
@@ -344,19 +406,26 @@
             ante_remove!(ante, firstcontradiction)     # never its own antecedent (cf. the rup case below)
             ante_into_frontier!(ante, frontier, on_frontier, cone, systemlink, firstcontradiction - nbopb)
         end
+        end
+        evp     = sk ? length(meta.events) : 0         # next event to process, walking backwards
         red     = Red([], 0:0, [])                     # current red block being processed
         pfgl    = UnitRange{Int64}[]                   # deferred proof goals (ref not yet known to be in cone)
         newpfgl = true
         while newpfgl                                  # outer loop: retry deferred proof goals until stable
             newpfgl = false
-            while !isempty(frontier)
+            while true
+                # an event sitting after the next constraint to visit is handled first
+                while evp > 0 && (isempty(frontier) || meta.events[evp].at >= first(frontier))
+                    process_event!(evp); evp -= 1
+                end
+                isempty(frontier) && break
                 i = pop!(frontier)
                 on_frontier[i] || continue             # stale pop guard
                 on_frontier[i] = false                 # remove from queue (cone[i] already true since push)
                 if i > nbopb
                     rule_type = systemlink[i - nbopb][1]   # rule type: -1=rup, -2=pol, -3=ia, -4=red, ...
                     if rule_type == -1                              # rup
-                        if do_rup!(i, 0:0)
+                        if do_rup!(i, get(meta.subof, i, 0:0))
                             ante_remove!(ante, i)              # i itself is not its own antecedent
                             ante_into_frontier!(ante, frontier, on_frontier, cone, systemlink, i - nbopb)
                         else
@@ -408,7 +477,7 @@
                 end
             end
         end
-        fixredsystemlink(systemlink, cone, prism, nbopb) end # propagate subproof antecedents up to red declarations
+        isempty(meta.subof) && fixredsystemlink(systemlink, cone, prism, nbopb) end # propagate subproof antecedents up to red declarations
 
     function getfirstcontradiction(sys::PBSystem, prism)
         assi = zeros(Int8, length(sys.var_ptr) - 1)

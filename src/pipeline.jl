@@ -10,6 +10,16 @@
             m === nothing ? "" : m.captures[1]
         end end
 
+        # Output guarantee of a proof (`output EQUIENUMERABLE FILE` → "EQUIENUMERABLE").
+    function pbpoutput(ins, suffix=pbp)
+        f = _cfg[].proofs*ins*suffix
+        isfile(f) || return ""
+        open(f) do io
+            seek(io, max(0, filesize(f) - 500))
+            m = match(r"output\s+(\w+)", read(io, String))
+            m === nothing ? "" : m.captures[1]
+        end end
+
     smol_complete(ins) = isfile(_cfg[].proofs*ins*".done") ||
                          (isfile(_cfg[].proofs*ins*smol_opb) && !isempty(pbpconclusion(ins, smol_pbp)))
 
@@ -126,7 +136,8 @@
             printstyled("  $ins already done — skipping\n"; color=:blue); return
         end
         let c = pbpconclusion(ins)
-            if c == "SAT" || c == "NONE"
+            # `conclusion NONE` under `output EQUIENUMERABLE` is a counting proof, not a SAT one.
+            if (c == "SAT" || c == "NONE") && pbpoutput(ins) != "EQUIENUMERABLE"
                 touch(_cfg[].proofs * ins * ".sat")
                 tryrm(_cfg[].proofs * ins * pbp)
                 tryrm(_cfg[].proofs * ins * opb)
@@ -189,7 +200,7 @@
         prefix = mode isa Clit ? "gclt" : "grim"
         parse_time = trim_time = write_time = 0 ; file = ins ; cone_stats = nothing
         parse_time = @elapsed begin
-            store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,ctrmap_evicted,output,conclusion,obj,prism = readinstance(_cfg[].proofs,file)
+            store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,ctrmap_evicted,output,conclusion,obj,prism,meta = readinstance(_cfg[].proofs,file)
         end
         inp_lits = length(store.vars)
         writeout_parse(ins, parse_time, inp_lits, length(varmap), prefix)
@@ -199,7 +210,7 @@
         cone     = falses(n)
         conelits = Dict{Int,Set{Int}}()
         trim_time = @elapsed begin
-            getcone!(cone, conelits, sys, systemlink, nbopb, prism, redwitness, conclusion, obj, mode)
+            getcone!(cone, conelits, sys, systemlink, nbopb, prism, redwitness, conclusion, obj, mode; meta=meta)
         end
         writeout_trim(ins, trim_time, cone, nbopb, prefix)
         step_counts = count_step_types(systemlink, cone, nbopb)
@@ -236,7 +247,35 @@
             end
         end
         write_time = @elapsed begin
-            writeconedel(_cfg[].proofs,file,sys,cone,conelits,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap_inv,ctrmap,output,conclusion,obj,prism)
+            if skeleton(meta)
+                # Anything that is, or becomes, core must stay as written: the input formula
+                # is copied whole and the final core is compared with the output file.
+                # Count, per class of cone constraint, the literals the cone does not need
+                # (`drop`) out of the literals it has (`lits`), before the blocked classes
+                # lose their entry: input = OPB, core = moved to core, prem = subproof
+                # premise, free = derived and never core (the only class actually trimmed).
+                st = Dict(c => [0, 0, 0] for c in (:input, :core, :prem, :free))   # constraints, lits, drop
+                for e in 1:meta.nreal
+                    cone[e] || continue
+                    cls = e <= nbopb ? :input : systemlink[e - nbopb][1] == -40 ? :prem :
+                          meta.coreseq[e] != typemax(Int) ? :core : :free
+                    nl = length(eqrange(sys, e))
+                    st[cls][1] += 1; st[cls][2] += nl
+                    haskey(conelits, e) && (st[cls][3] += nl - length(conelits[e]))
+                end
+                logopen(ins) do f
+                    for c in (:input, :core, :prem, :free)
+                        println(f, prefix, " SKEL LIT ", uppercase(String(c)), " ", st[c][3], "/", st[c][2], " in ", st[c][1])
+                    end
+                end
+                for e in collect(keys(conelits))
+                    (e <= nbopb || e > meta.nreal || meta.coreseq[e] != typemax(Int) ||
+                     systemlink[e - nbopb][1] == -40) && delete!(conelits, e)
+                end
+                writeskeleton(_cfg[].proofs,file,sys,cone,conelits,systemlink,redwitness,nbopb,varmap_inv,meta)
+            else
+                writeconedel(_cfg[].proofs,file,sys,cone,conelits,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap_inv,ctrmap,output,conclusion,obj,prism; preserved=meta.preserved)
+            end
         end
         writeout_write(ins, parse_time, trim_time, write_time, prefix)
         return trunc(Int,parse_time),trunc(Int,trim_time),trunc(Int,write_time),cone_stats,coremsg end

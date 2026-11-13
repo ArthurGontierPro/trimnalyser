@@ -132,6 +132,46 @@
         range::UnitRange{Int64}             # system id range of the entire red block (reversed negation → conclusion)
         proof_goal_ranges::Vector{UnitRange{Int64}} end  # id ranges of individual proof goals inside the block
 
+        # ── Enumeration / equienumerability proofs ─────────────────────────────────────
+        # Proof lines that create no constraint but change the database: `core id`, `del`,
+        # `preserved_add`/`preserved_rm`, `setlvl`/`wiplvl`, `qed`. Recorded only when the OPB
+        # declares a preserved set, so ordinary refutations pay nothing.
+        #   at   : id of the last constraint created before the line
+        #   ids  : constraint ids named by the line (core / del)
+        #   text : what to re-emit (witness of a del, whole line otherwise)
+        #   sub  : del with a subproof → premise id : last inner id
+        #   goals: preserved_* → the two synthetic goal constraints (0 = trivial goal)
+    mutable struct ProofEvent
+        kind  ::Symbol
+        at    ::Int
+        ids   ::Vector{Int}
+        text  ::String
+        sub   ::UnitRange{Int}
+        geq   ::Vector{Eq}
+        goals ::Vector{Int} end
+    ProofEvent(kind, at, ids, text) = ProofEvent(kind, at, ids, text, 0:0, Eq[], Int[])
+
+        # nreal    : number of constraints that carry a VeriPB id (OPB + proof steps); the
+        #            store may hold synthetic goal constraints after it.
+        # deathseq : index of the event that deletes a constraint (typemax = never)
+        # coreseq  : index of the event that moves it to core (0 = input, typemax = never)
+        # A check made at event time T may use e iff deathseq[e] > T, and, when restricted to
+        # the core, coreseq[e] <= T. A proof step i sees the events numbered 1..evbefore(i).
+    mutable struct ProofMeta
+        preserved ::String
+        events    ::Vector{ProofEvent}
+        lvl       ::Vector{Int32}
+        nreal     ::Int
+        deathseq  ::Vector{Int}
+        coreseq   ::Vector{Int}
+        ev_at     ::Vector{Int}
+        subof     ::Dict{Int,UnitRange{Int}}
+        output    ::String end
+    ProofMeta() = ProofMeta("", ProofEvent[], Int32[], 0, Int[], Int[], Int[], Dict{Int,UnitRange{Int}}(), "")
+    tracked(m::ProofMeta) = !isempty(m.preserved)
+    skeleton(m::ProofMeta) = startswith(m.output, "EQUIENUMERABLE")
+    @inline evbefore(m::ProofMeta, i::Int) = searchsortedlast(m.ev_at, i - 1)
+
     struct PBSystem
         # Forward: equation → terms
         vars    ::Vector{Int32}
@@ -200,6 +240,7 @@
     Ante(n::Int) = Ante(falses(n), Int[])
     struct RupState                                    # scratch buffers for one getcone! call; RED subproof calls allocate their own
         que           ::BitVector                      # ruptrail equation queue
+        ok            ::BitVector                      # ruptrail: constraints this check may use
         pq_prio       ::BinaryMinHeap{Int}             # priority equations (cone/on_frontier)
         pq_nonprio    ::BinaryMinHeap{Int}             # non-priority equations
         to_explain    ::BinaryMaxHeap{Int}             # conflicttrail: trail positions still needing explanation
@@ -212,6 +253,7 @@
     struct Grim end        # standard: proof-index sort in conflict analysis
     struct Clit end        # cone-first sort + essentials-aware filter in conflict analysis
     RupState(n_eqs::Int, n_vars::Int) = RupState(
+        falses(n_eqs),
         falses(n_eqs),
         BinaryMinHeap{Int}(),
         BinaryMinHeap{Int}(),
@@ -304,6 +346,8 @@
         t == -3  ? _LINK_IARES :
         t == -10 ? _LINK_END  :
         t == -7  ? _LINK_PG7  :
+        t == -40 ? _LINK_PREM :
+        t == -41 ? _LINK_GOAL :
         t == -21 ? _LINK_SOLI :
         t == -20 ? _LINK_SOLX : error("unknown singleton type $t") end
 

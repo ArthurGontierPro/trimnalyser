@@ -69,6 +69,21 @@
         writewitness(f, witness, varmap)
         print(f, beg, "\n") end
 
+        # VeriPB 3 syntax: `red C : x -> v y -> w ;`
+    function writered3(f::IO, sys::PBSystem, e::Int, varmap, red_block)
+        print(f, "red ")
+        for k in eqrange(sys, e)
+            print(f, sys.coefs[k], sys.signs[k] ? " " : " ~", varmap[Int(sys.vars[k])], " ")
+        end
+        print(f, ">= ", sys.rhs[e], " :")
+        w = red_block.witness
+        for k in 1:2:length(w)
+            print(f, " ", varmap[w[k].var], " -> ")
+            t = w[k+1]
+            t.var > 0 ? print(f, t.sign ? "" : "~", varmap[t.var]) : print(f, -t.var)
+        end
+        print(f, " ;\n") end
+
         # Literal token encoding (see solvepol_flat!): a weakening operand is -100v-99,
         # a literal axiom is -100v-99-(sign ? 0 : 1). So the low two digits carry the sign
         # and borrow from the variable id when the literal is negative.
@@ -206,10 +221,11 @@
 
     function writeconedel(path, file, sys::PBSystem, cone, conelits, systemlink,
                           redwitness, solirecord, assertrecord, nbopb,
-                          varmap, ctrmap, output, conclusion, obj, prism)
+                          varmap, ctrmap, output, conclusion, obj, prism; preserved="")
         index = zeros(Int, length(sys.rhs))
         lastindex = 0
         open(path*file*smol_opb, "w") do f
+            isempty(preserved) || println(f, preserved)
             if length(obj) > 0
                 print(f, "min: ")
                 writelits(f, obj, varmap)
@@ -259,7 +275,7 @@
                         else              writeia(f, sys, i, systemlink[i - nbopb][2], index, varmap) end
                         writedel(f, systemlink, i, succ, index, nbopb, dels)
                     elseif rule_type == -4           # red alone
-                        writered(f, sys, i, varmap, redwitness[i], "")
+                        writered3(f, sys, i, varmap, redwitness[i])
                         dels[i] = true
                     elseif rule_type == -5           # rup in subproof
                         print(f, "    "); writeu(f, sys, i, varmap)
@@ -305,11 +321,73 @@
             print(f, "output ", output, " ;\n")
             if conclusion == "SAT"
                 print(f, "conclusion ", conclusion, " ;\n")
-            elseif conclusion == "UNSAT"
+            elseif conclusion == "UNSAT" || conclusion == "ENUMERATION_COMPLETE 0"
                 print(f, "conclusion ", conclusion, " : -1 ;\n")
             else
                 print(f, replace(conclusion, ";" => ""), " ;\n")
             end
+            write(f, "end pseudo-Boolean proof ;")
+        end end
+
+        # Equienumerability proofs. The input formula is copied whole, every database event
+        # is re-emitted at its place, and only the constraints of the cone are written
+        # between them. The original deletions and levels are kept, so at any point the
+        # trimmed database is a subset of the original one and no checked obligation grows.
+    function writeskeleton(path, file, sys::PBSystem, cone, conelits, systemlink, redwitness,
+                           nbopb, varmap, meta::ProofMeta)
+        cp(path*file*opb, path*file*smol_opb; force=true)
+        index = zeros(Int, length(sys.rhs))
+        for i in 1:nbopb; index[i] = i; end
+        lastindex = nbopb
+        events = meta.events
+        evp = 1
+        open(path*file*smol_pbp, "w") do f
+            function emit_events(upto)
+                while evp <= length(events) && events[evp].at <= upto
+                    ev = events[evp]; k = evp; evp += 1
+                    if ev.kind === :core
+                        ids = [index[id] for id in ev.ids if index[id] != 0]
+                        isempty(ids) || print(f, "core id ", join(ids, " "), " ;\n")
+                    elseif ev.kind === :del
+                        ids = [index[id] for id in ev.ids if meta.deathseq[id] == k && index[id] != 0]
+                        isempty(ids) && continue
+                        if ev.sub != 0:0;         print(f, "del id ", ids[1], " : : subproof\n")
+                        elseif !isempty(ev.text); print(f, "del id ", join(ids, " "), " : ", ev.text, " ;\n")
+                        else                      print(f, "del id ", join(ids, " "), " ;\n") end
+                    elseif ev.kind === :qed;    print(f, "qed : -1 ;\n")
+                    elseif ev.kind === :setlvl; print(f, "setlvl ", ev.text, " ;\n")
+                    elseif ev.kind === :wiplvl; print(f, "wiplvl ", ev.text, " ;\n")
+                    else                        print(f, ev.text, " ;\n")     # preserved_add / preserved_rm
+                    end
+                end end
+            print(f, "pseudo-Boolean proof version ", version, "\n")
+            print(f, "f ", nbopb, " ;\n")
+            emit_events(nbopb)
+            for i in nbopb+1:meta.nreal
+                if cone[i]
+                    lastindex += 1
+                    index[i] = lastindex
+                    rule_type = systemlink[i - nbopb][1]
+                    cl = get(conelits, i, nothing)
+                    if rule_type == -1
+                        cl !== nothing ? writeuconelits(f, sys, i, varmap, cl) : writeu(f, sys, i, varmap)
+                    elseif rule_type == -2
+                        writepol(f, systemlink[i - nbopb], index, varmap, sys, conelits)
+                    elseif rule_type == -3
+                        cl !== nothing ? writeiaconelits(f, sys, i, systemlink[i - nbopb][2], index, varmap, cl) :
+                                         writeia(f, sys, i, systemlink[i - nbopb][2], index, varmap)
+                    elseif rule_type == -4
+                        writered3(f, sys, i, varmap, redwitness[i])
+                    elseif rule_type == -40          # subproof premise: VeriPB creates it, it only takes an id
+                    else
+                        printstyled("  [error] unknown rule_type=$rule_type\n"; color=:red)
+                        lastindex -= 1
+                    end
+                end
+                emit_events(i)
+            end
+            print(f, "output ", meta.output, " ;\n")
+            print(f, "conclusion NONE ;\n")
             write(f, "end pseudo-Boolean proof ;")
         end end
 

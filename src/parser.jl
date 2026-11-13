@@ -11,6 +11,8 @@
     const _LINK_PG7  = Int[-7]   # proofgoal #1
     const _LINK_SOLI = Int[-21]  # soli
     const _LINK_SOLX = Int[-20]  # solx
+    const _LINK_PREM = Int[-40]  # negated constraint opening a `del ... : subproof` block
+    const _LINK_GOAL = Int[-41]  # synthetic goal of a preserved_add / preserved_rm (no VeriPB id)
 
         # Contiguous byte view into the mmap'd file buffer — the token type returned by tokenize!.
         # Safe as long as the mmap array stays alive (it is kept alive by readopb/readproof's local ref).
@@ -78,13 +80,15 @@
         end end
 
     function readinstance(path,file)
-        store,varmap,ctrmap,ctrmap_evicted,obj = readopb(path,file)
+        meta = ProofMeta()
+        store,varmap,ctrmap,ctrmap_evicted,obj = readopb(path,file,meta)
         nbopb = length(store)
-        store,systemlink,redwitness,solirecord,assertrecord,output,conclusion = readproof(path,file,store,varmap,ctrmap,ctrmap_evicted,obj)
+        store,systemlink,redwitness,solirecord,assertrecord,output,conclusion = readproof(path,file,store,varmap,ctrmap,ctrmap_evicted,obj,meta)
         prism = availableranges(redwitness)
-        return store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,ctrmap_evicted,output,conclusion,obj,prism end
+        for e in meta.events; e.sub != 0:0 && push!(prism, e.sub); end
+        return store,systemlink,redwitness,solirecord,assertrecord,nbopb,varmap,ctrmap,ctrmap_evicted,output,conclusion,obj,prism,meta end
 
-    function readopb(path,file)
+    function readopb(path,file,meta=ProofMeta())
         store = FlatEqStore()
         varmap = Dict{Vector{UInt8},Int}()
         ctrmap = Dict{String, Int}()
@@ -95,7 +99,12 @@
         content_opb = Mmap.mmap(path*file*opb)
         c = 1
         _scan_lines(content_opb) do ss
-            if isempty(ss) || ss[1]==UInt8('*') || ss[1]==UInt8('p') return end
+            if isempty(ss) || ss[1]==UInt8('*') return end
+            if ss[1]==UInt8('p')
+                # `preserved: x y ... ;` — the projection set of an enumeration problem.
+                length(ss) > 10 && String(@view ss[1:10]) == "preserved:" && (meta.preserved = String(ss))
+                return
+            end
             st = tokenize!(ss)
             if st[1][1]==UInt8('@')
                 name = String(view(st[1], 2:length(st[1])))
@@ -212,7 +221,66 @@
         end
         eq.rhs = c + eq.rhs end
 
-    function readproof(path,file,store,varmap,ctrmap,ctrmap_evicted,obj)
+        # id named on a `core` / `del` line: number, negative offset, or @label
+    function readid(tok, ctrmap, c)
+        tok[1]==UInt8('@') && return ctrmap[String(view(tok,2:length(tok)))]
+        l = parse_int_bytes(tok)
+        return l < 0 ? c + l : l end
+
+        # not C, for C: sum a_i l_i >= b  →  sum a_i ~l_i >= sum a_i - b + 1
+    function negate_row(store::FlatEqStore, e::Int)
+        r = eqrange(store, e)
+        lits = [Lit(Int(store.coefs[k]), !store.signs[k], Int(store.vars[k])) for k in r]
+        return Eq(lits, sum(Int(store.coefs[k]) for k in r; init=0) - Int(store.rhs[e]) + 1) end
+
+        # The two goals of `preserved_add x : C` / `preserved_rm x : C`, as constraints:
+        #   x => C   :  C + b*~x >= b
+        #   C => x   :  not C + b'*x >= b'      (b' = degree of not C)
+        # A goal whose degree is <= 0 is trivial and gets no constraint.
+    function preserved_goals(x::Int, eq::Eq)
+        g = Eq[]
+        if eq.rhs > 0
+            push!(g, Eq(sort!(vcat(eq.lits, Lit(eq.rhs, false, x)); by=l->l.var), eq.rhs))
+        end
+        nb = sum(l.coef for l in eq.lits; init=0) - eq.rhs + 1
+        if nb > 0
+            nl = [Lit(l.coef, !l.sign, l.var) for l in eq.lits]
+            push!(g, Eq(sort!(vcat(nl, Lit(nb, true, x)); by=l->l.var), nb))
+        end
+        return g end
+
+        # Lifetime and core status of every constraint, from the recorded events.
+    function build_lifetimes!(meta::ProofMeta, ntotal::Int, nbopb::Int)
+        meta.deathseq = fill(typemax(Int), ntotal)
+        meta.coreseq  = fill(typemax(Int), ntotal)
+        meta.coreseq[1:nbopb] .= 0
+        meta.ev_at = [e.at for e in meta.events]
+        bylvl = Vector{Vector{Int}}()
+        nextid = 1
+        for (k, e) in enumerate(meta.events)
+            while nextid <= e.at
+                l = Int(meta.lvl[nextid])
+                if l >= 0
+                    while length(bylvl) < l + 1; push!(bylvl, Int[]); end
+                    push!(bylvl[l+1], nextid)
+                end
+                nextid += 1
+            end
+            if e.kind === :core
+                for id in e.ids; meta.coreseq[id] == typemax(Int) && (meta.coreseq[id] = k); end
+            elseif e.kind === :del
+                for id in e.ids; meta.deathseq[id] = min(meta.deathseq[id], k); end
+                e.sub != 0:0 && (for i in e.sub; meta.subof[i] = e.sub; end)
+            elseif e.kind === :wiplvl
+                n = parse(Int, e.text)
+                for l in n:length(bylvl)-1
+                    for id in bylvl[l+1]; meta.deathseq[id] = min(meta.deathseq[id], k); end
+                    empty!(bylvl[l+1])
+                end
+            end
+        end end
+
+    function readproof(path,file,store,varmap,ctrmap,ctrmap_evicted,obj,meta=ProofMeta())
         systemlink = SystemLink()
         redwitness = Dict{Int, Red}()
         solirecord = Dict{Int, Vector{Lit}}()
@@ -221,6 +289,10 @@
         output = conclusion = ""
         c = length(store)+1
         nbopb = length(store)
+        track  = tracked(meta)                  # enumeration proof: record database events
+        curlvl = Int32(-1)                      # level set by the last `setlvl` (-1 = none)
+        opensub = 0                             # index of the del event whose subproof is open
+        track && (meta.lvl = fill(Int32(-1), nbopb))
         # mmap the proof file: same rationale as readopb — zero memcpy from OS page cache.
         content_pbp = Mmap.mmap(path*file*pbp)
         _scan_lines(content_pbp) do ss
@@ -245,26 +317,86 @@
             elseif tok_eq(type,"pol") || tok_eq(type,"p") pushed = processpol_push!(store,st,varmap,systemlink,c,ctrmap,nbopb)
             elseif tok_eq(type,"a")                        pushed = processassumption_push!(store,st,varmap,systemlink,assertrecord,c)
             elseif tok_eq(type,"ia")                       pushed = processia_push!(store,st,varmap,ctrmap,c,systemlink)
-            elseif tok_eq(type,"red")                      c,_ = processred(store,systemlink,st,varmap,redwitness,c); pushed = true
+            elseif tok_eq(type,"red")                      processred(store,systemlink,st,varmap,redwitness,c); pushed = true
             elseif tok_eq(type,"sol")                      error("trimmed SAT is the solution")
             elseif tok_eq(type,"soli")                     pushed = processsoli_push!(store,st,varmap,systemlink,c,prism,obj,solirecord)
             elseif tok_eq(type,"solx")                     pushed = processsolx_push!(store,st,varmap,systemlink,c,prism)
-            elseif tok_eq(type,"output")                   output = String(st[2])
+            elseif tok_eq(type,"output")
+                output = String(st[2])
+                meta.output = length(st) > 2 ? output * " " * String(st[3]) : output
             elseif tok_eq(type,"conclusion")
                 conclusion = String(st[2])
                 if conclusion == "BOUNDS"
                     conclusion = String(ss)
-                elseif !store_last_empty(store) && (conclusion == "SAT" || conclusion == "NONE")
+                elseif conclusion == "ENUMERATION_COMPLETE"
+                    conclusion *= " " * String(st[3])   # number of solutions logged with solx
+                elseif !store_last_empty(store) && (conclusion == "SAT" || conclusion == "NONE") && !skeleton(meta)
                     error("SAT Not supported")
                 end
-            elseif !tok_in(type, ["%","*","wiplvl","w","setlvl","#","f","d","del","end","pseudo-Boolean"])
+            elseif track && (tok_eq(type,"del") || tok_eq(type,"delc") || tok_eq(type,"deld"))
+                first_id = tok_eq(type,"del") ? 3 : 2
+                (first_id == 2 || tok_eq(st[2],"id")) || error("del form not supported: $(String(ss))")
+                i1 = findfirst(x->tok_eq(x,":"), st)
+                ids = [readid(st[k], ctrmap, c) for k in first_id:(i1 === nothing ? length(st) : i1-1)]
+                wit = ""; hassub = false
+                if i1 !== nothing
+                    i2 = findnext(x->tok_eq(x,":"), st, i1+1)
+                    hassub = i2 !== nothing && i2 < length(st) && tok_eq(st[i2+1],"subproof")
+                    wit = join((String(st[k]) for k in i1+1:(i2 === nothing ? length(st) : i2-1)), " ")
+                end
+                ev = ProofEvent(:del, c-1, ids, wit)
+                push!(meta.events, ev)
+                if hassub
+                    length(ids) == 1 || error("del subproof with several ids")
+                    # VeriPB gives the negated constraint the next id; `-1` on the first inner
+                    # line refers to it, and everything up to `qed` is local to the block.
+                    eq = negate_row(store, ids[1])
+                    sl_push_rule!(systemlink, -40); push_eq!(store, eq)
+                    opensub = length(meta.events); ev.sub = c:c
+                    pushed = true
+                end
+            elseif track && tok_eq(type,"qed")
+                opensub == 0 && error("qed outside a del subproof")
+                ev = meta.events[opensub]; ev.sub = ev.sub.start:(c-1); opensub = 0
+                push!(meta.events, ProofEvent(:qed, c-1, Int[], ""))
+            elseif track && tok_eq(type,"core")
+                tok_eq(st[2],"id") || error("core form not supported: $(String(ss))")
+                push!(meta.events, ProofEvent(:core, c-1, [readid(st[k], ctrmap, c) for k in 3:length(st)], ""))
+            elseif track && (tok_eq(type,"preserved_add") || tok_eq(type,"preserved_rm"))
+                any(x->tok_eq(x,"subproof"), st) && error("preserved subproof not supported")
+                x  = readvar(st[2], varmap)
+                eq = readeq(st[4:end], varmap); normcoefeq(eq)
+                ev = ProofEvent(tok_eq(type,"preserved_add") ? :padd : :prm, c-1, Int[],
+                                String(strip(replace(String(ss), ";" => ""))))
+                ev.geq = preserved_goals(x, eq)
+                push!(meta.events, ev)
+            elseif track && tok_eq(type,"setlvl")
+                curlvl = Int32(parse_int_bytes(st[2]))
+                push!(meta.events, ProofEvent(:setlvl, c-1, Int[], String(st[2])))
+            elseif track && tok_eq(type,"wiplvl")
+                push!(meta.events, ProofEvent(:wiplvl, c-1, Int[], String(st[2])))
+            elseif !tok_in(type, ["%","*","wiplvl","w","setlvl","#","f","d","del","delc","deld","core","qed",
+                                  "preserved_add","preserved_rm","end","pseudo-Boolean"])
                 printstyled("  [warn] unknown line head (skipped): $(String(ss))\n"; color=:yellow)
             end
             if !isempty(pending_name)
                 haskey(ctrmap, pending_name) && push!(ctrmap_evicted, pending_name => ctrmap[pending_name])
                 ctrmap[pending_name] = c
             end
-            pushed && (c+=1)
+            if pushed
+                c += 1
+                track && push!(meta.lvl, curlvl)
+            end
+        end
+        if track
+            meta.nreal = length(store)
+            # Synthetic goals go after every real constraint, so store index == VeriPB id
+            # still holds for everything a proof line can name.
+            for ev in meta.events, g in ev.geq
+                sl_push_rule!(systemlink, -41); push_eq!(store, g)
+                push!(ev.goals, length(store))
+            end
+            build_lifetimes!(meta, length(store), nbopb)
         end
         return store,systemlink,redwitness,solirecord,assertrecord,output,conclusion end
 
@@ -274,6 +406,9 @@
         # ante_into_frontier! replaces the singleton with a fresh vector on first cone visit (lazy allocation).
     function processrup_push!(store,st,varmap,systemlink)
         sl_push_rule!(systemlink, -1)
+        # `rup C : hints ;` — the hints are dropped: the trimmer finds its own antecedents.
+        h = findfirst(x->tok_eq(x,":"), st)
+        h !== nothing && (st = st[1:h-1])
         readeq_push!(store, st, varmap, 2:2:length(st))
         return true end
 
@@ -320,12 +455,10 @@
 
     function processred(store,systemlink,st,varmap,redwitness,redid)
         i = findfirst(x->tok_eq(x,":"),st)
-        eq = readeq(st[2:i],varmap)
+        eq = readeq(st[2:i-1],varmap)
         j = findlast(x->tok_eq(x,":"),st)
-        if i==j                                        # no second ':' means no witness range — witness ends at "begin"
-            j=length(st)
-        end
-        w = readwitness(st[i+1:j],varmap)
+        i == j || error("red with a subproof is not supported")
+        w = readwitness(st[i+1:end],varmap)
         sl_push_rule!(systemlink, -4)
         normcoefeq(eq)
         push_eq!(store,eq)
