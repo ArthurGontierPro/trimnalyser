@@ -261,7 +261,7 @@
             (!inprism(i, prism) || (i in subrange)) || continue
             if T >= 0
                 meta.deathseq[i] > T || continue
-                (core_only && meta.coreseq[i] > T) && continue
+                (core_only && meta.coreseq[i] > T && !(i in subrange)) && continue
             end
             ok[i] = true
             activate!(i, rs, cone, on_frontier)
@@ -425,7 +425,8 @@
                 if i > nbopb
                     rule_type = systemlink[i - nbopb][1]   # rule type: -1=rup, -2=pol, -3=ia, -4=red, ...
                     if rule_type == -1                              # rup
-                        if do_rup!(i, get(meta.subof, i, 0:0))
+                        sub = get(meta.subof, i, 0:0)       # a deletion subproof is checked against the core only
+                        if do_rup!(i, sub; core_only = sk && sub != 0:0)
                             ante_remove!(ante, i)              # i itself is not its own antecedent
                             ante_into_frontier!(ante, frontier, on_frontier, cone, systemlink, i - nbopb)
                         else

@@ -49,6 +49,13 @@ Both sample proofs trim and VeriPB (`~/veripb-dev`, 3.0.2) accepts the result.
 |---|---|---|---|---|
 | `g6-g72` | 12.8 MB | 582 KB (OPB 1.98 MB -> 573 KB) | 131,111 steps -> 5,846 | `s VERIFIED COMPLETE ENUMERATION OF 0 SOLUTIONS` |
 | `gen-s3-LV-g9` | 2.04 MB | 1.14 MB (OPB unchanged) | 51,292 -> 41,395 | `s VERIFIED OUTPUT EQUIENUMERABLE` |
+| `gen-s17-LV-g9` | 1.16 MB | 309 KB (OPB unchanged) | 21,850 -> 11,684 | `s VERIFIED OUTPUT EQUIENUMERABLE` |
+| `gen-s3-LV-g36` | 6.68 MB | 1.54 MB (OPB unchanged) | 100,520 -> 41,802 | `s VERIFIED OUTPUT EQUIENUMERABLE` |
+
+`gen-s3-LV-g45` has no `.pbp` (solver did not finish in 10 s). Trim time is the open problem:
+54 s on `gen-s17-LV-g9`, 1,594 s on `gen-s3-LV-g36` (VeriPB checks either in under a second).
+Cone literals not needed, derived never-core class: 7,171/27,957 on `gen-s17-LV-g9`,
+135,263/1,891,133 on `gen-s3-LV-g36`; blocked by the core rule: 98 and 365.
 
 `gen-s3-LV-g9` by rule, full -> cone: rup 8,386 -> 7,105, pol 3,891 -> 771, ia 3,739 -> 394,
 red 6,683 -> 6,597. Every `core`, `preserved_*`, `setlvl`, `wiplvl` and `qed` line is kept.
@@ -137,7 +144,10 @@ Essentially UNSAT. No subproofs, so constraint ids are already right.
 
 ## Open points
 
-- A deletion subproof may use derived constraints (seen in the hints of the original proof).
-  A plain checked deletion and the `preserved_*` goals are core-only.
+- A deletion subproof is core-only too (`deletion.rs` sets `only_core` before the subproof,
+  `rup.rs` and `cutting_planes.rs` reject a non-core id). Its own inner constraints are usable.
+  The first version let inner `rup` lines use derived constraints; `gen-s3-LV-g9` passed by
+  luck and `gen-s17-LV-g9` failed at a `del ... : subproof` `rup`. Fixed 2026-11-13 in
+  `ruptrail` (`core_only` exempts the subproof range).
 - Expected gain on `gen-s3-LV-g9`: of 51,292 lines, about 24,500 are mandatory skeleton and
   7,035 are levelled search lemmas.
