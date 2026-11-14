@@ -347,6 +347,7 @@
             # leave runs like `setlvl 0 ; wiplvl 1 ; setlvl 1 ; setlvl 0 ;` that do nothing:
             # the level is written lazily, just before a line that creates a constraint, and
             # an empty wipe is dropped. Every kept constraint keeps its original level.
+            skipqed = false                            # the `del ... : subproof` of a trimmed constraint was dropped
             pending = -1; written = -1                 # level asked for / level VeriPB is at (-1 = none)
             atlvl = Set{Int}()                         # levels holding a constraint since their last wipe
             function flushlvl()
@@ -363,11 +364,11 @@
                         isempty(ids) || print(f, "core id ", join(ids, " "), " ;\n")
                     elseif ev.kind === :del
                         ids = [index[id] for id in ev.ids if meta.deathseq[id] == k && index[id] != 0]
-                        isempty(ids) && continue
+                        if isempty(ids); ev.sub != 0:0 && (skipqed = true); continue; end
                         if ev.sub != 0:0;         flushlvl(); print(f, "del id ", ids[1], " : : subproof\n")
                         elseif !isempty(ev.text); print(f, "del id ", join(ids, " "), " : ", ev.text, " ;\n")
                         else                      print(f, "del id ", join(ids, " "), " ;\n") end
-                    elseif ev.kind === :qed;    print(f, "qed : -1 ;\n")
+                    elseif ev.kind === :qed;    skipqed ? (skipqed = false) : print(f, "qed : -1 ;\n")
                     elseif ev.kind === :setlvl; pending = parse(Int, ev.text)   # written only if a constraint follows
                     elseif ev.kind === :wiplvl
                         n = parse(Int, ev.text)

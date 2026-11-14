@@ -345,6 +345,7 @@
                     wit = join((String(st[k]) for k in i1+1:(i2 === nothing ? length(st) : i2-1)), " ")
                 end
                 ev = ProofEvent(:del, c-1, ids, wit)
+                isempty(wit) || (ev.wit = readwitness(st[i1+1:(i2 === nothing ? length(st) : i2-1)], varmap))
                 push!(meta.events, ev)
                 if hassub
                     length(ids) == 1 || error("del subproof with several ids")

@@ -378,6 +378,75 @@
         t.ilimit = typemax(Int); t.iextra = 0
         return end
 
+    # Goals of `del id D : w` that VeriPB proves with nothing but the premise `not D`.
+    # Returns (free, hard): a goal C|w is free when, after substituting the witness and the
+    # literals `not D` fixes, its left-hand side cannot go below its degree; hard otherwise.
+    # C ranges over D itself and the core constraints alive at event `T`, created by `limit`,
+    # that mention a variable of the witness.
+    function witness_goals(sys::PBSystem, d::Int, wit::Vector{Lit}, limit::Int, T::Int, meta::ProofMeta)
+        sub = Dict{Int,Tuple{Int,Bool}}()              # var -> (target var | 0 const, value/polarity)
+        for q in 1:2:length(wit)
+            src = wit[q]; tgt = wit[q+1]
+            if tgt.var <= 0                            # constant: 0 -> false, -1 -> true
+                sub[src.var] = (0, (tgt.var == -1) == src.sign)
+            else
+                sub[src.var] = (tgt.var, tgt.sign == src.sign)
+            end
+        end
+        asg = Dict{Int,Bool}()                         # literals fixed by `not D`: every literal of D with coef >= degree is false
+        for k in sys.row_ptr[d]:sys.row_ptr[d+1]-1
+            sys.coefs[k] >= sys.rhs[d] && (asg[Int(sys.vars[k])] = !sys.signs[k])
+        end
+        pos = Dict{Int,Int}(); neg = Dict{Int,Int}()
+        # C|w as residual coefficients per literal (pos / neg) and the amount `low` already
+        # secured (true constants, and min(coef v, coef ~v) since one of the two holds).
+        function goalform(c, useasg)
+            empty!(pos); empty!(neg); low = 0
+            for k in sys.row_ptr[c]:sys.row_ptr[c+1]-1
+                v = Int(sys.vars[k]); pol = sys.signs[k]; coef = Int(sys.coefs[k])
+                s = get(sub, v, nothing)
+                if s !== nothing
+                    if s[1] == 0; (s[2] == pol) && (low += coef); continue; end
+                    v = s[1]; pol = (s[2] == pol)
+                end
+                if useasg
+                    a = get(asg, v, nothing)
+                    if a !== nothing; (a == pol) && (low += coef); continue; end
+                end
+                d2 = pol ? pos : neg; d2[v] = get(d2, v, 0) + coef
+            end
+            for (v, cp) in pos
+                m = min(cp, get(neg, v, 0)); m == 0 && continue
+                low += m; pos[v] = cp - m; neg[v] -= m
+            end
+            return low end
+        degD = sum(Int(sys.coefs[k]) for k in sys.row_ptr[d]:sys.row_ptr[d+1]-1; init=0) - Int(sys.rhs[d]) + 1   # degree of `not D`
+        function isfree(c)
+            goalform(c, true) >= sys.rhs[c] && return true        # holds under the literals `not D` fixes
+            # syntactic implication `not D` => C|w: weaken away what `not D` has beyond the goal
+            need = Int(sys.rhs[c]) - goalform(c, false)
+            need <= 0 && return true
+            excess = 0
+            for k in sys.row_ptr[d]:sys.row_ptr[d+1]-1
+                v = Int(sys.vars[k]); coef = Int(sys.coefs[k])
+                b = sys.signs[k] ? get(neg, v, 0) : get(pos, v, 0)   # `not D` carries the negated literal
+                excess += max(0, coef - b)
+            end
+            return degD - excess >= need end
+        free = 0; hard = 0
+        if isfree(d); free += 1 else hard += 1; haskey(ENV,"TRIM_DEBUG_WIT") && println(stderr, "HARDGOAL del ", d, " self T ", T) end
+        seen = Set{Int}()
+        for v in keys(sub)
+            for j in sys.var_ptr[v]:sys.var_ptr[v+1]-1
+                c = Int(sys.var_eqs[j])
+                c > limit && break
+                (c != d && meta.coreseq[c] <= T && meta.deathseq[c] > T) || continue
+                c in seen && continue; push!(seen, c)
+                if isfree(c); free += 1 else hard += 1; haskey(ENV,"TRIM_DEBUG_WIT") && println(stderr, "HARDGOAL del ", d, " goal ", c, " T ", T) end
+            end
+        end
+        return free, hard end
+
     const _progress = Ref((0, 0))   # (constraint id, event index) the backward walk has reached
 
     function getcone!(cone, conelits, sys::PBSystem, systemlink, nbopb::Int,
@@ -427,25 +496,66 @@
         #                   no witness → RUP from the remaining core; with a witness the
         #                   goals are trivial in the proofs seen so far and are not re-checked
         #   preserved_*     two goals, RUP from the core
+        # Aggressive skeleton trimming (default; TRIM_SKEL_KEEPCORE=1 turns it off). A core
+        # constraint that is deleted before the end is kept only if some check uses it. Removing
+        # it from birth to death only removes obligations: the goals of a `red` or `del` range
+        # over the constraints present. So `core id` roots only the constraints of the final
+        # core, and the checked deletion of a proof-born constraint is an obligation only once
+        # that constraint is in the cone: it is fired when the constraint is popped (`delev`).
+        # Input constraints are always written, so their deletions are fired in place.
+        aggr = sk && get(ENV, "TRIM_SKEL_KEEPCORE", "") != "1"
+        st = meta.stats
+        delev   = zeros(Int, sk ? n : 0)               # event index of the checked deletion of a constraint
+        deldone = falses(sk ? n : 0)
+        if sk
+            for (k, ev) in enumerate(meta.events)
+                ev.kind === :del || continue
+                for id in ev.ids
+                    (meta.deathseq[id] == k && meta.coreseq[id] < k) && (delev[id] = k)
+                end
+            end
+        end
+        function fire_del!(id)
+            k = delev[id]; ev = meta.events[k]
+            deldone[id] = true
+            st[:del_fired] = get(st, :del_fired, 0) + 1
+            if ev.sub != 0:0
+                cone[ev.sub.start] = true
+                push_frontier!(frontier, on_frontier, cone, ev.sub.stop)
+            elseif isempty(ev.text)
+                if do_rup!(id, 0:0; limit=ev.at, T=k, core_only=true)
+                    ante_remove!(ante, id)
+                    ante_into_frontier!(ante, frontier, on_frontier, cone)
+                else
+                    printstyled("  [error] checked deletion of $id is not rup from the core\n"; color=:red)
+                end
+            elseif aggr
+                # Deletion with a witness: the goals are D|w and C|w for every core constraint C
+                # the witness touches, with `not D` as premise. VeriPB proves them itself. With
+                # the whole core kept it finds what it found on the original proof; with a
+                # trimmed core that only holds for goals that need no other constraint. If one
+                # does, keep the whole core alive at this point.
+                nfree, nhard = witness_goals(sys, id, ev.wit, ev.at, k, meta)
+                st[:wit_goals_free] = get(st, :wit_goals_free, 0) + nfree
+                st[:wit_goals_hard] = get(st, :wit_goals_hard, 0) + nhard
+                if nhard > 0
+                    st[:wit_fallback] = get(st, :wit_fallback, 0) + 1
+                    for c in 1:ev.at
+                        (meta.coreseq[c] <= k && meta.deathseq[c] > k) && push_frontier!(frontier, on_frontier, cone, c)
+                    end
+                end
+            end end
         function process_event!(k)
             ev = meta.events[k]
             if ev.kind === :core
-                for id in ev.ids; push_frontier!(frontier, on_frontier, cone, id); end
+                for id in ev.ids
+                    (aggr && meta.deathseq[id] != typemax(Int)) && continue   # intermediate: only if used
+                    push_frontier!(frontier, on_frontier, cone, id)
+                end
             elseif ev.kind === :del
                 for id in ev.ids
-                    meta.deathseq[id] == k || continue         # already gone (wiped level)
-                    meta.coreseq[id] < k   || continue         # derived: unchecked
-                    if ev.sub != 0:0
-                        cone[ev.sub.start] = true
-                        push_frontier!(frontier, on_frontier, cone, ev.sub.stop)
-                    elseif isempty(ev.text)
-                        if do_rup!(id, 0:0; limit=ev.at, T=k, core_only=true)
-                            ante_remove!(ante, id)
-                            ante_into_frontier!(ante, frontier, on_frontier, cone)
-                        else
-                            printstyled("  [error] checked deletion of $id is not rup from the core\n"; color=:red)
-                        end
-                    end
+                    delev[id] == k || continue                 # wiped earlier, or derived: unchecked
+                    (!aggr || id <= nbopb || cone[id]) && fire_del!(id)
                 end
             elseif ev.kind === :padd || ev.kind === :prm
                 for g in ev.goals
@@ -514,6 +624,7 @@
                 _progress[] = (i, evp)                 # how far back the walk is, for a profile cut short
                 on_frontier[i] || continue             # stale pop guard
                 on_frontier[i] = false                 # remove from queue (cone[i] already true since push)
+                (sk && delev[i] != 0 && !deldone[i]) && fire_del!(i)   # it is kept, so its deletion must be justified
                 if i > nbopb
                     rule_type = systemlink[i - nbopb][1]   # rule type: -1=rup, -2=pol, -3=ia, -4=red, ...
                     if rule_type == -1                              # rup

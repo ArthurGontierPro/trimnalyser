@@ -148,8 +148,9 @@
         text  ::String
         sub   ::UnitRange{Int}
         geq   ::Vector{Eq}
-        goals ::Vector{Int} end
-    ProofEvent(kind, at, ids, text) = ProofEvent(kind, at, ids, text, 0:0, Eq[], Int[])
+        goals ::Vector{Int}
+        wit   ::Vector{Lit} end      # witness of a `del ... : w`, flat pairs as in `Red.witness`
+    ProofEvent(kind, at, ids, text) = ProofEvent(kind, at, ids, text, 0:0, Eq[], Int[], Lit[])
 
         # nreal    : number of constraints that carry a VeriPB id (OPB + proof steps); the
         #            store may hold synthetic goal constraints after it.
@@ -168,8 +169,9 @@
         subof     ::Dict{Int,UnitRange{Int}}
         output    ::String
         goalhits  ::Int          # preserved_* goals found as a core constraint
-        goalrups  ::Int end      # preserved_* goals that needed a full RUP
-    ProofMeta() = ProofMeta("", ProofEvent[], Int32[], 0, Int[], Int[], Int[], Dict{Int,UnitRange{Int}}(), "", 0, 0)
+        goalrups  ::Int          # preserved_* goals that needed a full RUP
+        stats     ::Dict{Symbol,Int} end   # skeleton counters, written to the log
+    ProofMeta() = ProofMeta("", ProofEvent[], Int32[], 0, Int[], Int[], Int[], Dict{Int,UnitRange{Int}}(), "", 0, 0, Dict{Symbol,Int}())
     tracked(m::ProofMeta) = !isempty(m.preserved)
     skeleton(m::ProofMeta) = startswith(m.output, "EQUIENUMERABLE")
     @inline evbefore(m::ProofMeta, i::Int) = searchsortedlast(m.ev_at, i - 1)

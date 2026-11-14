@@ -88,6 +88,24 @@ constraint keeps its original level. `gen-s3-LV-g36`: setlvl 5,462 -> 592, wiplv
 differs by one line, the `preserved:` line of the input, which the branch now copies.
 Lazy-Glasgow OPBs do carry that line, so events are recorded for them too (+9 % memory).
 
+Aggressive skeleton trimming, 2026-11-14 (default, `TRIM_SKEL_KEEPCORE=1` restores the old
+behaviour). A core constraint deleted before the end is kept only if a check uses it; `core id`
+roots only the final core; the checked deletion of a proof-born constraint is an obligation
+only once the constraint is in the cone (`fire_del!`, fired when it is popped). Removing a
+constraint from birth to death only removes goals for VeriPB. Goals of `del id D : w` are
+classified by `witness_goals`: free when C|w holds under the literals `not D` fixes or is
+syntactically implied by `not D`; a hard goal makes the whole core at that point a root.
+On the three proofs every such goal is free (1,233 / 4,476 / 3,627), no fallback.
+
+| instance | trimmed, core kept | aggressive | core constraints | `del ... : subproof` blocks |
+|---|---|---|---|---|
+| `gen-s17-LV-g9` | 272 KB, 8,320 lines | 264 KB, 7,890 | 1,243 -> 1,152 | 213 -> 122 |
+| `gen-s3-LV-g9` | 1.07 MB, 35,743 lines | 950 KB, 28,900 | 9,342 -> 7,939 | 2,566 -> 1,163 |
+| `gen-s3-LV-g36` | 1.46 MB, 34,695 lines | 1.44 MB, 33,688 | 3,296 -> 3,091 | 526 -> 321 |
+
+All three still `VERIFIED OUTPUT EQUIENUMERABLE`. What goes is `rup` lemmas moved to the core
+and deleted through a subproof without ever being used; no `red` is removed.
+
 ### How it works
 
 - `g6-g72` goes through the ordinary refutation path, rooted at the contradiction. Database
@@ -104,8 +122,6 @@ Lazy-Glasgow OPBs do carry that line, so events are recorded for them too (+9 % 
 
 - Witness deletions and `red` goals are assumed trivial. They are in these two proofs (empty
   subproofs in the elaboration), and nothing re-checks it.
-- Every constraint named by `core id` is a root. An intermediate core constraint that is later
-  deleted and that nothing needs is still derived, moved and deleted.
 - In a `del id a b ;` of several core constraints, each check excludes all of them.
 - `rup` hints are dropped on input and not written.
 - Trim time is 33 s on a 2 MB proof (one full seeding pass per check, JIT included, not
