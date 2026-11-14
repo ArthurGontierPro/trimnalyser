@@ -170,8 +170,14 @@
         output    ::String
         goalhits  ::Int          # preserved_* goals found as a core constraint
         goalrups  ::Int          # preserved_* goals that needed a full RUP
-        stats     ::Dict{Symbol,Int} end   # skeleton counters, written to the log
-    ProofMeta() = ProofMeta("", ProofEvent[], Int32[], 0, Int[], Int[], Int[], Dict{Int,UnitRange{Int}}(), "", 0, 0, Dict{Symbol,Int}())
+        stats     ::Dict{Symbol,Int}       # skeleton counters, written to the log
+        # Checkpoints of the live database: `ckpt[j]` lists (ascending) the constraints created
+        # by event `ckpt_k[j]` and not deleted by it. The constraints usable at event T are
+        # the survivors of the last checkpoint before T plus the ones created since, so a
+        # check never scans the whole proof (see `build_checkpoints!`).
+        ckpt_k    ::Vector{Int}
+        ckpt      ::Vector{Vector{Int}} end
+    ProofMeta() = ProofMeta("", ProofEvent[], Int32[], 0, Int[], Int[], Int[], Dict{Int,UnitRange{Int}}(), "", 0, 0, Dict{Symbol,Int}(), Int[], Vector{Int}[])
     tracked(m::ProofMeta) = !isempty(m.preserved)
     skeleton(m::ProofMeta) = startswith(m.output, "EQUIENUMERABLE")
     @inline evbefore(m::ProofMeta, i::Int) = searchsortedlast(m.ev_at, i - 1)
@@ -271,6 +277,7 @@
     struct RupState                                    # scratch buffers for one getcone! call; RED subproof calls allocate their own
         que           ::BitVector                      # ruptrail equation queue
         ok            ::BitVector                      # ruptrail: constraints this check may use
+        oklist        ::Vector{Int}                    # the same set as a list, to reset in O(size) (database-event path)
         pq_prio       ::BinaryMinHeap{Int}             # priority equations (cone/on_frontier)
         pq_nonprio    ::BinaryMinHeap{Int}             # non-priority equations
         to_explain    ::BinaryMaxHeap{Int}             # conflicttrail: trail positions still needing explanation
@@ -285,6 +292,7 @@
     RupState(n_eqs::Int, n_vars::Int) = RupState(
         falses(n_eqs),
         falses(n_eqs),
+        Int[],
         BinaryMinHeap{Int}(),
         BinaryMinHeap{Int}(),
         BinaryMaxHeap{Int}(),

@@ -280,6 +280,28 @@
             end
         end end
 
+        # Checkpoints for `ProofMeta.ckpt`. A new one is taken once as many constraints were
+        # created since the last as are alive, so a query walks O(live) ids and the
+        # checkpoints together hold at most about one entry per constraint of the proof.
+    function build_checkpoints!(meta::ProofMeta)
+        K = length(meta.events); n = meta.nreal
+        ptr = zeros(Int, K + 2)
+        for id in 1:n; d = meta.deathseq[id]; d <= K && (ptr[d+2] += 1); end
+        ptr[1] = 1; ptr[2] = 1
+        for k in 3:K+2; ptr[k] += ptr[k-1]; end
+        dying = Vector{Int}(undef, ptr[K+2] - 1)
+        for id in 1:n; d = meta.deathseq[id]; d <= K && (dying[ptr[d+1]] = id; ptr[d+1] += 1); end
+        alive = Set{Int}(); born = 0; nextid = 1
+        empty!(meta.ckpt_k); empty!(meta.ckpt)
+        for k in 1:K
+            at = min(meta.ev_at[k], n)
+            while nextid <= at; push!(alive, nextid); nextid += 1; born += 1; end
+            for q in ptr[k]:ptr[k+1]-1; delete!(alive, dying[q]); end
+            if born >= max(length(alive), 1024)
+                push!(meta.ckpt_k, k); push!(meta.ckpt, sort!(collect(alive))); born = 0
+            end
+        end end
+
     function readproof(path,file,store,varmap,ctrmap,ctrmap_evicted,obj,meta=ProofMeta())
         systemlink = SystemLink()
         redwitness = Dict{Int, Red}()
@@ -398,6 +420,7 @@
                 push!(ev.goals, length(store))
             end
             build_lifetimes!(meta, length(store), nbopb)
+            build_checkpoints!(meta)
         end
         return store,systemlink,redwitness,solirecord,assertrecord,output,conclusion end
 

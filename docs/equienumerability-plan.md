@@ -106,6 +106,15 @@ On the three proofs every such goal is free (1,233 / 4,476 / 3,627), no fallback
 All three still `VERIFIED OUTPUT EQUIENUMERABLE`. What goes is `rup` lemmas moved to the core
 and deleted through a subproof without ever being used; no `red` is removed.
 
+Per-check cost, 2026-11-14. Each check used to scan every constraint of the proof (usable set,
+slack reset, queue reset), which is quadratic. `build_checkpoints!` records the live database
+at intervals; `ruptrail` takes the usable constraints from the last checkpoint plus the ones
+created since, and resets, initialises and indexes only those. Outputs byte-identical;
+`gen-s3-LV-g36` 35 s -> 26 s, of which parsing 8 s, propagation 8 s for about 17,000 checks
+(0.5 ms per check), the rest Julia start-up and compilation. Not measured on a large proof.
+Memory is the next limit: the store keeps every literal of the proof (roughly 40 bytes of RAM
+per byte of proof, estimated from these runs, not measured at scale).
+
 ### How it works
 
 - `g6-g72` goes through the ordinary refutation path, rooted at the contradiction. Database

@@ -254,34 +254,57 @@
         # also "not deleted by event T or earlier", and for the goals VeriPB checks against
         # the core only, "moved to core by event T or earlier". `init` (checked reversed) is
         # always usable, even when it is the constraint being deleted or a synthetic goal.
-        init_slack_cache!(t, sys)
-        fill!(rs.que, false)               # reset queue (may have stale trues from early return)
         empty!(rs.pq_prio); empty!(rs.pq_nonprio)
-        ok = rs.ok; fill!(ok, false)
-        for i in 1:limit                   # seed both heaps with all eligible equations
-            (!inprism(i, prism) || (i in subrange)) || continue
-            if T >= 0
-                meta.deathseq[i] > T || continue
-                (core_only && meta.coreseq[i] > T && !(i in subrange)) && continue
+        ok = rs.ok; t.iok = ok
+        if T < 0                           # refutation: everything up to `limit`
+            init_slack_cache!(t, sys)
+            fill!(rs.que, false)           # reset queue (may have stale trues from early return)
+            fill!(ok, false)
+            for i in 1:limit               # seed both heaps with all eligible equations
+                (!inprism(i, prism) || (i in subrange)) || continue
+                ok[i] = true
+                activate!(i, rs, cone, on_frontier)
             end
-            ok[i] = true
-            activate!(i, rs, cone, on_frontier)
-        end
-        if !ok[init]
-            ok[init] = true
-            activate!(init, rs, cone, on_frontier)
-        end
-        # Which constraints an assignment touches. A refutation walks the system's inverse
-        # index up to `limit`. With database events the usable set is a small part of the
-        # proof (most lemmas are dead at any given time), so the check gets its own inverse
-        # index over exactly the usable constraints; building it costs their literals once.
-        t.iok = ok
-        if T >= 0
-            live_index!(t, sys, ok, limit, init)
-        else
+            if !ok[init]
+                ok[init] = true
+                activate!(init, rs, cone, on_frontier)
+            end
+            # an assignment walks the system's inverse index up to `limit`
             t.iptr, t.ieqs, t.ilit = sys.var_ptr, sys.var_eqs, sys.var_lit_idx
             t.ilimit = limit
             t.iextra = init > limit ? init : 0
+        else
+            # Database events: the usable set is the live database at event T, a small part of
+            # the proof. Nothing here is proportional to the proof: the previous set is undone
+            # from its list, the candidates come from the checkpoints, slacks are initialised
+            # for the usable constraints only, and the check gets its own inverse index.
+            oklist = rs.oklist
+            for i in oklist; ok[i] = false; rs.que[i] = false; end
+            empty!(oklist)
+            n = length(sys.rhs)
+            length(t.slack_cache) == n || (resize!(t.slack_cache, n); resize!(t.slack_rev_cache, n))
+            @inline function use!(i)
+                (!inprism(i, prism) || (i in subrange)) || return
+                (core_only && meta.coreseq[i] > T && !(i in subrange)) && return
+                ok[i] = true; push!(oklist, i)
+                @inbounds t.slack_cache[i] = sys.initial_slack_fwd[i]
+                @inbounds t.slack_rev_cache[i] = sys.initial_slack_rev[i]
+                activate!(i, rs, cone, on_frontier)
+                return end
+            j = searchsortedlast(meta.ckpt_k, T)
+            base = 0
+            if j > 0
+                base = min(meta.ev_at[meta.ckpt_k[j]], meta.nreal)
+                for i in meta.ckpt[j]; meta.deathseq[i] > T && use!(i); end
+            end
+            for i in base+1:limit; meta.deathseq[i] > T && use!(i); end
+            if !ok[init]                   # the checked constraint, even if deleted or synthetic
+                ok[init] = true; push!(oklist, init)
+                t.slack_cache[init] = sys.initial_slack_fwd[init]
+                t.slack_rev_cache[init] = sys.initial_slack_rev[init]
+                activate!(init, rs, cone, on_frontier)
+            end
+            live_index!(t, sys, oklist)
         end
         while true
             while !isempty(rs.pq_prio)     # drain priority equations first
@@ -346,34 +369,23 @@
 
     # Inverse index (variable -> constraints, literal positions) over the constraints of `ok`,
     # written into the trail's own buffers. Same layout as `sys.var_ptr / var_eqs / var_lit_idx`.
-    function live_index!(t::Trail, sys::PBSystem, ok::BitVector, limit::Int, init::Int)
+    function live_index!(t::Trail, sys::PBSystem, ids::Vector{Int})
         nv = length(sys.var_ptr) - 1
         ptr = resize!(t.lptr, nv + 2); fill!(ptr, 0)
-        @inbounds for e in 1:limit
-            ok[e] || continue
+        @inbounds for e in ids
             for k in sys.row_ptr[e]:sys.row_ptr[e+1]-1; ptr[Int(sys.vars[k]) + 2] += 1; end
-        end
-        if init > limit
-            @inbounds for k in sys.row_ptr[init]:sys.row_ptr[init+1]-1; ptr[Int(sys.vars[k]) + 2] += 1; end
         end
         ptr[1] = 1; ptr[2] += 1
         @inbounds for v in 3:nv+2; ptr[v] += ptr[v-1]; end      # ptr[v+1] = start of v's list (shifted by one)
         n = ptr[nv+2] - 1
         eqs = resize!(t.leqs, n); lit = resize!(t.llit, n)
-        @inbounds for e in 1:limit
-            ok[e] || continue
+        @inbounds for e in ids
             for k in sys.row_ptr[e]:sys.row_ptr[e+1]-1
                 v = Int(sys.vars[k]); j = ptr[v+1]; ptr[v+1] = j + 1
                 eqs[j] = e; lit[j] = k
             end
         end
-        if init > limit
-            @inbounds for k in sys.row_ptr[init]:sys.row_ptr[init+1]-1
-                v = Int(sys.vars[k]); j = ptr[v+1]; ptr[v+1] = j + 1
-                eqs[j] = init; lit[j] = k
-            end
-        end
-        # after the fill, ptr[v+1] is the end of v's list = start of v+1's: shift back into ptr[v]
+        # after the fill, ptr[v+1] is the end of v's list = start of v+1's, i.e. ptr[v] = start of v
         t.iptr, t.ieqs, t.ilit = ptr, eqs, lit
         t.ilimit = typemax(Int); t.iextra = 0
         return end
