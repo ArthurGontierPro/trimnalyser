@@ -231,8 +231,9 @@
             pushtrail!(t, sys, Int32(v), Int32(i),
                        rev ? (sign ? Int8(2) : Int8(1)) :
                              (sign ? Int8(1) : Int8(2)))            # assign variable
-            for j in varrange(sys, v)
-                eid = Int(sys.var_eqs[j])
+            for j in Int(t.iptr[v]):Int(t.iptr[v+1])-1
+                eid = Int(t.ieqs[j])
+                eid > t.ilimit && break
                 (rs.ok[eid] && eid != i) || continue                # only usable eqs (see ruptrail)
                 activate!(eid, rs, cone, on_frontier)               # re-queue equations containing v
             end
@@ -247,13 +248,24 @@
                       ante::Ante, on_frontier::BitVector,
                       cone::BitVector, conelits, prism, subrange, rs::RupState, mode=Grim();
                       limit::Int=init, T::Int=-1, core_only::Bool=false,
-                      meta::Union{Nothing,ProofMeta}=nothing)
+                      meta::Union{Nothing,ProofMeta}=nothing, coreidx=nothing)
         # `rs.ok` is the set of constraints this check may use. For a refutation that is
         # "everything up to init outside a subproof". With database events (T >= 0) it is
         # also "not deleted by event T or earlier", and for the goals VeriPB checks against
         # the core only, "moved to core by event T or earlier". `init` (checked reversed) is
         # always usable, even when it is the constraint being deleted or a synthetic goal.
         init_slack_cache!(t, sys)
+        # Which constraints an assignment touches. A core-only check outside a subproof walks
+        # the index of the constraints that are ever core, a tiny part of a proof whose
+        # derived lemmas are long; every check stops at `limit`.
+        if coreidx !== nothing && core_only && subrange == 0:0
+            t.iptr, t.ieqs, t.ilit = coreidx
+            t.iextra = (init > limit || meta.coreseq[init] == typemax(Int)) ? init : 0
+        else
+            t.iptr, t.ieqs, t.ilit = sys.var_ptr, sys.var_eqs, sys.var_lit_idx
+            t.iextra = init > limit ? init : 0
+        end
+        t.ilimit = limit
         fill!(rs.que, false)               # reset queue (may have stale trues from early return)
         empty!(rs.pq_prio); empty!(rs.pq_nonprio)
         ok = rs.ok; fill!(ok, false)
@@ -297,6 +309,56 @@
         link = sl_get_mut!(systemlink, idx)
         for j in ante.list; ante.flags[j] || continue; push!(link, j); push_frontier!(frontier, on_frontier, cone, j); end end
 
+    # A goal of `preserved_add` / `preserved_rm` is nearly always a reification constraint the
+    # proof has just moved to the core (`red ... ; core id ... ; preserved_add ...`). VeriPB looks
+    # the goal up in the database before it propagates anything; so do we. Returns the id of a
+    # core constraint, alive at event `T` and created by `limit`, with the same terms and
+    # degree as goal `g`, or 0. The candidates are the constraints containing the goal's
+    # rarest variable.
+    function goal_lookup(sys::PBSystem, g::Int, limit::Int, T::Int, meta::ProofMeta)
+        gr = sys.row_ptr[g]:sys.row_ptr[g+1]-1
+        isempty(gr) && return 0
+        best = 0; bestlen = typemax(Int)
+        for q in gr
+            v = Int(sys.vars[q]); l = Int(sys.var_ptr[v+1] - sys.var_ptr[v])
+            l < bestlen && (best = v; bestlen = l)
+        end
+        @inbounds for j in sys.var_ptr[best]:sys.var_ptr[best+1]-1
+            c = Int(sys.var_eqs[j])
+            (c <= limit && c != g) || continue
+            (meta.deathseq[c] > T && meta.coreseq[c] <= T) || continue
+            cr = sys.row_ptr[c]:sys.row_ptr[c+1]-1
+            (length(cr) == length(gr) && sys.rhs[c] == sys.rhs[g]) || continue
+            same = true
+            for q in gr
+                found = false
+                for r in cr
+                    if sys.vars[r] == sys.vars[q] && sys.signs[r] == sys.signs[q] && sys.coefs[r] == sys.coefs[q]
+                        found = true; break
+                    end
+                end
+                found || (same = false; break)
+            end
+            same && return c
+        end
+        return 0 end
+
+    # Inverse index restricted to the constraints that are core at some point (input, or named
+    # by a `core id`). Same layout as `sys.var_ptr / var_eqs / var_lit_idx`, ids ascending.
+    function core_index(sys::PBSystem, meta::ProofMeta)
+        nv = length(sys.var_ptr) - 1
+        ptr = Vector{Int64}(undef, nv + 1); eqs = Int32[]; lit = Int64[]
+        for v in 1:nv
+            ptr[v] = length(eqs) + 1
+            for j in sys.var_ptr[v]:sys.var_ptr[v+1]-1
+                e = Int(sys.var_eqs[j])
+                e <= length(meta.coreseq) && meta.coreseq[e] != typemax(Int) || continue
+                push!(eqs, sys.var_eqs[j]); push!(lit, sys.var_lit_idx[j])
+            end
+        end
+        ptr[nv+1] = length(eqs) + 1
+        return (ptr, eqs, lit) end
+
     function getcone!(cone, conelits, sys::PBSystem, systemlink, nbopb::Int,
                       prism::Vector{UnitRange{Int64}}, redwitness, conclusion::String, obj, mode;
                       meta::ProofMeta=ProofMeta())
@@ -328,13 +390,14 @@
         mode isa Clit && compute_essentials!(rs.essentials, sys)  # forward pass: essential vars per constraint
         frontier = BinaryMaxHeap{Int}()                # max-heap: process highest-indexed eq first (backwards)
 
+        coreidx = sk ? core_index(sys, meta) : nothing
         # Local function: clear ante, reset trail, run rup. i and subrange are parameters (not captured)
         # to avoid Julia boxing mutable loop variables. Everything else is captured from getcone! scope.
         function do_rup!(i, subrange; limit=i, T=(sk ? evbefore(meta, i) : -1), core_only=false)
             ante_clear!(ante)
             reset!(trail)
             ruptrail(sys, i, trail, ante, on_frontier, cone, conelits, prism_bv, subrange, rs, mode;
-                     limit=limit, T=T, core_only=core_only, meta=meta)
+                     limit=limit, T=T, core_only=core_only, meta=meta, coreidx=coreidx)
         end
 
         # Obligations of database event k (equienumerability proofs). Every event is kept in
@@ -366,7 +429,15 @@
                 end
             elseif ev.kind === :padd || ev.kind === :prm
                 for g in ev.goals
-                    if do_rup!(g, 0:0; limit=ev.at, T=k, core_only=true)
+                    c = goal_lookup(sys, g, ev.at, k, meta)   # VeriPB's own first try: the goal is in the core
+                    if c != 0
+                        meta.goalhits += 1
+                        for q in sys.row_ptr[c]:sys.row_ptr[c+1]-1
+                            setconelits(conelits, Int(sys.vars[q]), c)
+                        end
+                        push_frontier!(frontier, on_frontier, cone, c)
+                    elseif do_rup!(g, 0:0; limit=ev.at, T=k, core_only=true)
+                        meta.goalrups += 1
                         ante_remove!(ante, g)
                         ante_into_frontier!(ante, frontier, on_frontier, cone)
                     else

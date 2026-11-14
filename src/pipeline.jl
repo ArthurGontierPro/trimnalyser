@@ -267,6 +267,7 @@
                     for c in (:input, :core, :prem, :free)
                         println(f, prefix, " SKEL LIT ", uppercase(String(c)), " ", st[c][3], "/", st[c][2], " in ", st[c][1])
                     end
+                    println(f, prefix, " SKEL GOAL LOOKUP ", meta.goalhits, " RUP ", meta.goalrups)
                 end
                 for e in collect(keys(conelits))
                     (e <= nbopb || e > meta.nreal || meta.coreseq[e] != typemax(Int) ||

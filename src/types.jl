@@ -166,8 +166,10 @@
         coreseq   ::Vector{Int}
         ev_at     ::Vector{Int}
         subof     ::Dict{Int,UnitRange{Int}}
-        output    ::String end
-    ProofMeta() = ProofMeta("", ProofEvent[], Int32[], 0, Int[], Int[], Int[], Dict{Int,UnitRange{Int}}(), "")
+        output    ::String
+        goalhits  ::Int          # preserved_* goals found as a core constraint
+        goalrups  ::Int end      # preserved_* goals that needed a full RUP
+    ProofMeta() = ProofMeta("", ProofEvent[], Int32[], 0, Int[], Int[], Int[], Dict{Int,UnitRange{Int}}(), "", 0, 0)
     tracked(m::ProofMeta) = !isempty(m.preserved)
     skeleton(m::ProofMeta) = startswith(m.output, "EQUIENUMERABLE")
     @inline evbefore(m::ProofMeta, i::Int) = searchsortedlast(m.ev_at, i - 1)
@@ -195,9 +197,19 @@
         assi ::Vector{Int8}     # current assignment (1=true, 2=false, 0=unset)
         slack_cache ::Vector{Int32}      # incremental slack per constraint
         slack_rev_cache ::Vector{Int32}  # incremental slack for reversed constraints
+        # Inverse index the current check walks on each assignment (set by `ruptrail`): the
+        # whole system's, or the core-only one. Lists are sorted by constraint id and walked
+        # up to `ilimit`, so constraints the check may not use anyway cost nothing. `iextra`
+        # is the checked constraint when it lies outside that walk (a synthetic goal), else 0.
+        iptr   ::Vector{Int64}
+        ieqs   ::Vector{Int32}
+        ilit   ::Vector{Int64}
+        ilimit ::Int
+        iextra ::Int
     end
 
-    Trail(n_vars::Int) = Trail(Int32[], Int32[], zeros(Int, n_vars), zeros(Int8, n_vars), Int32[], Int32[])
+    Trail(n_vars::Int) = Trail(Int32[], Int32[], zeros(Int, n_vars), zeros(Int8, n_vars), Int32[], Int32[],
+                               Int64[], Int32[], Int64[], typemax(Int), 0)
     @inline function reset!(t::Trail)
         empty!(t.var); empty!(t.eq)
         fill!(t.pos, 0); fill!(t.assi, 0)
@@ -217,9 +229,20 @@
         #   - Forward: if literal becomes falsified, subtract its coef
         #   - Reversed: if literal becomes satisfied, subtract its coef
     @inline function update_slack_on_assign!(t::Trail, sys::PBSystem, v::Int, val::Int8)
-        @inbounds for j in varrange(sys, v)
-            eid  = Int(sys.var_eqs[j])
-            k    = Int(sys.var_lit_idx[j])
+        lim = t.ilimit
+        if t.iextra != 0
+            e = t.iextra
+            @inbounds for k in sys.row_ptr[e]:sys.row_ptr[e+1]-1
+                Int(sys.vars[k]) == v || continue
+                sign = sys.signs[k]; coef = sys.coefs[k]
+                t.slack_cache[e]     -= ((sign & (val == Int8(2))) | (!sign & (val == Int8(1)))) ? coef : zero(Int32)
+                t.slack_rev_cache[e] -= ((sign & (val == Int8(1))) | (!sign & (val == Int8(2)))) ? coef : zero(Int32)
+            end
+        end
+        @inbounds for j in Int(t.iptr[v]):Int(t.iptr[v+1])-1
+            eid  = Int(t.ieqs[j])
+            eid > lim && break
+            k    = Int(t.ilit[j])
             sign = sys.signs[k]
             coef = sys.coefs[k]
             becomes_falsified = (sign & (val == Int8(2))) | (!sign & (val == Int8(1)))
