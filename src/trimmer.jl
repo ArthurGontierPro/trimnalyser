@@ -248,24 +248,13 @@
                       ante::Ante, on_frontier::BitVector,
                       cone::BitVector, conelits, prism, subrange, rs::RupState, mode=Grim();
                       limit::Int=init, T::Int=-1, core_only::Bool=false,
-                      meta::Union{Nothing,ProofMeta}=nothing, coreidx=nothing)
+                      meta::Union{Nothing,ProofMeta}=nothing)
         # `rs.ok` is the set of constraints this check may use. For a refutation that is
         # "everything up to init outside a subproof". With database events (T >= 0) it is
         # also "not deleted by event T or earlier", and for the goals VeriPB checks against
         # the core only, "moved to core by event T or earlier". `init` (checked reversed) is
         # always usable, even when it is the constraint being deleted or a synthetic goal.
         init_slack_cache!(t, sys)
-        # Which constraints an assignment touches. A core-only check outside a subproof walks
-        # the index of the constraints that are ever core, a tiny part of a proof whose
-        # derived lemmas are long; every check stops at `limit`.
-        if coreidx !== nothing && core_only && subrange == 0:0
-            t.iptr, t.ieqs, t.ilit = coreidx
-            t.iextra = (init > limit || meta.coreseq[init] == typemax(Int)) ? init : 0
-        else
-            t.iptr, t.ieqs, t.ilit = sys.var_ptr, sys.var_eqs, sys.var_lit_idx
-            t.iextra = init > limit ? init : 0
-        end
-        t.ilimit = limit
         fill!(rs.que, false)               # reset queue (may have stale trues from early return)
         empty!(rs.pq_prio); empty!(rs.pq_nonprio)
         ok = rs.ok; fill!(ok, false)
@@ -281,6 +270,18 @@
         if !ok[init]
             ok[init] = true
             activate!(init, rs, cone, on_frontier)
+        end
+        # Which constraints an assignment touches. A refutation walks the system's inverse
+        # index up to `limit`. With database events the usable set is a small part of the
+        # proof (most lemmas are dead at any given time), so the check gets its own inverse
+        # index over exactly the usable constraints; building it costs their literals once.
+        t.iok = ok
+        if T >= 0
+            live_index!(t, sys, ok, limit, init)
+        else
+            t.iptr, t.ieqs, t.ilit = sys.var_ptr, sys.var_eqs, sys.var_lit_idx
+            t.ilimit = limit
+            t.iextra = init > limit ? init : 0
         end
         while true
             while !isempty(rs.pq_prio)     # drain priority equations first
@@ -343,21 +344,41 @@
         end
         return 0 end
 
-    # Inverse index restricted to the constraints that are core at some point (input, or named
-    # by a `core id`). Same layout as `sys.var_ptr / var_eqs / var_lit_idx`, ids ascending.
-    function core_index(sys::PBSystem, meta::ProofMeta)
+    # Inverse index (variable -> constraints, literal positions) over the constraints of `ok`,
+    # written into the trail's own buffers. Same layout as `sys.var_ptr / var_eqs / var_lit_idx`.
+    function live_index!(t::Trail, sys::PBSystem, ok::BitVector, limit::Int, init::Int)
         nv = length(sys.var_ptr) - 1
-        ptr = Vector{Int64}(undef, nv + 1); eqs = Int32[]; lit = Int64[]
-        for v in 1:nv
-            ptr[v] = length(eqs) + 1
-            for j in sys.var_ptr[v]:sys.var_ptr[v+1]-1
-                e = Int(sys.var_eqs[j])
-                e <= length(meta.coreseq) && meta.coreseq[e] != typemax(Int) || continue
-                push!(eqs, sys.var_eqs[j]); push!(lit, sys.var_lit_idx[j])
+        ptr = resize!(t.lptr, nv + 2); fill!(ptr, 0)
+        @inbounds for e in 1:limit
+            ok[e] || continue
+            for k in sys.row_ptr[e]:sys.row_ptr[e+1]-1; ptr[Int(sys.vars[k]) + 2] += 1; end
+        end
+        if init > limit
+            @inbounds for k in sys.row_ptr[init]:sys.row_ptr[init+1]-1; ptr[Int(sys.vars[k]) + 2] += 1; end
+        end
+        ptr[1] = 1; ptr[2] += 1
+        @inbounds for v in 3:nv+2; ptr[v] += ptr[v-1]; end      # ptr[v+1] = start of v's list (shifted by one)
+        n = ptr[nv+2] - 1
+        eqs = resize!(t.leqs, n); lit = resize!(t.llit, n)
+        @inbounds for e in 1:limit
+            ok[e] || continue
+            for k in sys.row_ptr[e]:sys.row_ptr[e+1]-1
+                v = Int(sys.vars[k]); j = ptr[v+1]; ptr[v+1] = j + 1
+                eqs[j] = e; lit[j] = k
             end
         end
-        ptr[nv+1] = length(eqs) + 1
-        return (ptr, eqs, lit) end
+        if init > limit
+            @inbounds for k in sys.row_ptr[init]:sys.row_ptr[init+1]-1
+                v = Int(sys.vars[k]); j = ptr[v+1]; ptr[v+1] = j + 1
+                eqs[j] = init; lit[j] = k
+            end
+        end
+        # after the fill, ptr[v+1] is the end of v's list = start of v+1's: shift back into ptr[v]
+        t.iptr, t.ieqs, t.ilit = ptr, eqs, lit
+        t.ilimit = typemax(Int); t.iextra = 0
+        return end
+
+    const _progress = Ref((0, 0))   # (constraint id, event index) the backward walk has reached
 
     function getcone!(cone, conelits, sys::PBSystem, systemlink, nbopb::Int,
                       prism::Vector{UnitRange{Int64}}, redwitness, conclusion::String, obj, mode;
@@ -390,14 +411,13 @@
         mode isa Clit && compute_essentials!(rs.essentials, sys)  # forward pass: essential vars per constraint
         frontier = BinaryMaxHeap{Int}()                # max-heap: process highest-indexed eq first (backwards)
 
-        coreidx = sk ? core_index(sys, meta) : nothing
         # Local function: clear ante, reset trail, run rup. i and subrange are parameters (not captured)
         # to avoid Julia boxing mutable loop variables. Everything else is captured from getcone! scope.
         function do_rup!(i, subrange; limit=i, T=(sk ? evbefore(meta, i) : -1), core_only=false)
             ante_clear!(ante)
             reset!(trail)
             ruptrail(sys, i, trail, ante, on_frontier, cone, conelits, prism_bv, subrange, rs, mode;
-                     limit=limit, T=T, core_only=core_only, meta=meta, coreidx=coreidx)
+                     limit=limit, T=T, core_only=core_only, meta=meta)
         end
 
         # Obligations of database event k (equienumerability proofs). Every event is kept in
@@ -491,6 +511,7 @@
                 end
                 isempty(frontier) && break
                 i = pop!(frontier)
+                _progress[] = (i, evp)                 # how far back the walk is, for a profile cut short
                 on_frontier[i] || continue             # stale pop guard
                 on_frontier[i] = false                 # remove from queue (cone[i] already true since push)
                 if i > nbopb

@@ -206,10 +206,14 @@
         ilit   ::Vector{Int64}
         ilimit ::Int
         iextra ::Int
+        iok    ::BitVector      # `rs.ok` of the current check: the slack of any other constraint is never read
+        lptr   ::Vector{Int64}  # buffers of the per-check inverse index (`live_index!`)
+        leqs   ::Vector{Int32}
+        llit   ::Vector{Int64}
     end
 
     Trail(n_vars::Int) = Trail(Int32[], Int32[], zeros(Int, n_vars), zeros(Int8, n_vars), Int32[], Int32[],
-                               Int64[], Int32[], Int64[], typemax(Int), 0)
+                               Int64[], Int32[], Int64[], typemax(Int), 0, falses(0), Int64[], Int32[], Int64[])
     @inline function reset!(t::Trail)
         empty!(t.var); empty!(t.eq)
         fill!(t.pos, 0); fill!(t.assi, 0)
@@ -229,7 +233,7 @@
         #   - Forward: if literal becomes falsified, subtract its coef
         #   - Reversed: if literal becomes satisfied, subtract its coef
     @inline function update_slack_on_assign!(t::Trail, sys::PBSystem, v::Int, val::Int8)
-        lim = t.ilimit
+        lim = t.ilimit; ok = t.iok
         if t.iextra != 0
             e = t.iextra
             @inbounds for k in sys.row_ptr[e]:sys.row_ptr[e+1]-1
@@ -242,6 +246,7 @@
         @inbounds for j in Int(t.iptr[v]):Int(t.iptr[v+1])-1
             eid  = Int(t.ieqs[j])
             eid > lim && break
+            ok[eid] || continue        # dead, derived or foreign constraint: skip before touching its literal
             k    = Int(t.ilit[j])
             sign = sys.signs[k]
             coef = sys.coefs[k]

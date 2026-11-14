@@ -52,8 +52,17 @@ Both sample proofs trim and VeriPB (`~/veripb-dev`, 3.0.2) accepts the result.
 | `gen-s17-LV-g9` | 1.16 MB | 309 KB (OPB unchanged) | 21,850 -> 11,684 | `s VERIFIED OUTPUT EQUIENUMERABLE` |
 | `gen-s3-LV-g36` | 6.68 MB | 1.54 MB (OPB unchanged) | 100,520 -> 41,802 | `s VERIFIED OUTPUT EQUIENUMERABLE` |
 
-`gen-s3-LV-g45` has no `.pbp` (solver did not finish in 10 s). Trim time is the open problem:
-54 s on `gen-s17-LV-g9`, 1,594 s on `gen-s3-LV-g36` (VeriPB checks either in under a second).
+`gen-s3-LV-g45` has no `.pbp` (solver did not finish in 10 s).
+
+Trim time on `gen-s3-LV-g36` (`grim TIME`): 1,648 s -> 36 s on 2026-11-14, output byte-identical.
+The profile showed every assignment walking the variable's occurrence list over the whole
+proof (7.8 M literals, 2,500 variables) while the constraints usable by one check are a small
+live part of it. Three changes: `goal_lookup` finds a `preserved_*` goal as a core constraint
+before any RUP (5,419 of 5,503 goals), as VeriPB's `autoprove` does; with database events
+`ruptrail` builds an inverse index over the usable constraints of that check (`live_index!`);
+the refutation path keeps the global index and stops at the check's limit. A first profile
+cut at five minutes misled: the walk is backward, so it only saw the end of the proof.
+`g6-g72` (refutation path) is unchanged in output and time (about 80 s).
 Cone literals not needed, derived never-core class: 7,171/27,957 on `gen-s17-LV-g9`,
 135,263/1,891,133 on `gen-s3-LV-g36`; blocked by the core rule: 98 and 365.
 
