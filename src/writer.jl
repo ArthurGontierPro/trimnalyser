@@ -342,6 +342,19 @@
         events = meta.events
         evp = 1
         open(path*file*smol_pbp, "w") do f
+            # Levels. A `setlvl` only matters for the constraints created after it, and a
+            # `wiplvl n` only if a constraint we wrote sits at a level >= n. Trimmed lemmas
+            # leave runs like `setlvl 0 ; wiplvl 1 ; setlvl 1 ; setlvl 0 ;` that do nothing:
+            # the level is written lazily, just before a line that creates a constraint, and
+            # an empty wipe is dropped. Every kept constraint keeps its original level.
+            pending = -1; written = -1                 # level asked for / level VeriPB is at (-1 = none)
+            atlvl = Set{Int}()                         # levels holding a constraint since their last wipe
+            function flushlvl()
+                if pending != written
+                    print(f, "setlvl ", pending, " ;\n"); written = pending
+                end
+                written >= 0 && push!(atlvl, written)
+                return end
             function emit_events(upto)
                 while evp <= length(events) && events[evp].at <= upto
                     ev = events[evp]; k = evp; evp += 1
@@ -351,12 +364,17 @@
                     elseif ev.kind === :del
                         ids = [index[id] for id in ev.ids if meta.deathseq[id] == k && index[id] != 0]
                         isempty(ids) && continue
-                        if ev.sub != 0:0;         print(f, "del id ", ids[1], " : : subproof\n")
+                        if ev.sub != 0:0;         flushlvl(); print(f, "del id ", ids[1], " : : subproof\n")
                         elseif !isempty(ev.text); print(f, "del id ", join(ids, " "), " : ", ev.text, " ;\n")
                         else                      print(f, "del id ", join(ids, " "), " ;\n") end
                     elseif ev.kind === :qed;    print(f, "qed : -1 ;\n")
-                    elseif ev.kind === :setlvl; print(f, "setlvl ", ev.text, " ;\n")
-                    elseif ev.kind === :wiplvl; print(f, "wiplvl ", ev.text, " ;\n")
+                    elseif ev.kind === :setlvl; pending = parse(Int, ev.text)   # written only if a constraint follows
+                    elseif ev.kind === :wiplvl
+                        n = parse(Int, ev.text)
+                        if any(l >= n for l in atlvl)            # else nothing we wrote is at these levels
+                            print(f, "wiplvl ", n, " ;\n")
+                            filter!(l -> l < n, atlvl)
+                        end
                     else                        print(f, ev.text, " ;\n")     # preserved_add / preserved_rm
                     end
                 end end
@@ -369,6 +387,7 @@
                     index[i] = lastindex
                     rule_type = systemlink[i - nbopb][1]
                     cl = get(conelits, i, nothing)
+                    rule_type == -40 || flushlvl()
                     if rule_type == -1
                         cl !== nothing ? writeuconelits(f, sys, i, varmap, cl) : writeu(f, sys, i, varmap)
                     elseif rule_type == -2

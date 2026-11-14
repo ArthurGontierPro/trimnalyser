@@ -79,6 +79,15 @@ out of the literals of the cone constraints of each class:
 | subproof premise | 2,566 | 6,101 | 449 | no |
 | input (OPB) | 729 | 3,969 | 22 | no |
 
+Levels, 2026-11-14: `writeskeleton` writes a `setlvl` lazily (just before a line that creates
+a constraint) and drops a `wiplvl n` when nothing it wrote sits at a level >= n. Every kept
+constraint keeps its original level. `gen-s3-LV-g36`: setlvl 5,462 -> 592, wiplvl 2,520 -> 283,
+41,802 -> 34,695 lines, still `VERIFIED OUTPUT EQUIENUMERABLE` (same on the two others).
+
+`LVg10g12` against `main` (trim only, same inputs): `.smol.pbp` byte-identical; `.smol.opb`
+differs by one line, the `preserved:` line of the input, which the branch now copies.
+Lazy-Glasgow OPBs do carry that line, so events are recorded for them too (+9 % memory).
+
 ### How it works
 
 - `g6-g72` goes through the ordinary refutation path, rooted at the contradiction. Database
